@@ -181,11 +181,90 @@ between calls, so repeated runs give identical output.
 \subsection{The Pipeline}
 \label{subsec:reasoning-pipeline}
 
-The sequence is fixed. The clinical state is built; escalation is decided; retrieval runs;
-the prompt is assembled; the model generates an answer; the answer is parsed into a
-structured form; and the answer is checked against the state. If the check finds a serious
-fault, the answer is sent back once with a single correction request. Sending one complaint
-at a time was found to work better than sending several together.
+Fig.~\ref{fig:pipeline} shows how the parts fit together. The three inputs are merged into
+the clinical state, and from there the pipeline splits. One branch decides escalation using
+the rules of Tab.~\ref{tab:escalation}. The other branch retrieves reference passages,
+assembles the prompt, generates an answer and checks it. The two branches meet only at the
+output.
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      node distance = 6mm,
+      font = \small,
+      box/.style   = {draw, rounded corners=2pt, align=center, inner sep=4pt,
+                      minimum height=7mm},
+      inp/.style   = {box, fill=black!4, minimum width=26mm},
+      state/.style = {box, fill=black!8, align=left, text width=58mm},
+      safe/.style  = {box, fill=black!12, very thick, align=center, text width=40mm},
+      gen/.style   = {box, align=center, text width=40mm},
+      out/.style   = {box, align=center, text width=38mm},
+      ar/.style    = {-{Latex[length=2mm]}, thick},
+    ]
+
+    % ---- inputs -----------------------------------------------------------------
+    \node[inp] (triage) {Triage Agent};
+    \node[inp, below=of triage] (us) {Ultrasound Agent};
+    \node[inp, below=of us] (labs) {Labs and vitals};
+
+    % ---- clinical state ---------------------------------------------------------
+    \node[state, right=14mm of us] (state) {%
+      \textbf{Clinical state}\\[2pt]
+      findings (detected / not detected)\\
+      organs never assessed\\
+      values with reference ranges\\
+      \textbf{missing} information\\
+      conflicts, case quality};
+
+    \draw[ar] (triage.east) -- ++(4mm,0) |- (state.west);
+    \draw[ar] (us.east) -- (state.west);
+    \draw[ar] (labs.east) -- ++(4mm,0) |- (state.west);
+
+    % ---- the two branches -------------------------------------------------------
+    \node[safe, below left=12mm and -14mm of state] (esc) {%
+      \textbf{Escalation decision}\\ seven deterministic rules\\ \emph{no model involved}};
+    \node[gen, below right=12mm and -14mm of state] (rag) {%
+      \textbf{Retrieval}\\ TF--IDF, 30 units};
+
+    \draw[ar] (state.south) -- ++(0,-3mm) -| (esc.north);
+    \draw[ar] (state.south) -- ++(0,-3mm) -| (rag.north);
+
+    \node[gen, below=8mm of rag] (llm) {HuatuoGPT-o1-8B\\ local, \texttt{llama.cpp}};
+    \node[safe, below=8mm of llm] (val) {\textbf{Validator}\\ answer checked against\\
+      the clinical state};
+
+    \draw[ar] (rag) -- (llm);
+    \draw[ar] (llm) -- (val);
+
+    % ---- revision loop ----------------------------------------------------------
+    \draw[ar] (val.east) -- ++(5mm,0) |- node[pos=0.25, right=1mm, align=left, font=\tiny]
+      {one correction\\ request, once} (llm.east);
+
+    % ---- output -----------------------------------------------------------------
+    \node[out, below=16mm of val] (final) {%
+      \textbf{Output}\\ differential \emph{or} withheld\\ + escalation flag};
+
+    \draw[ar] (val.south) -- node[right=1mm, font=\tiny, align=left]
+      {deliver, or withhold\\ if still faulty} (final.north);
+    \draw[ar] (esc.south) |- (final.west);
+
+  \end{tikzpicture}
+  \caption{The Clinical Reasoning Agent. Escalation is decided from the structured state
+    alone and does not pass through the model, so it survives a model that fails, a
+    retrieval that returns nothing, and an answer that is withheld.}
+  \label{fig:pipeline}
+\end{figure}
+
+Separating the branches is the central design choice. If the model crashes, escalation
+still exists. If retrieval finds nothing, escalation still exists. If the model invents
+evidence, the validator withholds the differential and the escalation is still reported.
+This was tested directly with a backend made to fail: the escalation decision and its
+triggers were produced unchanged, and the differential was withheld with the backend error
+recorded.
+
+If the validator finds a serious fault, the answer is sent back once with a single
+correction request. Sending one complaint at a time works better than sending several
+together. If the revised answer is still faulty, it is withheld.
 
 The output is a ranked list of diagnoses. Each carries a likelihood, the evidence for and
 against it, and the limits of that evidence. Alongside it the agent reports what
