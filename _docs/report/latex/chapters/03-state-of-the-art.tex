@@ -1,0 +1,423 @@
+% =========================================================================================
+% Chapter 3 -- Preliminary Study and State of the Art
+% =========================================================================================
+\section{Preliminary Study and State of the Art}
+\label{sec:sota}
+
+\subsection{Introduction}
+
+This chapter reviews the work this project builds on and measures itself against. It moves
+from the clinical setting to the technical one: what point-of-care ultrasound is used for
+in emergency medicine, why automated interpretation of ultrasound is harder than of other
+imaging modalities, what has been published on the specific organs addressed here, and what
+exists in multimodal clinical decision support. It closes by stating the limitations that
+recur across this literature and the position this project takes with respect to them.
+
+\subsection{POCUS in Emergency Medicine}
+\label{subsec:sota-pocus}
+
+Point-of-care ultrasound differs from radiological ultrasound in who performs it and why.
+It is performed by the treating clinician, at the bedside, to answer a specific binary
+question arising from the patient in front of them --- is there fluid in the abdomen, is
+the left ventricle contracting, is this dyspnoea cardiogenic --- rather than to produce a
+comprehensive report.
+
+That framing has produced a set of standardised protocols. The BLUE protocol
+\cite{lichtenstein2008blue} reduces the diagnosis of acute respiratory failure to a short
+sequence of chest views, each with a defined interpretation, and reports high diagnostic
+accuracy for the principal causes of dyspnoea. The \gls{fast} examination applies the same
+logic to injury, searching four windows for free fluid. Focused echocardiography in
+undifferentiated shock follows a comparable structure.
+
+Two properties of these protocols matter for what follows. First, they are defined in terms
+of \emph{findings} rather than diagnoses: the operator records whether B-lines are present,
+not whether the patient has heart failure. Second, they are explicitly bounded --- each
+protocol states which questions it answers and, by omission, which it does not. Both
+properties are adopted directly by the Ultrasound Agent described in
+Section~\ref{subsec:ultrasound-agent}.
+
+\paragraph{Operator dependence is measurable, and larger than is often assumed.} The
+systematic review by Andersen et al.\ \cite{andersen2019pocus} quantifies it across
+applications. False-positive rates varied from 0.7\% to 33.3\% depending on the type of
+examination: 0.7--3.2\% for obstetric scans, 0.5--9.9\% for abdominal, and 4.0--33.3\% for
+cardiac. A spread of that magnitude within a single application is the empirical form of
+the problem stated in Section~\ref{subsec:problem}.
+
+Reported training volumes vary equally widely --- from 2.3 to 31 hours for focused scans,
+and from 4 to as much as 320 hours for multi-anatomical examinations. The review's most
+useful finding, however, is a negative one: it identified no overall association between
+the amount of training and diagnostic accuracy. What determined accuracy was the type of
+examination rather than the hours logged, with focused scans outperforming comprehensive
+ones, and competence in some applications reached after only a few hours.
+
+That result points the same way as the protocol design discussed above, and it has a direct
+architectural consequence here. A bounded question asked of a single organ is answered
+reliably; an open-ended examination is not. It is the reason the Ultrasound Agent is built
+as a set of narrow per-organ modules, each declaring what it does and does not cover,
+rather than as one general-purpose interpreter of ultrasound.
+
+One qualification should be stated with these figures. The review covers general practice
+rather than emergency medicine, and the two settings differ in case mix, in operator
+training and in the urgency under which examinations are performed. The mechanism ---
+accuracy governed by the boundedness of the question asked --- transfers; the specific
+percentages should not be read as emergency-department values.
+
+\subsection{AI for Medical Ultrasound}
+\label{subsec:sota-ai-us}
+
+Ultrasound is a harder target for computer vision than computed tomography or magnetic
+resonance imaging, for reasons intrinsic to the modality rather than incidental to it.
+
+\paragraph{The image depends on the operator.} A CT volume of a given patient is
+essentially reproducible; an ultrasound image is a function of probe position, angle,
+pressure, depth setting, gain and patient habitus. Two competent operators produce visibly
+different images of the same anatomy, so a model must be robust to a source of variation
+that barely exists in other modalities.
+
+\paragraph{Speckle is signal and noise at once.} The granular texture of ultrasound arises
+from interference of the returning wave. It is not additive noise that can be filtered away
+without loss, and conventional denoising removes diagnostic information along with it.
+
+\paragraph{Several findings are artefacts, not anatomy.} This is the property most often
+overlooked. \gls{blines} and \gls{alines} do not correspond to structures in the lung; they
+are reverberation artefacts whose presence and distribution carry the diagnostic meaning
+\cite{lichtenstein2008blue}. A model trained to segment anatomy is solving the wrong problem
+for lung ultrasound, which is why the lung module in this project is a classifier and the
+cardiac module is a segmentation network.
+
+\paragraph{There is no canonical orientation.} Manufacturers and operators differ in how the
+image is presented, and public datasets inherit those differences without documenting them.
+This bears directly on the external-validation gap reported in
+Section~\ref{subsec:cardiac-results}.
+
+\subsection{Ultrasound Segmentation and Classification}
+\label{subsec:sota-seg-cls}
+
+Two task families cover the work in this project.
+
+\emph{Segmentation} assigns a label to every pixel, and is the appropriate formulation when
+the clinical quantity is geometric --- a chamber area, a volume, an ejection fraction. The
+encoder--decoder architecture introduced by U-Net \cite{ronneberger2015unet}, in which
+skip connections carry high-resolution detail across the bottleneck, remains the basis of
+most medical segmentation work. Modern variants typically substitute a stronger pretrained
+encoder, such as EfficientNet \cite{tan2019efficientnet}, while keeping the overall shape.
+
+\emph{Classification} assigns labels to a whole image or clip, and is appropriate when the
+clinical question is about presence rather than extent. It divides further into
+single-label problems, where classes are mutually exclusive, and multi-label problems,
+where they are not. The distinction is not cosmetic: a lung clip may show B-lines and
+consolidation simultaneously, so the lung module must emit independent probabilities per
+finding rather than a distribution over one categorical variable.
+
+\paragraph{A methodological caveat that recurs throughout this literature.} Many published
+results report metrics computed over frames or images. Where several frames originate from
+one patient or one acquisition, a partition drawn at frame level places near-duplicates on
+both sides of it, and the resulting score measures memorisation as much as generalisation.
+Such figures are not directly comparable with case-level results. This is treated at length
+in Chapter~\ref{sec:data}, because it governs the interpretation of every number reported
+in this report.
+
+\subsection{Existing POCUS AI Approaches}
+\label{subsec:sota-existing}
+
+\subsubsection{nnU-Net and the CAMUS benchmark}
+
+The \gls{camus} dataset \cite{leclerc2019camus} is the reference resource for cardiac
+ultrasound segmentation. It comprises 1{,}000 two-dimensional sequences --- two-chamber and
+four-chamber views from 500 patients --- with expert contours of the left ventricular
+endocardium, the epicardium and the left atrium at the end-diastolic and end-systolic
+instants. Crucially for this project, its patient structure is explicit, which is what
+makes correct grouping possible without reconstruction.
+
+The accompanying study established that encoder--decoder architectures of the U-Net family
+outperform earlier methods and reach accuracy within expert variability. The dataset is
+maintained as an open challenge, and the current leaderboard provides the benchmark against
+which the cardiac module of this project is measured. Tab.~\ref{tab:camus} reproduces the
+leading entry alongside the intra-observer variability recorded for the reference contours.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{lcccc}
+    \toprule
+    & \multicolumn{2}{c}{\textbf{Best reported}} &
+      \multicolumn{2}{c}{\textbf{Intra-observer}} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+    \textbf{Structure} & ED & ES & ED & ES \\
+    \midrule
+    LV endocardium & 0.952 & 0.935 & 0.945 & 0.930 \\
+    LV epicardium  & 0.963 & 0.959 & 0.957 & 0.951 \\
+    Left atrium    & 0.902 & 0.935 & --- & --- \\
+    \bottomrule
+  \end{tabular}
+  \caption{Dice coefficients on the CAMUS challenge leaderboard, for the leading
+    nnU-Net-based entry, with the intra-observer variability of the reference contours for
+    comparison. No intra-observer figure is published for the left atrium.}
+  \label{tab:camus}
+\end{table}
+
+Two observations matter for later chapters. The leading automated results now equal or
+exceed intra-observer agreement on both ventricular structures, so the remaining headroom
+on this dataset is small. And performance is consistently lower on the left atrium and on
+low-quality or artefact-heavy images --- a pattern the cardiac module of this project
+reproduces, and which is discussed in Section~\ref{subsec:cardiac-results}.
+
+nnU-Net \cite{isensee2021nnunet} approaches the problem differently, configuring
+preprocessing, architecture and training schedule automatically from properties of the
+dataset. Its relevance here is as a benchmark rather than a component: it defines the
+performance a well-configured standard pipeline achieves on this data, and the cardiac
+results in Section~\ref{subsec:cardiac-results} are reported against it.
+
+\subsubsection{USCL: contrastive pretraining on ultrasound}
+
+Most ultrasound models initialise from ImageNet weights, despite natural photographs
+sharing little with speckle texture. USCL \cite{chen2021uscl} addresses this directly,
+pretraining on ultrasound video through semi-supervised contrastive learning. The authors
+assembled US-4, comprising over 23{,}000 images from four ultrasound video sub-datasets,
+and report that a USCL-pretrained backbone reaches over 94\% fine-tuning accuracy on the
+POCUS lung dataset against 84\% for ImageNet initialisation.
+
+The motivation is sound and the reported gain is substantial, which is why this project
+evaluated it. The measurement obtained here disagreed: on the gallbladder task, USCL
+initialisation performed markedly worse than ImageNet initialisation. That result is
+reported in Section~\ref{subsec:results-rejected} with its numbers. It is not presented as
+a refutation of the original work --- the published claim concerns lung classification on
+the dataset the pretraining corpus was drawn from, whereas the task here was multi-class
+gallbladder classification on a small number of cases --- but it is the reason the
+technique was not adopted, and the discrepancy is stated rather than omitted.
+
+\subsubsection{Auto-US: an ultrasound video diagnosis agent}
+
+Auto-US \cite{yang2025autous} is the closest published work to the present project and
+deserves detailed comparison. It is described by its authors as the first agent combining
+deep learning with \glspl{llm} for ultrasound video-assisted diagnosis, and is organised
+into three stages --- video perception, clinical reasoning and diagnostic decision-making
+--- which parallel the perception, representation and reasoning layers of
+Fig.~\ref{fig:architecture}.
+
+Its perception component, CTU-Net, is a CNN--Transformer network exploiting temporal,
+spatial and frequency information in ultrasound video. It is evaluated on the CUV dataset,
+assembled by the authors from open-access sources: 495 videos spanning five disease
+categories across three organs. The reported classification accuracy is 86.73\%, and
+clinician ratings of the generated diagnostic text exceed 3 out of 5.
+
+The convergence is notable: two independent efforts arrived at the same decomposition of
+perception followed by language-model reasoning. The differences are equally instructive
+and define where this project contributes.
+
+Auto-US pairs ultrasound video with clinical \emph{text} --- chief complaint, physical
+examination and additional information --- rather than with structured measurements. Vital
+signs and laboratory values are not among its inputs. The paper reports no confidence
+calibration or uncertainty quantification for its predictions, no explicit representation
+of missing or unmeasured data, and no mechanism for resolving disagreement between the
+video classifier and the language model's reasoning. Those four mechanisms are precisely
+what this project treats as central, which places its contribution alongside Auto-US rather
+than in competition with it.
+
+The authors themselves make the case for going further, observing that ``relying solely on
+ultrasound imaging is insufficient for obtaining accurate diagnostic opinions''
+\cite{yang2025autous}. Extending that observation from clinical text to vital signs and
+laboratory results, and adding an explicit account of what the models cannot exclude, is
+the step taken here.
+
+\subsubsection{The POCUS lung ultrasound dataset}
+
+The lung module uses the public dataset released by Born et al.
+\cite{born2021pocus}. It comprises 202 videos and 59 images acquired with convex and linear
+probes from 216 patients, covering COVID-19, bacterial pneumonia, non-COVID viral
+pneumonia and healthy controls, aggregated from heterogeneous sources.
+
+Its strengths and weaknesses both follow from that construction. The heterogeneity is
+representative of real point-of-care acquisition, which is desirable. But provenance is
+mixed, acquisition is uncontrolled, and --- decisively for this project --- the release
+carries no patient identifier linking the multiple clips belonging to one patient. Case
+identity therefore has to be reconstructed before any honest partition can be drawn, which
+is the subject of Section~\ref{subsec:data-grouping}. \rmq{The dataset has a published
+erratum; check which version the downloaded copy corresponds to and cite accordingly.}
+
+\subsection{Multimodal Clinical Decision Support}
+\label{subsec:sota-multimodal}
+
+Combining imaging with the rest of the clinical record is the problem this project is
+ultimately about, and it has been studied independently of ultrasound. The systematic
+review by Huang et al.\ \cite{huang2020fusion} surveys deep-learning systems that fuse
+medical imaging with electronic health record data and provides the vocabulary used here.
+
+It distinguishes three strategies. \emph{Early fusion} concatenates the input modalities
+into a single feature vector before any model sees them. \emph{Joint fusion} combines
+learned intermediate representations, with the loss propagated back into each
+modality-specific encoder during training. \emph{Late fusion} trains a separate model per
+modality and aggregates their predictions afterwards.
+
+Two of the review's findings matter for the design adopted here. The first is that fusion
+works: across the studies surveyed, multimodal models improved accuracy by 1.2--27.7\% and
+AUROC by 0.02--0.16 over single-modality baselines, though no single fusion strategy was
+consistently optimal across domains. The second is a distributional observation --- of the
+17 studies reviewed, 11 (65\%) used early fusion and only 3 (18\%) used late fusion. The
+field's default is to fuse early, inside one model.
+
+\paragraph{The property that decides the question for an emergency system.} The same review
+notes that late fusion is uniquely able to produce a prediction when not all modalities are
+present, because each modality has its own model and the aggregation step can operate over
+whichever predictions exist. Early and joint fusion architectures expect a complete input
+vector, and have no defined behaviour when part of it is absent.
+
+For a system evaluating an emergency patient this is not a secondary consideration. Missing
+data is the normal condition, not the exception: the troponin has not come back, the
+history is unobtainable, no ultrasound of that organ was performed. An architecture whose
+behaviour is undefined when a modality is missing is undefined most of the time.
+
+The evidence that late fusion also performs competitively is direct. In a case study on
+pulmonary embolism detection from CT together with EHR data, Huang et al.\
+\cite{huang2020pe} report a late-fusion model reaching an AUROC of 0.947, exceeding the
+EHR-only model by 0.036 and the imaging-only model by 0.156. Late fusion was the
+best-performing strategy tested, not a concession made for the sake of robustness.
+
+\paragraph{Where this project goes further, and on what basis.} The architecture described
+in Section~\ref{subsec:architecture} is late fusion in the sense above --- separate models
+per modality, combined afterwards --- but the combination is not an aggregation function
+over probabilities. The perception outputs are written into a structured clinical state
+that records confidence, evidence grade, model scope and what was not measured, and a
+reasoning layer consumes that state.
+
+The motivation is attribution. Under early or joint fusion a single confidence emerges from
+the combined model, and a clinician reading it cannot tell whether the imaging or the vital
+signs produced it; under the design used here, each finding retains the confidence of the
+module that produced it, and disagreement between modules remains visible instead of being
+averaged away.
+
+This last point is offered as a design argument rather than as an established result. The
+systematic review cited above does not compare fusion strategies with respect to
+interpretability, and no measurement in this project isolates the benefit of attribution
+from the other properties of the architecture. It is a reason for the design, not evidence
+for it.
+
+\subsection{Large Language Models and Retrieval-Augmented Generation}
+\label{subsec:sota-llm}
+
+Large language models can integrate heterogeneous evidence and produce structured reasoning
+over it, which is the capability the reasoning layer of this system requires. Domain-adapted
+medical reasoning models such as HuatuoGPT-o1 \cite{chen2024huatuogpto1} extend this to
+clinical material specifically.
+
+Retrieval-augmented generation \cite{lewis2020rag} supplies a model with passages retrieved
+from a trusted corpus at inference time, so that its output is grounded in citable sources
+rather than in its parameters alone. For clinical use the attraction is less the additional
+knowledge than the traceability: an assertion accompanied by the passage it came from can be
+checked.
+
+\paragraph{The failure mode that motivates the safety layer.} A fluent model asked to reason
+about a patient will produce a fluent answer whether or not the evidence supports one. Left
+unconstrained it will cite a laboratory value that was never measured, or treat the absence
+of a finding as evidence of health. Retrieval reduces but does not eliminate this: it
+grounds the general knowledge while leaving the patient-specific assertions ungrounded.
+Neither retrieval nor domain adaptation constitutes a guarantee, which is why in this
+project the safety-critical determinations are computed deterministically and the model's
+output is validated against the structured state afterwards
+(Chapter~\ref{sec:reasoning}).
+
+\subsection{Limitations of Existing Approaches}
+\label{subsec:sota-limits}
+
+Five limitations recur across the work reviewed above. They are stated as properties of the
+literature, not as criticism of individual papers, most of which address a narrower question
+than the one posed here.
+
+\begin{enumerate}
+  \setlength\itemsep{0.25em}
+  \item \textbf{One organ, one question.} Models are developed and evaluated on a single
+    organ. An undifferentiated emergency patient does not present a single question, and
+    nothing in these systems combines their outputs.
+  \item \textbf{Evaluation below the level of the patient.} Metrics are frequently computed
+    over frames or images, inflating measured performance wherever several derive from one
+    patient.
+  \item \textbf{Uncalibrated confidence reported as probability.} A softmax output is
+    routinely presented as a probability without being checked against observed frequency
+    \cite{guo2017calibration}. A clinician reading 0.8 as ``correct four times in five''
+    is entitled to be wrong.
+  \item \textbf{No representation of absent evidence.} A test never performed and a test
+    returning normal are distinct states, and systems that lack the distinction implicitly
+    treat the first as the second.
+  \item \textbf{No defined behaviour when sources disagree.} Where multiple signals are
+    available, disagreement is typically resolved by whichever model is more confident,
+    rather than being surfaced as the clinically important event it is.
+\end{enumerate}
+
+\subsection{Positioning of Our Approach}
+\label{subsec:sota-positioning}
+
+\begin{keystatement}
+The individual models in this project are standard architectures and are not claimed as
+contributions. The contribution is the layer above them.
+\end{keystatement}
+
+The cardiac module is a U-Net with an EfficientNet encoder; the lung and gallbladder
+modules are EfficientNet classifiers; the triage model is gradient-boosted trees. Each was
+selected because it is a defensible standard choice for its task, not because it is novel,
+and Chapter~\ref{sec:results} reports them against published benchmarks rather than
+claiming to advance them.
+
+What this project adds is the structure in which they cooperate, addressing the five
+limitations above in order: a shared output contract across four modules covering both
+imaging and structured data; case-level evaluation throughout; a calibrated confidence per
+module, carried through to the reasoning step rather than discarded at the module boundary;
+an explicit representation of what was not measured and what each model cannot exclude; and
+a deterministic policy that escalates on disagreement instead of resolving it.
+
+Tab.~\ref{tab:positioning} sets this against the work reviewed in this chapter. It compares
+\emph{capabilities rather than performance}, and the distinction is deliberate. The systems
+reviewed here address different organs, different tasks and different datasets: a Dice
+coefficient for cardiac segmentation, a classification accuracy on ultrasound video and a
+balanced accuracy on gallbladder cases are not commensurable quantities, and placing them in
+a single column would invite a comparison that none of them supports. Measured performance
+is reported in Chapter~\ref{sec:results}, where each module is compared against its own
+baseline and against the benchmark for its own task.
+
+The table should therefore be read across the rows: \emph{yes} indicates that a system
+provides the mechanism, \emph{no} that it is a system which does not, and \emph{n/a} that
+the contribution is a dataset, benchmark or training method to which the question does not
+apply. The bottom row is the only one carrying \emph{yes} in every column, and that is the
+claim this project makes --- not that its models are more accurate than the published ones,
+but that they are assembled into a system that knows what it does not know.
+
+\begin{table}[H]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{llccccc}
+    \toprule
+    \textbf{Work} & \textbf{Type} & \textbf{Organs} & \textbf{Non-imaging} &
+    \textbf{Calibrated} & \textbf{Absent} & \textbf{Conflict} \\
+    & & & \textbf{inputs} & \textbf{confidence} & \textbf{evidence} & \textbf{policy} \\
+    \midrule
+    CAMUS / nnU-Net \cite{leclerc2019camus, isensee2021nnunet}
+      & benchmark   & 1 & none & n/a & n/a & n/a \\
+    USCL \cite{chen2021uscl}
+      & pretraining & 1 & none & n/a & n/a & n/a \\
+    POCUS lung \cite{born2021pocus}
+      & dataset     & 1 & none & n/a & n/a & n/a \\
+    Auto-US \cite{yang2025autous}
+      & agent       & 3 & clinical text & no & no & no \\
+    \addlinespace[3pt]
+    \textbf{This work}
+      & agent       & 3 + triage & vitals, labs & yes & yes & yes \\
+    \bottomrule
+  \end{tabular}
+  \caption{Positioning against the reviewed work. ``n/a'' marks a mechanism that does not
+    apply to the kind of contribution: a dataset or a pretraining method is not expected to
+    provide a conflict policy. Only Auto-US and the present work are complete systems, and
+    only those two rows are directly comparable.}
+  \label{tab:positioning}
+\end{table}
+
+\subsection{Conclusion}
+
+The literature provides strong single-organ models, a reference benchmark for cardiac
+segmentation, public data for lung ultrasound, and --- in Auto-US --- an independent
+confirmation that perception followed by language-model reasoning is a reasonable
+decomposition. What it does not provide is a system that combines imaging with the rest of
+the emergency record while keeping an honest account of its own reliability.
+
+The next chapter turns to the data, and to the question that had to be answered before any
+model could be trained: what a single independent observation actually is in each of these
+datasets.

@@ -1,0 +1,77 @@
+% =========================================================================================
+% preamble.tex -- packages, page style and shared commands
+%
+% Kept deliberately light. Overleaf's free plan caps total compile time, and a full build
+% runs pdflatex -> biber -> pdflatex -> pdflatex, so every package is paid for three times.
+% Two packages were removed for this reason:
+%   glossaries -- \printnoidxglossary sorts with TeX macros and is very slow; replaced by
+%                 the lightweight acronym mechanism in glossary.tex
+%   microtype  -- improves justification, costs time on every pass
+% Both can be restored if the project ever moves to a local TeX installation.
+% =========================================================================================
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{lmodern}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+% caption must be loaded ONCE. Loading it twice with different options
+% (\usepackage[figurename=Fig.]{caption} then \usepackage[tablename=Tab.]{caption})
+% raises an option clash error.
+\usepackage[figurename=Fig., tablename=Tab., font=small, labelfont=bf]{caption}
+
+\usepackage{fancyhdr, lastpage}
+\usepackage[hidelinks]{hyperref}
+\usepackage[backend=biber, style=numeric, sorting=none]{biblatex}
+\usepackage{csquotes}   % biblatex warns without it when babel is loaded
+
+\graphicspath{{figures/}{logos/}}
+
+% ---------------------------------------------------------------------------- colours ---
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{softgrey}{HTML}{595959}
+
+% ----------------------------------------------------------------------- page styles ---
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyhead[L]{\small\itshape Mariem Brik}
+  \fancyhead[R]{\small\itshape POCUS-Emergency}
+  \fancyfoot[L]{\small\itshape University year 2025--2026}
+  \fancyfoot[R]{\small\thepage\ / \pageref{LastPage}}
+  \renewcommand{\headrulewidth}{0.4pt}
+  \renewcommand{\footrulewidth}{0.4pt}
+}
+\pagestyle{plain}
+
+% ------------------------------------------------------------------ shared commands ---
+% A statement set apart from the body text: used for the research question and for the
+% principles the architecture rests on.
+\newenvironment{keystatement}{%
+  \par\medskip\noindent
+  \begin{minipage}{\linewidth}
+    \color{accent}\itshape\bfseries
+    \leftskip=1.6em \rightskip=1.6em
+}{%
+  \end{minipage}\par\medskip
+}
+
+% Editorial marker: renders in red so an unresolved item cannot be submitted unnoticed.
+\newcommand{\rmq}[1]{\textcolor{red}{#1}}
+
+% To hide every editorial note -- e.g. before sending a draft to a supervisor -- comment out
+% the line above and uncomment this one instead. The notes vanish rather than turning black,
+% so nothing unfinished is mistaken for finished text. Restore the red version to keep
+% working: a note you cannot see is a note you will forget.
+% \newcommand{\rmq}[1]{}
+
+% A term defined on first use.
+\newcommand{\term}[1]{\textit{#1}}

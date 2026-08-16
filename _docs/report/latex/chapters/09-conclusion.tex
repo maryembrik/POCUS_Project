@@ -1,0 +1,62 @@
+% =========================================================================================
+% Chapter 9 -- Conclusion and Perspectives
+% =========================================================================================
+\section{Conclusion and Perspectives}
+\label{sec:conclusion}
+
+\subsection{Summary of Contributions}
+\label{subsec:conclusion-contributions}
+\rmq{State the contributions at the level they were actually made. The individual
+architectures are standard and are not claimed. What was built is the layer above them: a
+shared output contract across organs, calibrated confidence carried from perception through
+to reasoning, an explicit representation of absent evidence and model scope, and a
+deterministic escalation policy independent of the language model. Add the methodological
+contribution: case-level evaluation established for three datasets that did not provide it.}
+
+\subsection{Achieved Objectives}
+\label{subsec:conclusion-objectives}
+\rmq{Return to the Business and Data Science Objectives of Section~\ref{subsec:objectives}
+and assess each against the evidence. Mark partially achieved objectives as partial. An
+honest assessment here is more persuasive than a complete one, because the limitations
+chapter immediately precedes it and the jury has already read it.}
+
+\subsection{Current Limitations}
+\label{subsec:conclusion-limitations}
+\rmq{Summarise Section~\ref{subsec:results-limitations} in a few sentences; do not repeat
+it. The single most important sentence: this system has not been validated against clinical
+outcomes and is not a diagnostic device.}
+
+\subsection{Difficulties Encountered}
+\label{subsec:conclusion-difficulties}
+\rmq{The genuine obstacles and what each forced. Intermittent GPU availability, which made
+each training run expensive enough to justify estimating candidate changes analytically
+first; datasets whose statistical unit was undocumented; taxonomies that did not match the
+images; and hypotheses that had to be abandoned when measurement contradicted them. Frame
+each as a constraint that shaped the method, which is what they were.}
+
+\subsection{Future Work}
+\label{subsec:conclusion-future}
+
+\subsubsection{Additional organs}
+\rmq{The vascular / DVT module deliberately excluded from this internship, and the FAST
+examination. Both fit the existing contract without changes to it.}
+
+\subsubsection{Video analysis}
+\rmq{All imaging modules operate on frames. Lung sliding and cardiac wall motion are
+temporal signs that a frame-based model cannot represent at all, which bounds what the
+current system can detect regardless of how much data it is given.}
+
+\subsubsection{Improved calibration and external validation}
+\rmq{Larger case-level datasets, prospective data collection, and validation on a cohort
+from a different institution --- the evidence the current results most lack.}
+
+\subsubsection{Simulation and the digital twin}
+\rmq{The escalation route currently ends at a recommendation to examine further. The
+intended continuation is a simulation environment in which a candidate decision can be
+explored before it is committed to. Present this as a perspective, and be explicit that no
+part of it was built during this internship.}
+
+\subsubsection{Clinical evaluation}
+\rmq{The step that would make the system meaningful: evaluation with clinicians, measuring
+whether the assistant changes time-to-diagnosis or error rate rather than whether its
+individual models score well.}

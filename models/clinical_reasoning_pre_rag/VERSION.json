@@ -1,0 +1,22 @@
+{
+  "version": "clinical-reasoning-pre-rag",
+  "frozen_at": "2026-08-16T11:11:58+00:00",
+  "git_commit": "b3bd4cf",
+  "prompt_sha256_12": "f89ddc173929",
+  "reasoning_py_sha256_12": "d6aec2efe98f",
+  "clinical_state_py_sha256_12": "46fa932b2bd5",
+  "schema_py_sha256_12": "d28ea6f008bf",
+  "safety_benchmark": 139,
+  "note": "Frozen as the best configuration before retrieval was introduced, not as a first attempt. Any RAG comparison must be made against this exact state -- same prompt, same validators, same seed -- or the comparison measures tuning rather than retrieval.",
+  "label": "best configuration reached before retrieval",
+  "history": [
+    "prompt v1: safety rules only -- grounded, but merged diagnoses and one cited finding",
+    "prompt v2: +ranking, +evidence sweep, +limitations -- structure fixed, calibration not",
+    "prompt v3: +abnormal-value accounting",
+    "validator: confidence guard, value-qualifier, evidence relationships, advice scope, unassessed-organ reporting",
+    "matching: token-subset grounding after substring matching falsely accused a paraphrase",
+    "severity split: unsound withholds, untidy warns",
+    "revision: one complaint per round (3/4 fixed vs 0/3 when bundled)",
+    "escalation: not-assessed trigger ungated after a positive lung finding masked an unexamined heart"
+  ]
+}

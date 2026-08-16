@@ -1,0 +1,96 @@
+% =========================================================================================
+% Chapter 6 -- Clinical Reasoning Agent
+% =========================================================================================
+\section{Clinical Reasoning Agent}
+\label{sec:reasoning}
+
+\subsection{Motivation}
+\label{subsec:reasoning-motivation}
+\rmq{Why a separate reasoning layer rather than a larger perception model: the perception
+modules answer questions about images, and no combination of them answers a question about
+a patient. Restate the two separations from Section~\ref{subsec:architecture} briefly and
+move on.}
+
+\subsection{Clinical State Representation}
+\label{subsec:clinical-state}
+
+\begin{keystatement}
+Absent is not normal. A test that was never performed cannot support or contradict any
+diagnosis, and a model with no healthy class can never exclude disease.
+\end{keystatement}
+
+\rmq{The structured state: findings with confidence and evidence grade, vitals and labs
+with reference ranges and high/low flags, and an explicit NOT MEASURED block. Give the
+rendered form that is passed to the model, since it makes the design concrete in a way a
+schema listing does not.}
+
+\subsection{Integration of Triage and Ultrasound}
+\label{subsec:reasoning-integration}
+\rmq{How the two perception outputs are normalised into one representation despite
+different shapes (a single tier with confidence versus a list of findings), and how
+evidence grade is assigned: experimental when the confidence is uncalibrated, limited when
+evidence is thin or confidence is low, strong otherwise.}
+
+\subsection{Missing Data Handling}
+\label{subsec:reasoning-missing}
+\rmq{The distinction between measured-and-normal, measured-and-abnormal, and not-measured,
+and why the third must be represented rather than defaulted. Give the list of key
+laboratory values whose absence alone is enough to change the escalation decision.}
+
+\subsection{Conflict Detection}
+\label{subsec:reasoning-conflict}
+\rmq{Detection of disagreement between agents --- for example a low triage tier alongside a
+high-confidence severe imaging finding. Conflicts are surfaced, not resolved: the system
+does not have the information to decide which source is wrong, so it escalates instead.}
+
+\subsection{Medical Knowledge Base}
+\label{subsec:reasoning-kb}
+\rmq{Corpus selection, licensing and scope. Be explicit about what the corpus does NOT
+cover, since retrieval that silently returns nothing relevant is worse than no retrieval.}
+
+\subsection{Retrieval-Augmented Generation}
+\label{subsec:reasoning-rag}
+\rmq{Chunking, embedding and retrieval strategy, and the citation requirement in the
+prompt. Note the deliberate behaviour when retrieval is unavailable: the prompt states that
+no evidence was retrieved, rather than omitting the fact, so the model cannot imply
+guideline support it never had.}
+
+\subsection{Medical LLM}
+\label{subsec:reasoning-llm}
+\rmq{Model choice and local deployment, and the reason for running locally rather than
+through an API: patient data does not leave the machine. Report inference cost honestly.}
+
+\subsection{Clinical Reasoning Pipeline}
+\label{subsec:reasoning-pipeline}
+\rmq{The full sequence: clinical state, escalation decision computed BEFORE the model runs,
+retrieval, prompt construction, generation, structured parsing, validation, and the final
+output. A figure is worth including here.}
+
+\subsection{Differential Diagnosis}
+\label{subsec:reasoning-differential}
+\rmq{Output format: ranked diagnoses with likelihood, supporting and contradicting evidence
+drawn only from the state, the information that would most change the assessment, and a
+recommended next step. Note that the system recommends next steps and does not prescribe
+treatment.}
+
+\subsection{Confidence and Uncertainty}
+\label{subsec:reasoning-confidence}
+\rmq{How model confidence, evidence grade and overall case quality combine, and the grading
+of the case as a whole (good / moderate / poor) with the named reasons that produced the
+grade. Conflicts weigh more heavily than any single weak finding.}
+
+\subsection{Escalation Policy}
+\label{subsec:reasoning-escalation}
+\rmq{The deterministic triggers, each computed from the structured state: disagreement
+between agents, poor case quality, a high-risk finding on non-strong evidence, a high-risk
+finding below decisive confidence, positive imaging with a key laboratory value absent, and
+no positive finding where the models cannot exclude disease. Present these as a table.
+Emphasise that not one of them depends on the language model having noticed anything.}
+
+\subsection{Safety and Limitations}
+\label{subsec:reasoning-safety}
+\rmq{The hallucination guard: every term the model cites is checked against the vocabulary
+of the state, and any citation of a NOT MEASURED value is an error. A differential citing
+tests that were never run is withheld entirely rather than displayed with a warning beside
+it --- justify that choice. Then state the limitations plainly: the reasoning layer has not
+been validated against clinical outcomes, and the benchmark used is small.}

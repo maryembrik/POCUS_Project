@@ -1,0 +1,60 @@
+{
+  "report": {
+    "emergent": {
+      "precision": 0.4084170253467241,
+      "recall": 0.535423197492163,
+      "f1-score": 0.46337493217580034,
+      "support": 1595.0
+    },
+    "immediate": {
+      "precision": 0.17557251908396945,
+      "recall": 0.16546762589928057,
+      "f1-score": 0.17037037037037037,
+      "support": 139.0
+    },
+    "nonurgent": {
+      "precision": 0.1641337386018237,
+      "recall": 0.1758957654723127,
+      "f1-score": 0.16981132075471697,
+      "support": 307.0
+    },
+    "semi_urgent": {
+      "precision": 0.5136023916292974,
+      "recall": 0.607926397735315,
+      "f1-score": 0.556797925781883,
+      "support": 2826.0
+    },
+    "urgent": {
+      "precision": 0.6815124101136627,
+      "recall": 0.550187265917603,
+      "f1-score": 0.6088488239560668,
+      "support": 5340.0
+    },
+    "accuracy": 0.5473694523366317,
+    "macro avg": {
+      "precision": 0.3886476169550955,
+      "recall": 0.4069800505033349,
+      "f1-score": 0.3938406746077675,
+      "support": 10207.0
+    },
+    "weighted avg": {
+      "precision": 0.5698966809133742,
+      "recall": 0.5473694523366317,
+      "f1-score": 0.5525286795295953,
+      "support": 10207.0
+    }
+  },
+  "macro_f1": 0.3938406746077675,
+  "class_order": [
+    "emergent",
+    "immediate",
+    "nonurgent",
+    "semi_urgent",
+    "urgent"
+  ],
+  "majority_baseline_acc": 0.5231703732732439,
+  "model_acc": 0.5473694523366317,
+  "within_1_level_acc": 0.9341628294307828,
+  "dangerous_miss_rate_2plus_levels": 0.0658371705692172,
+  "high_acuity_dangerous_miss_rate": 0.14417531718569782
+}

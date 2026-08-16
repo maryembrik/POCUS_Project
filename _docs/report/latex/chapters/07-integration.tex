@@ -1,0 +1,56 @@
+% =========================================================================================
+% Chapter 7 -- System Integration and Prototype
+% =========================================================================================
+\section{System Integration and Prototype}
+\label{sec:integration}
+
+\subsection{End-to-End Architecture}
+\label{subsec:integration-arch}
+\rmq{The assembled system. Refer back to Fig.~\ref{fig:architecture} rather than repeating
+it, and concentrate on what is added here: where each component runs, what is persisted,
+and what happens when a component is unavailable.}
+
+\subsection{Agent Communication}
+\label{subsec:integration-comm}
+\rmq{The shared schema as an interface contract: a single validated format written by the
+perception agents and read by the reasoning agent, with atomic writes so a partially
+written encounter is never read. Explain why the agents communicate through stored
+encounter records rather than direct calls --- it makes each agent independently testable
+and each decision reproducible after the fact.}
+
+\subsection{Data Flow}
+\label{subsec:integration-flow}
+\rmq{Trace one encounter from arrival to output, naming the artefact produced at each step.
+A figure or sequence diagram works better than prose here.}
+
+\subsection{Example Clinical Scenarios}
+\label{subsec:integration-scenarios}
+\rmq{Three worked cases, each shown end to end: the inputs, the intermediate clinical
+state, the escalation decision and the final output. These make the system concrete for a
+reader who will not read the code, and they are the most persuasive part of the chapter.
+Use synthetic or de-identified cases and say which.}
+
+\subsubsection{Concordant Case}
+\rmq{Triage and imaging agree, evidence is strong, key laboratory values are present.
+Expected behaviour: a direct answer with a ranked differential.}
+
+\subsubsection{Conflicting Case}
+\rmq{A low triage tier alongside a high-confidence severe imaging finding. Expected
+behaviour: the conflict is detected and the case is escalated rather than resolved.}
+
+\subsubsection{Missing Data Case}
+\rmq{A positive imaging finding with a key laboratory value never measured. Expected
+behaviour: the absent test appears under NOT MEASURED, is barred from supporting or
+contradicting any diagnosis, is named as the information that would most change the
+assessment, and triggers escalation.}
+
+\subsection{User Interface}
+\label{subsec:integration-ui}
+\rmq{Describe the interface actually built, at the level of fidelity it actually has. If it
+is a notebook rather than an application, say so; an overstated prototype is the easiest
+claim for a jury to test and disprove.}
+
+\subsection{End-to-End Execution}
+\label{subsec:integration-execution}
+\rmq{Runtime and resource requirements for a complete encounter, broken down by stage, and
+the practical constraints this places on bedside use.}

@@ -24,3 +24,16 @@ __pycache__/
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# Build artefacts and scratch
+catboost_info/
+pocus_agents_colab.zip
+*" (1)"*
+notebooks/reasoning_results*.json
+notebooks/demo_missing_gpu*.json
+
+# Trained weights: large, regenerable from the notebooks. Metrics and calibration
+# artefacts ARE committed -- they are what the report cites.
+models/*.joblib
+models/triage_agent_xgb.json
+models/triage_agent_tier_xgb.json
