@@ -8,72 +8,72 @@
     {
       "id": "L01",
       "topic": "b_lines_interpretation",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: Image interpretation -> B-profile (three or more B-lines per scan)"
+      "text": "The presence of three or more B-lines in one longitudinal scan, disseminated to the anterior chest wall bilaterally with preserved lung sliding, is called the B-profile. A B-line is a comet-tail artifact that always arises from the pleural line, always moves in synchrony with lung sliding, is almost always long and spreads out to the edge of the screen without fading, and almost always erases A-lines. Diffuse interstitial syndrome is an ultrasound diagnosis defined by the presence of multiple (three or more) B-lines in more than one scanning zone in the anterolateral chest wall, bilaterally; a few B-lines may be normally seen in basal lung zones."
     },
     {
       "id": "L02",
       "topic": "b_lines_differential",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: Image interpretation -> B-profile (oedema homogeneous vs ARDS non-homogeneous)"
+      "text": "In the critically ill, diffuse interstitial syndrome is almost always due to pulmonary edema, either hemodynamic (fluid overload or cardiogenic) or permeability induced (acute respiratory distress syndrome, post-infectious, and similar). The appearance of the pleural line can be used as a criterion to differentiate pulmonary edema from interstitial lung disease, with a regular pleural line seen in pulmonary edema; criteria described for pulmonary fibrosis include irregularity, tightening, fragmentation, blurring and thickening of the pleural line. A homogeneous, diffuse distribution of B-lines is seen in pulmonary edema, in contrast to a non-homogeneous distribution with areas of sparing noted in ARDS or acute lung injury."
     },
     {
       "id": "L03",
       "topic": "a_lines",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: Physics (reverberation artefacts of aerated lung)"
+      "text": "When two reflective parallel interfaces lie in the path of the ultrasound beam, the beam gets reflected multiple times between these interfaces, generating an image comprising multiple echogenic parallel lines placed equidistant from each other, which decrease in brightness with increasing depth. In the chest, the pleural line lies parallel to the probe and acts as a reflective interface when the lungs are aerated, giving rise to reverberation artifacts known as A-lines. Hence, the presence of A-lines denotes an aerated lung."
     },
     {
       "id": "L04",
       "topic": "lung_sliding_present",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: Image interpretation -> A-profile (seashore sign on M-mode)"
+      "text": "The A-profile is defined by the presence of both lung sliding and A-lines on anterior scans, bilaterally. Sometimes one or two B-lines with lung sliding may also be seen and are also included under the A-profile. The normal physiological movement of the lungs results in sliding of the visceral pleura against the motionless parietal pleura, resulting in a twinkling, to-and-fro motion called lung sliding; on M-mode the seashore sign is demonstrated, in which the motionless portion of the chest above the pleural line creates horizontal waves and the lung sliding below the pleural line creates a granular pattern, the sand."
     },
     {
       "id": "L05",
       "topic": "lung_sliding_absent",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: Image interpretation -> A'-profile (barcode / stratosphere sign)"
+      "text": "The A'-profile is defined by abolished lung sliding at the anterior chest wall with the A-line sign. The presence of air between the parietal and visceral pleura in the case of pneumothorax results in a lack of lung sliding; this is further confirmed using the M-mode tracing, which will display horizontal lines above and below the pleural line, known as the barcode or stratosphere sign. The A-line sign refers to a pattern of exclusive A-lines with a complete absence of B-lines, the loss of B-lines being a result of air accumulating within the pleural space, eliminating the acoustic impedance gradient and thereby hindering the propagation of sound waves."
     },
     {
       "id": "L06",
       "topic": "lung_point",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: Image interpretation -> A'-profile (lung point)"
+      "text": "After establishing the A' profile, the next step to confirm the diagnosis of pneumothorax is to detect the lung point sign, which occurs at the border of the pneumothorax due to the sliding lung intermittently coming into contact with the chest wall during inspiration. On M-mode this sign is translated as alternating seashore and stratosphere patterns appearing over time when the probe is kept at a particular location, and the more lateral or posterior the lung point sign is identified, the larger the pneumothorax. The lung point sign is 100% specific for pneumothorax but has a relatively low sensitivity of 66%, and is not seen in cases of total lung collapse."
     },
     {
       "id": "L07",
       "topic": "consolidation",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: PLAPS and pneumonia (tissue-like echotexture, air bronchograms)"
+      "text": "In the BLUE protocol, the terms used for lung consolidation are pneumonia for anterior consolidation and posterolateral alveolar and/or pleural syndrome (PLAPS) for consolidation and/or pleural effusion in posterolateral lung zones. Anterior consolidation is designated a C-profile, while posterolateral consolidation in a patient showing A-profile anteriorly is designated an A-no V-PLAPS profile; unilateral lung rockets are designated A/B profile, and diffuse bilateral B-lines with loss of lung sliding a B' profile. Four patterns of consolidation were described to diagnose pneumonia: non-translobar consolidation, translobar consolidation, small subpleural consolidation identified by a C-line, and the unilateral lung rocket pattern. A shredded margin or frank hepatisation with sonographic bronchograms denotes underlying lung consolidation."
     },
     {
       "id": "L08",
       "topic": "pleural_effusion",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: PLAPS (quad sign, sinusoid sign)"
+      "text": "In the BLUE protocol the lung line, quad sign and sinusoid sign are described as criteria for diagnosis of pleural effusion, disregarding the echogenicity of the collection. The lung line is a regular line which outlines the effusion, indicating the visceral pleural line, roughly parallel to the pleural line, so that all effusions, anechoic or echoic, can be diagnosed using it; the quad sign refers to the rough quadrilateral appearance of the effusion framed by the pleural line superiorly, the visceral line inferiorly and rib shadows on either side. On M-mode, a sinusoidal pattern is noted due to movement of the lung line towards the motionless pleural line on inspiration and downward movement on expiration; this sign is specific for pleural effusion, however it is absent in very viscous or septate effusions."
     },
     {
       "id": "L09",
       "topic": "pneumothorax",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: Image interpretation -> A'-profile"
+      "text": "Detection of the lung point confirms the diagnosis of pneumothorax; if the lung point is not demonstrated, the patient would require further diagnostic modalities for assessment. Lung sliding has been found to be absent in many cases other than pneumothorax, including pleural effusions, acute respiratory distress syndrome, large consolidations, pulmonary fibrosis, pleural adhesions, atelectasis, right mainstem intubation, and phrenic nerve paralysis. Thus, lung sliding when used alone has a low specificity."
     },
     {
       "id": "L10",
       "topic": "blue_protocol",
-      "status": "placeholder",
+      "status": "sourced",
       "source": "Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0)",
-      "text": "PASTE 2-3 SENTENCES FROM: Introduction and Technique (the six BLUE points)"
+      "text": "One of the principles of lung ultrasound in the critically ill states that life-threatening disorders usually have an extensive projection. On this premise six BLUE-points were defined, much like the standard electrode placement in electrocardiography, allowing a simplified, quick and standardized technique for evaluating a critically ill patient at the bedside; on each side there are two points on the anterior chest wall (upper and lower BLUE point) and one located semi-posteriorly (the posterolateral alveolar and/or pleural syndrome, or PLAPS, point), which allows the detection of consolidation and/or pleural effusion. The BLUE protocol provides lung ultrasound profiles with an algorithmic approach to assist in diagnosis of six common acute conditions causing dyspnea: pneumothorax (A' profile), pneumonia (C profile, AB profile, B' profile and A-no V-PLAPS profile), pulmonary edema (B profile), acute exacerbation of chronic obstructive pulmonary disease or asthma (A-no V-no PLAPS profile), and pulmonary embolism (A-V profile)."
     },
     {
       "id": "C11",
