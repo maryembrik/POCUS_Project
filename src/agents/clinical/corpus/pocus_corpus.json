@@ -1,5 +1,5 @@
 {
-  "corpus_version": "0.3-lung-citations",
+  "corpus_version": "0.4-lung-and-boundaries-sourced",
   "description": "Emergency POCUS interpretation corpus for the Clinical Reasoning Agent. Thirty knowledge units, each answering one clinical question, rather than thirty documents.",
   "scope_note": "Clinical knowledge only. Laboratory reference ranges are deliberately NOT here: comparing a value against a threshold is deterministic, and clinical_state.py already does it, printing e.g. 'bnp: 890.0 pg/mL <-- HIGH (ref <=100)'. Putting the same information in a retrieval corpus would make a settled comparison depend on a similarity score.",
   "licence_note": "Store a citation and a short quotation per unit. Do NOT redistribute whole guideline documents: most are copyrighted. Every unit must name where its text came from before it is used for anything reported.",
@@ -183,37 +183,37 @@
     {
       "id": "B26",
       "topic": "acute_dyspnoea_approach",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Structured approach to acute dyspnoea combining lung and cardiac windows."
+      "status": "sourced",
+      "source": "Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0)",
+      "text": "Thoracic ultrasound has been increasingly used in the management of patients who visit the emergency department due to acute dyspnea and respiratory failure. Lung ultrasound is applied to pneumothorax, alveolar-interstitial syndrome, pulmonary consolidation, pleural effusion, and to neonates and pediatrics, with robust evidence and strong recommendations. When a normal lung pattern, characterized by a bat sign, A line, and lung sliding, is observed on lung ultrasound, pneumothorax and interstitial syndrome can be excluded."
     },
     {
       "id": "B27",
       "topic": "chest_pain_approach",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Structured approach to chest pain: what POCUS contributes and what it cannot settle."
+      "status": "sourced",
+      "source": "Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0)",
+      "text": "Assessments with focused cardiac ultrasound (FoCUS) can identify several causes in time-sensitive clinical scenarios related to cardiorespiratory symptoms and signs. The five basic views recommended for FoCUS examination include the parasternal long axis, parasternal short axis, apical four chamber, subcostal four chamber, and subcostal inferior vena cava (IVC) views. POCUS can help determine cardiac tamponade, left ventricle failure, pulmonary embolism, hypovolemia, and tension pneumothorax."
     },
     {
       "id": "B28",
       "topic": "negative_study_limits",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "What a negative POCUS study does NOT establish. Written deliberately: the reasoning model proposed pathology for a patient whose scan was entirely negative, and separately treated unrelated absent findings as arguments against a diagnosis."
+      "status": "sourced",
+      "source": "Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0)",
+      "text": "When a normal lung pattern, characterized by a bat sign, A line, and lung sliding, is observed on lung ultrasound, pneumothorax and interstitial syndrome can be excluded. Focused cardiac ultrasound has limitations in verifying some cardiac conditions such as pericardial fat pads, cysts, preexisting or small pericardial fluid, diastolic dysfunction, valvular diseases, and pulmonary hypertension. Diagnostic usefulness is limited in children, such that a negative extended FAST result in children may not accurately rule out the presence of intra-abdominal injuries."
     },
     {
       "id": "B29",
       "topic": "operator_dependence",
-      "status": "placeholder",
-      "source": "REPLACE: Andersen et al., Ann Fam Med 2019 -- quote the accuracy range",
-      "text": "Operator dependence: how diagnostic accuracy varies with the examination performed, and why a bounded question is answered more reliably than an open one."
+      "status": "sourced",
+      "source": "Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0)",
+      "text": "A POCUS study in an intensive care unit is dependent on the skill and experience of the clinician performing the study. Trained physicians should be able to demonstrate proficiency in obtaining and interpreting focused cardiac ultrasound images before performing the examination independently. It is crucial to establish standardized training and education curricula for POCUS in areas such as scope of practice, competency training, hospital credentialing, specialty certification, quality control, and leadership."
     },
     {
       "id": "B30",
       "topic": "escalation_thresholds",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "When a focused study is insufficient and formal imaging or specialist review is indicated."
+      "status": "sourced",
+      "source": "Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0)",
+      "text": "Comprehensive echocardiography or additional imaging modalities should be considered for a complete evaluation of uncertain findings or complex clinical presentations. Given that POCUS examinations do not cover the full functional and structural status of patients, comprehensive ultrasound has been commonly used in the intensive care unit. Trained physicians should be able to demonstrate proficiency in obtaining and interpreting focused cardiac ultrasound images before performing the examination independently."
     }
   ],
   "sourcing_note": "Lung units L01-L10 carry a verified open-access citation. Replace each text field with two or three sentences from the section named, then set status to sourced. CC BY-NC permits reproduction with attribution for non-commercial use; a thesis qualifies."

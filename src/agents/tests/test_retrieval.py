@@ -83,10 +83,37 @@ def test_hits_are_numbered_for_citation():
 
 
 # ------------------------------------------------------------------ placeholder honesty
+def _hit(status, n=1):
+    """A retrieval hit built by hand.
+
+    These tests used to query the live corpus and assert every hit was a placeholder, which
+    was true only while the corpus was empty: sourcing L01 turned the assertion false and
+    the suite went red for doing the work it was waiting for. The property under test is
+    about `status`, not about how full the corpus happens to be, so the hits are constructed
+    here and the corpus is left out of it."""
+    return {"n": n, "id": f"X{n:02d}", "topic": "t", "status": status,
+            "source": "s", "text": "some passage text", "score": 0.5}
+
+
 @prop(RETRIEVAL)
 def test_placeholder_hits_are_not_grounding():
-    hits = Retriever().retrieve("B-lines")
-    assert hits and all(h["status"] == "placeholder" for h in hits)
+    hits = [_hit("placeholder")]
+    assert is_grounded(hits) is False
+    assert "PLACEHOLDER" in retrieval_note(hits)
+
+
+@prop(RETRIEVAL)
+def test_sourced_hits_are_grounding():
+    hits = [_hit("sourced")]
+    assert is_grounded(hits) is True
+    assert "PLACEHOLDER" not in retrieval_note(hits)
+
+
+@prop(RETRIEVAL)
+def test_one_placeholder_denies_grounding_to_the_whole_set():
+    """Deliberately strict. A real passage sitting beside a stub cannot ground an answer,
+    because nothing downstream tracks which of the two a given claim rested on."""
+    hits = [_hit("sourced", 1), _hit("placeholder", 2)]
     assert is_grounded(hits) is False
     assert "PLACEHOLDER" in retrieval_note(hits)
 
@@ -146,8 +173,10 @@ def test_reason_records_what_grounding_may_be_claimed():
     hits = Retriever().for_state(_state())
     out = reason(_state(), llm_fn=None, retrieved=hits)
     assert out["retrieval"]["passages"] == len(hits)
-    assert out["retrieval"]["grounded"] is False      # corpus is still placeholders
-    assert "PLACEHOLDER" in out["retrieval"]["note"]
+    # Not hardcoded to False: what must hold is that the recorded grounding agrees with the
+    # hits, whatever proportion of the corpus is sourced at the time this runs.
+    assert out["retrieval"]["grounded"] == is_grounded(hits)
+    assert ("PLACEHOLDER" in out["retrieval"]["note"]) == (not is_grounded(hits))
 
 
 @prop(RETRIEVAL)
