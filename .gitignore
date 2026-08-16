@@ -37,7 +37,3 @@ notebooks/demo_missing_gpu*.json
 models/*.joblib
 models/triage_agent_xgb.json
 models/triage_agent_tier_xgb.json
-
-# Derived manifests: regenerable from src/data_prep, and this repo is public.
-manifests/*.csv
-manifests/*.csv 
