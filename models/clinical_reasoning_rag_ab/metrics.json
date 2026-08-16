@@ -1,0 +1,83 @@
+{
+  "corpus_version": "1.0-all-units-sourced",
+  "arms": [
+    "none",
+    "tfidf"
+  ],
+  "scenarios": {
+    "missing": {
+      "retrieval_hits": [
+        "L09",
+        "B26"
+      ],
+      "grounded": true,
+      "errors_none": 0,
+      "errors_tfidf": 1,
+      "warnings_none": 1,
+      "warnings_tfidf": 0,
+      "withheld_none": false,
+      "withheld_tfidf": true,
+      "seconds_none": 83.8,
+      "seconds_tfidf": 47.3
+    },
+    "conflict": {
+      "retrieval_hits": [
+        "C12"
+      ],
+      "grounded": true,
+      "errors_none": 1,
+      "errors_tfidf": 1,
+      "warnings_none": 1,
+      "warnings_tfidf": 0,
+      "withheld_none": true,
+      "withheld_tfidf": true,
+      "seconds_none": 61.9,
+      "seconds_tfidf": 41.3
+    },
+    "concordant": {
+      "retrieval_hits": [],
+      "grounded": false,
+      "errors_none": 0,
+      "errors_tfidf": 0,
+      "warnings_none": 3,
+      "warnings_tfidf": 3,
+      "withheld_none": false,
+      "withheld_tfidf": false,
+      "seconds_none": 87.0,
+      "seconds_tfidf": 87.3
+    },
+    "reassuring": {
+      "retrieval_hits": [],
+      "grounded": false,
+      "errors_none": 1,
+      "errors_tfidf": 1,
+      "warnings_none": 0,
+      "warnings_tfidf": 0,
+      "withheld_none": true,
+      "withheld_tfidf": true,
+      "seconds_none": 37.7,
+      "seconds_tfidf": 38.0
+    },
+    "not_assessed": {
+      "retrieval_hits": [
+        "L01",
+        "L05",
+        "L06"
+      ],
+      "grounded": true,
+      "errors_none": 4,
+      "errors_tfidf": 2,
+      "warnings_none": 2,
+      "warnings_tfidf": 1,
+      "withheld_none": true,
+      "withheld_tfidf": true,
+      "seconds_none": 88.7,
+      "seconds_tfidf": 81.9
+    }
+  },
+  "totals": {
+    "errors_none": 6,
+    "errors_tfidf": 5,
+    "cases_with_retrieval": 3
+  }
+}
