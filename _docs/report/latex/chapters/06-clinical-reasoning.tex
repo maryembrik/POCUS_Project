@@ -1,96 +1,311 @@
 % =========================================================================================
 % Chapter 6 -- Clinical Reasoning Agent
+%
+% Numbers here were read from the code and from models/clinical_reasoning_rag_ab/.
+% Regenerate the A/B figures with notebooks/clinical_reasoning_rag_ab.ipynb.
 % =========================================================================================
 \section{Clinical Reasoning Agent}
 \label{sec:reasoning}
 
-\subsection{Motivation}
-\label{subsec:reasoning-motivation}
-\rmq{Why a separate reasoning layer rather than a larger perception model: the perception
-modules answer questions about images, and no combination of them answers a question about
-a patient. Restate the two separations from Section~\ref{subsec:architecture} briefly and
-move on.}
+\subsection{Introduction}
 
-\subsection{Clinical State Representation}
-\label{subsec:clinical-state}
+The perception modules described in Chapter~\ref{sec:perception} answer questions about
+images. A clinician asks a different question: what is wrong with this patient, and what
+should be done next. No combination of image classifiers answers that, because the answer
+also depends on the vitals, the laboratory results and the history, none of which the
+imaging models can see.
+
+This chapter describes the layer that brings those pieces together. It has one organising
+idea, stated below, and one design rule: the decisions that matter for safety are computed
+by ordinary code, not by the language model.
 
 \begin{keystatement}
 Absent is not normal. A test that was never performed cannot support or contradict any
 diagnosis, and a model with no healthy class can never exclude disease.
 \end{keystatement}
 
-\rmq{The structured state: findings with confidence and evidence grade, vitals and labs
-with reference ranges and high/low flags, and an explicit NOT MEASURED block. Give the
-rendered form that is passed to the model, since it makes the design concrete in a way a
-schema listing does not.}
+\subsection{The Clinical State}
+\label{subsec:clinical-state}
 
-\subsection{Integration of Triage and Ultrasound}
-\label{subsec:reasoning-integration}
-\rmq{How the two perception outputs are normalised into one representation despite
-different shapes (a single tier with confidence versus a list of findings), and how
-evidence grade is assigned: experimental when the confidence is uncalibrated, limited when
-evidence is thin or confidence is low, strong otherwise.}
+Everything the agent knows about a patient is collected into a single structured record
+called the clinical state. It holds three kinds of information: the imaging findings, the
+measured values, and --- importantly --- what is missing.
 
-\subsection{Missing Data Handling}
-\label{subsec:reasoning-missing}
-\rmq{The distinction between measured-and-normal, measured-and-abnormal, and not-measured,
-and why the third must be represented rather than defaulted. Give the list of key
-laboratory values whose absence alone is enough to change the escalation decision.}
+Imaging findings are recorded in three states rather than two. A finding may be
+\emph{detected}, meaning the module looked and saw it; \emph{not detected}, meaning the
+module looked and did not see it; or simply absent from the record, meaning nobody looked.
+The middle case is a real observation and the last one is not. Collapsing them would throw
+away information in one direction and invent it in the other.
+
+Vitals and laboratory values are stored with their reference ranges, and each is flagged
+high, low or normal by the code before the model sees it. A value that was not measured is
+listed in a separate block, printed under the heading \texttt{NOT MEASURED --- absent, NOT
+normal}. Tab.~\ref{tab:statefields} summarises the record.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{lp{9.2cm}}
+    \toprule
+    \textbf{Part of the state} & \textbf{What it holds} \\
+    \midrule
+    Imaging findings   & label, confidence, detected or not detected, evidence grade \\
+    Organs not assessed& organs that were requested but never scanned \\
+    Vitals             & value, reference range, high/low/normal flag \\
+    Laboratory values  & value, reference range, high/low/normal flag \\
+    Missing            & every vital and laboratory value that was not measured \\
+    Conflicts          & disagreements between the triage and imaging agents \\
+    Case quality       & an overall grade with the reasons that produced it \\
+    \bottomrule
+  \end{tabular}
+  \caption{The clinical state passed to the reasoning layer.}
+  \label{tab:statefields}
+\end{table}
+
+The two perception agents produce differently shaped outputs --- the triage agent gives one
+urgency tier with a confidence, the ultrasound agent gives a list of findings --- and both
+are normalised into this single form. Each finding also receives an evidence grade:
+\emph{experimental} when the module's confidence is not calibrated, \emph{limited} when the
+confidence is low or the training evidence was thin, and \emph{strong} otherwise. The grade
+travels with the finding so that later decisions can take account of how much the number is
+worth.
 
 \subsection{Conflict Detection}
 \label{subsec:reasoning-conflict}
-\rmq{Detection of disagreement between agents --- for example a low triage tier alongside a
-high-confidence severe imaging finding. Conflicts are surfaced, not resolved: the system
-does not have the information to decide which source is wrong, so it escalates instead.}
 
-\subsection{Medical Knowledge Base}
-\label{subsec:reasoning-kb}
-\rmq{Corpus selection, licensing and scope. Be explicit about what the corpus does NOT
-cover, since retrieval that silently returns nothing relevant is worse than no retrieval.}
+The two agents can disagree. The clearest example is a patient triaged as low urgency whose
+scan shows a severe finding with high confidence. The system flags this and does not try to
+settle it. It has no information that would say which source is wrong, so averaging the two
+or preferring the more confident one would be a guess presented as a judgement. The
+disagreement is reported and the case is escalated.
 
-\subsection{Retrieval-Augmented Generation}
-\label{subsec:reasoning-rag}
-\rmq{Chunking, embedding and retrieval strategy, and the citation requirement in the
-prompt. Note the deliberate behaviour when retrieval is unavailable: the prompt states that
-no evidence was retrieved, rather than omitting the fact, so the model cannot imply
-guideline support it never had.}
-
-\subsection{Medical LLM}
-\label{subsec:reasoning-llm}
-\rmq{Model choice and local deployment, and the reason for running locally rather than
-through an API: patient data does not leave the machine. Report inference cost honestly.}
-
-\subsection{Clinical Reasoning Pipeline}
-\label{subsec:reasoning-pipeline}
-\rmq{The full sequence: clinical state, escalation decision computed BEFORE the model runs,
-retrieval, prompt construction, generation, structured parsing, validation, and the final
-output. A figure is worth including here.}
-
-\subsection{Differential Diagnosis}
-\label{subsec:reasoning-differential}
-\rmq{Output format: ranked diagnoses with likelihood, supporting and contradicting evidence
-drawn only from the state, the information that would most change the assessment, and a
-recommended next step. Note that the system recommends next steps and does not prescribe
-treatment.}
-
-\subsection{Confidence and Uncertainty}
-\label{subsec:reasoning-confidence}
-\rmq{How model confidence, evidence grade and overall case quality combine, and the grading
-of the case as a whole (good / moderate / poor) with the named reasons that produced the
-grade. Conflicts weigh more heavily than any single weak finding.}
-
-\subsection{Escalation Policy}
+\subsection{Escalation}
 \label{subsec:reasoning-escalation}
-\rmq{The deterministic triggers, each computed from the structured state: disagreement
-between agents, poor case quality, a high-risk finding on non-strong evidence, a high-risk
-finding below decisive confidence, positive imaging with a key laboratory value absent, and
-no positive finding where the models cannot exclude disease. Present these as a table.
-Emphasise that not one of them depends on the language model having noticed anything.}
 
-\subsection{Safety and Limitations}
+Whether a case is answered directly or escalated is decided before the language model runs,
+by the rules in Tab.~\ref{tab:escalation}. Each rule reads only the structured state. None
+of them depends on the model having noticed anything, so the escalation behaviour is the
+same regardless of which model is used, or whether the model fails entirely.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{p{10.5cm}}
+    \toprule
+    \textbf{The case is escalated when\ldots} \\
+    \midrule
+    the two agents disagree \\
+    the overall case quality is graded poor \\
+    a high-risk finding rests on evidence that is not strong \\
+    a high-risk finding is below the confidence considered decisive (0.80) \\
+    imaging is positive but a key laboratory value (troponin, lactate) was not measured \\
+    nothing was found, but the models cannot rule out disease \\
+    an organ was requested and never assessed \\
+    \bottomrule
+  \end{tabular}
+  \caption{Escalation rules. All are evaluated on the structured state before generation.}
+  \label{tab:escalation}
+\end{table}
+
+The last rule deserves a note. It applies whether or not something was found elsewhere. A
+finding in the lung says nothing about a heart nobody scanned, and a positive result in one
+organ raises the importance of the gap rather than closing it.
+
+\subsection{Knowledge Corpus}
+\label{subsec:reasoning-kb}
+
+To let the agent consult reference material rather than rely only on what the model
+remembers, a small corpus of thirty knowledge units was assembled. Each unit answers one
+clinical question and carries the citation it came from. Tab.~\ref{tab:corpus} shows the
+composition.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{llr}
+    \toprule
+    \textbf{Group} & \textbf{Covers} & \textbf{Units} \\
+    \midrule
+    Lung       & B-lines, A-lines, lung sliding, pneumothorax, BLUE protocol & 10 \\
+    Cardiac    & left and right ventricle, pericardial effusion, tamponade   & 5 \\
+    FAST       & the four trauma views and their interpretation              & 5 \\
+    Shock      & classification and the four shock categories                & 5 \\
+    Boundaries & what a focused study does not establish                     & 5 \\
+    \bottomrule
+  \end{tabular}
+  \caption{The thirty knowledge units, by group.}
+  \label{tab:corpus}
+\end{table}
+
+All thirty are drawn from six open-access papers under Creative Commons licences, so the
+text can be redistributed with the project. Two constraints shaped what went in. First,
+laboratory reference ranges were deliberately kept out: comparing a value against a
+threshold is a fixed calculation the code already performs, and putting the same
+information in a retrieval corpus would make a settled comparison depend on a similarity
+score. Second, passages were chosen for the limits they state rather than for definitions.
+The most useful units are those recording what a test cannot settle --- that the lung point
+sign is only 66\% sensitive, that lung sliding is absent in eight conditions besides
+pneumothorax, or that a negative FAST detects free fluid reliably only above
+150--200\,mL.
+
+The corpus does not cover obstetric, vascular or paediatric ultrasound, and it is not a
+substitute for a guideline. It is small by design: enough to test whether retrieval helps,
+not enough to claim coverage of emergency ultrasound.
+
+\subsection{Retrieval}
+\label{subsec:reasoning-rag}
+
+Retrieval uses TF--IDF over the thirty units. For a corpus of this size it performs
+comparably to a neural retriever, needs no model download, and its scores can be inspected,
+which matters more here than a small gain in ranking.
+
+Two rules govern how results are used. A passage below a relevance threshold is reported as
+no result at all, because handing the model plausible text that does not bear on the case
+creates a new opportunity for unsupported claims. And any citation the model produces must
+correspond to a passage that was actually retrieved. If nothing was retrieved, the prompt
+says so explicitly rather than staying silent, so the model cannot imply guideline support
+it never had.
+
+\subsection{The Language Model}
+\label{subsec:reasoning-llm}
+
+The model is HuatuoGPT-o1-8B, a medical model, run locally through \texttt{llama.cpp} in
+4-bit quantised form (4.9\,GB). Running locally rather than through an API is a deliberate
+choice: patient data does not leave the machine.
+
+The cost is real. On a consumer CPU a single case takes roughly 23 minutes. On a Colab T4
+the same case takes 40 to 90 seconds, and the full five-case benchmark runs in about five
+minutes. Temperature is set to zero with a fixed seed, and the model's cache is cleared
+between calls, so repeated runs give identical output.
+
+\subsection{The Pipeline}
+\label{subsec:reasoning-pipeline}
+
+The sequence is fixed. The clinical state is built; escalation is decided; retrieval runs;
+the prompt is assembled; the model generates an answer; the answer is parsed into a
+structured form; and the answer is checked against the state. If the check finds a serious
+fault, the answer is sent back once with a single correction request. Sending one complaint
+at a time was found to work better than sending several together.
+
+The output is a ranked list of diagnoses. Each carries a likelihood, the evidence for and
+against it, and the limits of that evidence. Alongside it the agent reports what
+information is missing, how confident it is, and a recommended next step. The system
+recommends investigations; it does not prescribe treatment.
+
+\subsection{Checking the Answer}
 \label{subsec:reasoning-safety}
-\rmq{The hallucination guard: every term the model cites is checked against the vocabulary
-of the state, and any citation of a NOT MEASURED value is an error. A differential citing
-tests that were never run is withheld entirely rather than displayed with a warning beside
-it --- justify that choice. Then state the limitations plainly: the reasoning layer has not
-been validated against clinical outcomes, and the benchmark used is small.}
+
+The model's answer is checked against the clinical state by a set of rules. Faults are
+sorted into two levels. A \emph{serious} fault --- citing a test that was never performed,
+inventing a finding, misreading a value, or using an unrelated negative as an argument
+against a diagnosis --- causes the differential to be withheld entirely. A \emph{minor}
+fault, such as untidy wording, is delivered with a warning attached.
+
+Withholding rather than displaying with a caveat is a deliberate choice. A differential
+that cites tests which were never run is not a slightly flawed answer; it is an answer built
+on evidence that does not exist, and showing it beside a warning invites the reader to use
+it anyway.
+
+These rules are exercised by 158 automated tests, grouped by the property each one
+protects. Tab.~\ref{tab:safetytests} lists the largest groups. The tests use scripted
+responses and need no model, so they run in seconds and are independent of which model is
+installed.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{lr}
+    \toprule
+    \textbf{Property} & \textbf{Tests} \\
+    \midrule
+    Hallucination rejection      & 21 \\
+    Retrieval grounding          & 19 \\
+    Absent is not normal         & 16 \\
+    Malformed output rejection   & 15 \\
+    Escalation policy            & 11 \\
+    Conflict detection           & 9 \\
+    Confidence calibration       & 9 \\
+    Other properties (11 groups) & 58 \\
+    \midrule
+    \textbf{Total}               & \textbf{158} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Safety tests by property. All pass.}
+  \label{tab:safetytests}
+\end{table}
+
+\subsection{Does Retrieval Help?}
+\label{subsec:reasoning-ab}
+
+Retrieval was added after the rest of the layer was working, and the version without it was
+frozen so the two could be compared fairly. Five cases were run twice: once without
+retrieval and once with it. Everything else was held constant.
+
+Three checks confirm the comparison is sound. The no-retrieval run reproduced the frozen
+version exactly on all five cases; the escalation decisions were identical in both runs, as
+they must be since they are computed before the model; and repeated runs gave identical
+output. Tab.~\ref{tab:ab} gives the result.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{llrrl}
+    \toprule
+    \textbf{Case} & \textbf{Passages found} & \textbf{Errors without} &
+    \textbf{Errors with} & \textbf{Effect} \\
+    \midrule
+    missing      & 2 & 0 & 1 & worse \\
+    conflict     & 1 & 1 & 1 & error replaced \\
+    concordant   & 0 & 0 & 0 & no retrieval \\
+    reassuring   & 0 & 1 & 1 & no retrieval \\
+    not assessed & 3 & 4 & 2 & better \\
+    \midrule
+    \textbf{Total} & & \textbf{6} & \textbf{5} & \\
+    \bottomrule
+  \end{tabular}
+  \caption{Validator errors with and without retrieval, on five designed cases.}
+  \label{tab:ab}
+\end{table}
+
+The totals are almost unchanged, and the aggregate hides what actually happened. Retrieval
+fixed two faults: a normal troponin that had been described as elevated, and an unexamined
+organ that had been left out of the list of missing information. It also created a new
+one.
+
+\begin{keystatement}
+Giving a small model reference text creates a new way for it to fabricate: it attributes
+the reference's general statements to the specific patient.
+\end{keystatement}
+
+In two of the three cases where retrieval returned anything, the model took a sentence from
+a retrieved passage and listed it as evidence about this patient. In one case it cited
+``lung sliding (low specificity)'', a phrase from the pneumothorax unit. In another it
+cited ``absence of sonographic signs of RV overload or dysfunction'', taken word for word
+from the cardiac unit. Neither was an observation about the patient in front of it.
+
+Every instance was caught by the checking rules and the differential was withheld. This is
+the clearest evidence in the project for keeping the safety layer independent of the model:
+retrieval opened a new way to fail, and the checks closed it without being changed.
+
+Three limits apply to this experiment. Two of the five cases retrieved nothing, so they say
+nothing about retrieval; the case with an entirely normal patient produces a query too thin
+to match anything, which is a gap in how queries are built. The improvement on the third
+case is partly an artefact, because the model changed its diagnosis rather than reasoning
+better about the same one. And the corpus unit describing what a negative FAST misses does
+not itself surface for that question, because TF--IDF matches words rather than meaning.
+
+The conclusion is narrow and worth stating plainly: on these five cases, retrieval did not
+make the system better. It changed which errors occurred.
+
+\subsection{Limitations}
+\label{subsec:reasoning-limits}
+
+The safety layer behaved as specified on five designed cases and on 158 automated tests.
+That is the whole of what has been shown. The reasoning quality of the local model remained
+limited, and the system was not evaluated against clinical ground truth: there is no
+reference standard here saying what the correct differential was for any case. The five
+cases were written to exercise particular failure modes, not sampled from a population, so
+no rate of anything can be inferred from them.
+
+This is decision support and not a diagnostic device. It has not been validated against
+patient outcomes and is not suitable for clinical use.
