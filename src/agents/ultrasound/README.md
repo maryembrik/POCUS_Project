@@ -24,6 +24,21 @@ module once represented "nothing above threshold" with a placeholder entry in `f
 which the state read as a positive finding and which suppressed the escalation that should
 have followed.
 
+**Verified end to end on 2026-08-16.** The notebook was run with every lung threshold raised
+above 1.0, so nothing could cross and the all-negative path was exercised. It produced
+`findings: []` with four entries in `not_detected` and no schema errors; the clinical state
+carried zero detected findings and all four negatives; and escalation fired with *"no
+positive finding, but the models cannot exclude disease"*.
+
+Worth knowing why that had to be forced: the demo feeds random noise, which crosses every
+threshold and reports four positive findings. The case the fix exists for does not arise on
+its own, so it has to be provoked.
+
+**The gap this leaves.** The 158 tests build reports by hand with `make_report(...)`; none of
+them import `predict_lung`, because it lives in a notebook. The tests prove the contract is
+enforced, not that this agent honours it. Until the extraction below happens, that link is
+checked by running the notebook, not by the suite.
+
 **To extract this into Python** — worth doing once the checkpoints are in a fixed location —
 port `predict_lung`, `predict_heart`, `predict_gallbladder` and the router from the notebook
 into `agent.py` here, keeping `make_report` as the only way a result leaves the module.
