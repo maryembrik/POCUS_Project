@@ -1,5 +1,5 @@
 {
-  "corpus_version": "0.4-lung-and-boundaries-sourced",
+  "corpus_version": "0.5-cardiac-and-shock-sourced",
   "description": "Emergency POCUS interpretation corpus for the Clinical Reasoning Agent. Thirty knowledge units, each answering one clinical question, rather than thirty documents.",
   "scope_note": "Clinical knowledge only. Laboratory reference ranges are deliberately NOT here: comparing a value against a threshold is deterministic, and clinical_state.py already does it, printing e.g. 'bnp: 890.0 pg/mL <-- HIGH (ref <=100)'. Putting the same information in a retrieval corpus would make a settled comparison depend on a similarity score.",
   "licence_note": "Store a citation and a short quotation per unit. Do NOT redistribute whole guideline documents: most are copyrighted. Every unit must name where its text came from before it is used for anything reported.",
@@ -78,37 +78,37 @@
     {
       "id": "C11",
       "topic": "lv_function",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Left ventricular systolic function on focused echo: how it is assessed and what reduced function implies."
+      "status": "sourced",
+      "source": "Albaroudi B, Haddad M, Albaroudi O, et al. Assessing left ventricular systolic function by emergency physician using point of care echocardiography compared to expert: systematic review and meta-analysis. Eur J Emerg Med. 2022;29(1):18-32. doi:10.1097/MEJ.0000000000000866 (CC BY-NC-ND 4.0 -- sentences quoted verbatim and unaltered, as the licence forbids derivatives)",
+      "text": "Cardiac function was categorised as normal (ejection fraction >= 50%), reduced (ejection fraction 30-49%) or severely reduced (ejection fraction <30%) function. LVSF was ranked simply as normal or abnormal in two studies with cutoff ejection fraction value of 50%. Agreement between emergency physicians and experts gave a simple Kappa of 0.68 (95% confidence interval, 0.57-0.79). The overall quality of studies was low, with most being small, single centre convenience samples."
     },
     {
       "id": "C12",
       "topic": "rv_dilation",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Right ventricular dilation: what it suggests in the acutely breathless patient, and its limits."
+      "status": "sourced",
+      "source": "Ha YR, Toh HC. Clinically integrated multi-organ point-of-care ultrasound for undifferentiated respiratory difficulty, chest pain, or shock: a critical analytic review. J Intensive Care. 2016;4:54. doi:10.1186/s40560-016-0172-1 (CC BY 4.0)",
+      "text": "An RV-to-LV end-diastolic diameter ratio greater than 0.9 was reported to indicate critical pulmonary embolism. The absence of sonographic signs of RV overload or dysfunction practically excludes pulmonary embolism as the cause of hemodynamic instability."
     },
     {
       "id": "C13",
       "topic": "pericardial_effusion",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Pericardial effusion: recognition, and why size alone does not determine significance."
+      "status": "sourced",
+      "source": "Moura de Azevedo S, Duarte R, Krowicki J, Vazquez D, Pires Ferreira Arroja S, Mariz J. Heart in Focus: Advancing Pericardial Effusion Diagnosis With Point-of-Care Ultrasound. Cureus. 2024;16(12):e76681. doi:10.7759/cureus.76681 (CC BY 4.0)",
+      "text": "Pericardial effusion appears as an area without echoes between the heart and the outer layer of the pericardium on an echocardiogram. Effusions are graded by the echo-free space measured in diastole: a small effusion is less than 10 mm, corresponding to approximately 300 ml of fluid; a moderate effusion measures 10-20 mm, corresponding to approximately 500 ml; and a large effusion is greater than 20 mm, corresponding to approximately 700 ml."
     },
     {
       "id": "C14",
       "topic": "tamponade",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Tamponade: the sonographic signs and their relationship to the clinical picture."
+      "status": "sourced",
+      "source": "Moura de Azevedo S, Duarte R, Krowicki J, Vazquez D, Pires Ferreira Arroja S, Mariz J. Heart in Focus: Advancing Pericardial Effusion Diagnosis With Point-of-Care Ultrasound. Cureus. 2024;16(12):e76681. doi:10.7759/cureus.76681 (CC BY 4.0)",
+      "text": "The diastolic collapse of the right atrium is a significant echocardiographic finding in cardiac tamponade and is one of the earliest signs of the condition. While RV diastolic collapse is less sensitive than RA collapse for detecting tamponade, it is highly specific for the condition when it occurs. The IVC remains plethoric, with minimal respiratory variation; this sign is highly sensitive for tamponade (95-97%) with a valuable negative predictive value, but has lower specificity (approximately 40%). In certain clinical situations, such as in cases of RV hypertrophy or significantly elevated RV diastolic pressure (for example acute or chronic cor pulmonale), collapse of the right heart chambers may not be evident, even in the presence of tamponade."
     },
     {
       "id": "C15",
       "topic": "focused_echo_shock",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Focused echocardiography in undifferentiated shock: what a focused study answers and what it cannot exclude."
+      "status": "sourced",
+      "source": "Ha YR, Toh HC. Clinically integrated multi-organ point-of-care ultrasound for undifferentiated respiratory difficulty, chest pain, or shock: a critical analytic review. J Intensive Care. 2016;4:54. doi:10.1186/s40560-016-0172-1 (CC BY 4.0)",
+      "text": "The priority is to rule out obstructive shock first, followed by cardiogenic shock, and then finally absolute or relative (distributive) hypovolemic shocks. Where the lung pattern is diffusely interstitial, cardiogenic shock is most likely. Where it is not, the findings are suggestive of obstructive or hypovolemic shock: IVC plethora indicates obstructive shock, while a small non-plethoric IVC is usually associated with hypovolemic shock."
     },
     {
       "id": "F16",
@@ -148,37 +148,37 @@
     {
       "id": "S21",
       "topic": "shock_classification",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Classification of shock and the sonographic features distinguishing the categories."
+      "status": "sourced",
+      "source": "Keikha M, Salehi-Marzijarani M, Soldoozi Nejat R, Sheikh Motahar Vahedi H, Mirrezaie SM. Diagnostic Accuracy of Rapid Ultrasound in Shock (RUSH) Exam; A Systematic Review and Meta-analysis. Bull Emerg Trauma. 2018;6(4):271-8. doi:10.29252/beat-060402 (Creative Commons)",
+      "text": "The RUSH protocol consists of three steps, in which all three categories of factors (Tank, Pipe, and Pump), which ultimately lead to the occurrence of different types of shock, are examined. Pooled across studies the RUSH exam showed a sensitivity of 0.87 (95% confidence interval 0.80-0.92) and a specificity of 0.98 (95% confidence interval 0.96-0.99). Modest sensitivity and negative likelihood ratio values were obtained for two shock categories, distributive and mixed-etiology, which is likely the most important limitation of applying the RUSH protocol alone to diagnose undifferentiated shock."
     },
     {
       "id": "S22",
       "topic": "shock_hypovolaemic",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Hypovolaemic shock: supporting sonographic and physiological features."
+      "status": "sourced",
+      "source": "Ha YR, Toh HC. Clinically integrated multi-organ point-of-care ultrasound for undifferentiated respiratory difficulty, chest pain, or shock: a critical analytic review. J Intensive Care. 2016;4:54. doi:10.1186/s40560-016-0172-1 (CC BY 4.0)",
+      "text": "Where the lung pattern is not diffusely interstitial, the findings are suggestive of obstructive or hypovolemic shock: IVC plethora indicates obstructive shock, while a small non-plethoric IVC is usually associated with hypovolemic shock. Hypovolemic shock, whether absolute or relative, is the last of the categories to be ruled out, after obstructive and cardiogenic shock have been considered."
     },
     {
       "id": "S23",
       "topic": "shock_cardiogenic",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Cardiogenic shock: supporting features and how it is distinguished from other causes."
+      "status": "sourced",
+      "source": "Ha YR, Toh HC. Clinically integrated multi-organ point-of-care ultrasound for undifferentiated respiratory difficulty, chest pain, or shock: a critical analytic review. J Intensive Care. 2016;4:54. doi:10.1186/s40560-016-0172-1 (CC BY 4.0)",
+      "text": "Where the lung pattern is diffusely interstitial, cardiogenic shock is most likely. If LV systolic function is impaired, the most likely cause is cardiogenic pulmonary edema. Cardiogenic shock is the second category to be ruled out, after obstructive shock and before absolute or relative hypovolemic shock."
     },
     {
       "id": "S24",
       "topic": "shock_obstructive",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Obstructive shock: the causes a focused study can identify."
+      "status": "sourced",
+      "source": "Ha YR, Toh HC. Clinically integrated multi-organ point-of-care ultrasound for undifferentiated respiratory difficulty, chest pain, or shock: a critical analytic review. J Intensive Care. 2016;4:54. doi:10.1186/s40560-016-0172-1 (CC BY 4.0)",
+      "text": "The priority is to rule out obstructive shock first, followed by cardiogenic shock, and then finally absolute or relative (distributive) hypovolemic shocks. IVC plethora indicates obstructive shock, while a small non-plethoric IVC is usually associated with hypovolemic shock. An RV-to-LV end-diastolic diameter ratio greater than 0.9 was reported to indicate critical pulmonary embolism, and the absence of sonographic signs of RV overload or dysfunction practically excludes pulmonary embolism as the cause of hemodynamic instability."
     },
     {
       "id": "S25",
       "topic": "shock_distributive",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Distributive shock: why imaging is largely a diagnosis of exclusion here."
+      "status": "sourced",
+      "source": "Ha YR, Toh HC. Clinically integrated multi-organ point-of-care ultrasound for undifferentiated respiratory difficulty, chest pain, or shock: a critical analytic review. J Intensive Care. 2016;4:54. doi:10.1186/s40560-016-0172-1 (CC BY 4.0) || Keikha M, Salehi-Marzijarani M, Soldoozi Nejat R, Sheikh Motahar Vahedi H, Mirrezaie SM. Diagnostic Accuracy of Rapid Ultrasound in Shock (RUSH) Exam; A Systematic Review and Meta-analysis. Bull Emerg Trauma. 2018;6(4):271-8. doi:10.29252/beat-060402 (Creative Commons)",
+      "text": "Distributive shock is treated as a relative hypovolemic shock and is the last category to be ruled out, after obstructive and cardiogenic shock. In a meta-analysis of the RUSH exam, modest sensitivity and negative likelihood ratio values were obtained for two shock categories, distributive and mixed-etiology, which is likely the most important limitation of applying the RUSH protocol alone to diagnose undifferentiated shock."
     },
     {
       "id": "B26",
