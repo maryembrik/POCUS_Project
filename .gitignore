@@ -1,0 +1,43 @@
+# Raw datasets, model weights, and downloaded archives -- not committed here.
+# The notebooks describe exactly what to upload to Google Drive to reproduce each step.
+Cardiac/
+Pulmonary/
+Abdominal_Gallbladder/
+Biological_VitalDB/
+Clinical_Notes_MTSamples/
+Reference_ClinicalReasoning/
+Reference_OtherOrgan_BreastCVANet/
+Triage_Iran_ED/
+Triage_MCMED_sample/
+Triage_MIMIC/
+Triage_NHAMCS/
+Vascular_ThrombUS/
+
+# Local tool/assistant config, not project code
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Build artefacts and scratch
+catboost_info/
+pocus_agents_colab.zip
+*" (1)"*
+notebooks/reasoning_results*.json
+notebooks/demo_missing_gpu*.json
+
+# Trained weights: large, regenerable from the notebooks. Metrics and calibration
+# artefacts ARE committed -- they are what the report cites.
+models/*.joblib
+models/triage_agent_xgb.json
+models/triage_agent_tier_xgb.json
+
+# Derived manifests: regenerable from src/data_prep, and this repo is public.
+manifests/*.csv
+manifests/*.csv 

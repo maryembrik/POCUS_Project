@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-08-16T13:19:31+00:00",
+  "total_tests": 156,
+  "total_passed": 156,
+  "by_property": {
+    "Absent is not normal": {
+      "tests": 16,
+      "passed": 16
+    },
+    "Advice scope": {
+      "tests": 4,
+      "passed": 4
+    },
+    "Benchmark scenarios": {
+      "tests": 9,
+      "passed": 9
+    },
+    "Case-quality grading": {
+      "tests": 6,
+      "passed": 6
+    },
+    "Confidence calibration": {
+      "tests": 9,
+      "passed": 9
+    },
+    "Conflict detection": {
+      "tests": 9,
+      "passed": 9
+    },
+    "Escalation policy": {
+      "tests": 11,
+      "passed": 11
+    },
+    "Evidence coverage": {
+      "tests": 8,
+      "passed": 8
+    },
+    "Evidence relationships": {
+      "tests": 5,
+      "passed": 5
+    },
+    "Failure severity": {
+      "tests": 3,
+      "passed": 3
+    },
+    "Hallucination rejection": {
+      "tests": 21,
+      "passed": 21
+    },
+    "LLM failure containment": {
+      "tests": 5,
+      "passed": 5
+    },
+    "Malformed output rejection": {
+      "tests": 15,
+      "passed": 15
+    },
+    "Model-scope propagation": {
+      "tests": 5,
+      "passed": 5
+    },
+    "Reference-range detection": {
+      "tests": 5,
+      "passed": 5
+    },
+    "Retrieval grounding": {
+      "tests": 17,
+      "passed": 17
+    },
+    "Unassessed-organ reporting": {
+      "tests": 5,
+      "passed": 5
+    },
+    "Value-reading consistency": {
+      "tests": 3,
+      "passed": 3
+    }
+  },
+  "failures": []
+}

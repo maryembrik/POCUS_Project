@@ -1,0 +1,119 @@
+% =========================================================================================
+% glossary.tex -- acronyms and technical terms
+%
+% This replaces the `glossaries` package, whose \printnoidxglossary sorts entries with TeX
+% macros and was slow enough to exhaust Overleaf's free compile budget across the three
+% passes of a full build.
+%
+% Each entry is declared once and used twice: \gls{key} expands it in the text, and the
+% same declaration accumulates a row for the printed list. Entries print in declaration
+% order, so keep each block alphabetical by hand.
+% =========================================================================================
+
+\makeatletter
+
+\newcommand{\acronymrows}{}
+\newcommand{\termrows}{}
+
+% \newabbr{key}{SHORT}{long form}
+\newcommand{\newabbr}[3]{%
+  \expandafter\gdef\csname glsshort@#1\endcsname{#2}%
+  \g@addto@macro\acronymrows{\item[#2] #3}%
+}
+
+% \newterm{key}{Name}{description}
+\newcommand{\newterm}[3]{%
+  \expandafter\gdef\csname glsshort@#1\endcsname{#2}%
+  \g@addto@macro\termrows{\item[#2] #3}%
+}
+
+% \gls prints the short form. An undefined key renders in red rather than silently
+% printing nothing, so a typo is visible in the PDF.
+\newcommand{\gls}[1]{%
+  \ifcsname glsshort@#1\endcsname\csname glsshort@#1\endcsname
+  \else\rmq{[undefined term: #1]}\fi}
+\newcommand{\glspl}[1]{\gls{#1}s}
+
+% leftmargin/labelwidth must exceed the widest label, or long ones (Grad-CAM, AUROC,
+% "Catastrophic forgetting") spill onto their own line and the list looks ragged.
+\newcommand{\printacronymlist}{%
+  \begin{description}[style=nextline, leftmargin=3.4cm, labelwidth=3.0cm,
+                      font=\bfseries, itemsep=0.15em]
+    \acronymrows
+  \end{description}}
+
+\newcommand{\printtermlist}{%
+  \begin{description}[style=nextline, leftmargin=4.6cm, labelwidth=4.2cm,
+                      font=\bfseries, itemsep=0.35em]
+    \termrows
+  \end{description}}
+
+\makeatother
+
+% =============================================================== ACRONYMS (front matter) ==
+\newabbr{ai}{AI}{Artificial Intelligence}
+\newabbr{auroc}{AUROC}{Area Under the Receiver Operating Characteristic curve}
+\newabbr{bo}{BO}{Business Objective}
+\newabbr{camus}{CAMUS}{Cardiac Acquisitions for Multi-structure Ultrasound Segmentation}
+\newabbr{cnn}{CNN}{Convolutional Neural Network}
+\newabbr{crisp}{CRISP-DM}{Cross-Industry Standard Process for Data Mining}
+\newabbr{cv}{CV}{Cross-Validation}
+\newabbr{dso}{DSO}{Data Science Objective}
+\newabbr{dvt}{DVT}{Deep Vein Thrombosis}
+\newabbr{ece}{ECE}{Expected Calibration Error}
+\newabbr{ed}{ED}{Emergency Department}
+\newabbr{ef}{EF}{Ejection Fraction}
+\newabbr{fast}{FAST}{Focused Assessment with Sonography for Trauma}
+\newabbr{gradcam}{Grad-CAM}{Gradient-weighted Class Activation Mapping}
+\newabbr{llm}{LLM}{Large Language Model}
+\newabbr{lv}{LV}{Left Ventricle}
+\newabbr{mvp}{MVP}{Minimum Viable Product}
+\newabbr{pocus}{POCUS}{Point-of-Care Ultrasound}
+\newabbr{rag}{RAG}{Retrieval-Augmented Generation}
+\newabbr{tta}{TTA}{Test-Time Augmentation}
+
+% ================================================================== TERMS (back matter) ==
+\newterm{alines}{A-lines}{Horizontal artefacts repeating at regular intervals below the
+  pleural line, produced by normally aerated lung.}
+
+\newterm{balancedacc}{Balanced accuracy}{The mean of the per-class recalls. Under class
+  imbalance it is the honest alternative to plain accuracy, which a model can inflate by
+  predicting the majority class.}
+
+\newterm{blines}{B-lines}{Vertical bright artefacts extending from the pleural line to the
+  bottom of a lung ultrasound image. Their number and distribution indicate fluid in the
+  lung interstitium, and they are the principal sonographic sign of pulmonary oedema.}
+
+\newterm{calibration}{Calibration}{The adjustment of a model's raw output so that it can
+  be read as a probability. Distinct from accuracy: a model can be accurate and still be
+  systematically overconfident.}
+
+\newterm{forgetting}{Catastrophic forgetting}{The loss of previously learned performance
+  when a trained network is adapted to new data. Observed here when a cardiac model
+  fine-tuned on an external dataset lost accuracy on its original one.}
+
+\newterm{leakage}{Data leakage}{Any route by which information from the evaluation set
+  reaches the training process. It inflates measured performance without improving the
+  model, and is therefore invisible in the metrics meant to detect failure.}
+
+\newterm{dice}{Dice coefficient}{A measure of overlap between a predicted segmentation and
+  its reference, ranging from 0 (disjoint) to 1 (identical).}
+
+\newterm{digitaltwin}{Digital twin}{A simulated model of a patient allowing candidate
+  decisions to be explored before one is committed to. Outside the scope of this
+  internship and discussed only as a perspective.}
+
+\newterm{escalation}{Escalation}{The decision to withhold a direct answer and route a case
+  for further examination, taken when evidence is insufficient, confidence is low, or
+  sources disagree.}
+
+\newterm{groupedcv}{Grouped cross-validation}{A partitioning scheme in which every image
+  from the same patient or case is placed in the same fold, so that no fold is evaluated
+  on a patient it was trained on.}
+
+\newterm{statunit}{Statistical unit}{The entity that may be treated as an independent
+  observation. In these datasets it is the patient or the case, not the individual frame,
+  because frames from one acquisition are near-duplicates of one another.}
+
+\newterm{triage}{Triage}{The initial assessment that assigns an arriving patient a
+  priority level, determining how quickly they are seen.}

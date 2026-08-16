@@ -1,0 +1,71 @@
+==============================================================================
+SCENARIO: missing   encounter DEMO-MISSING
+==============================================================================
+CLINICAL STATE  DEMO-MISSING
+
+CASE QUALITY: MODERATE
+  - key lab(s) not obtained: troponin, lactate
+
+PATIENT
+  age: 74
+  chief_complaint: acute breathlessness
+  sex: F
+
+TRIAGE
+  urgency: high (confidence 0.79)
+
+IMAGING FINDINGS
+  lung: b lines (0.86)  evidence=strong
+  lung: pleural thickening NOT detected (0.11)  evidence=limited
+  lung: consolidation NOT detected (0.09)  evidence=limited
+  lung: pleural effusion NOT detected (0.04)  evidence=limited
+  (strong = calibrated with an adequate evidence base; limited = thin support;
+   experimental = UNCALIBRATED, not a probability, not comparable with the rest)
+  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease
+  LIMIT: lung: pneumothorax is not modelled and cannot be excluded
+
+VITALS
+  hr: 118.0 bpm  <-- HIGH
+  rr: 24.0 /min  <-- HIGH
+  sbp: 104.0 mmHg
+  spo2: 90.0 %  <-- LOW
+
+LABS
+  none resulted
+
+NOT MEASURED -- absent, NOT normal
+  labs: troponin, bnp, d_dimer, lactate, crp, wbc, creatinine, ph
+  vitals: temp
+  Do not treat any of these as excluded. They were not obtained.
+
+model: ready: HuatuoGPT-o1-8B-Q4_K_M.gguf (4.9 GB)
+loaded in 50.9s
+
+==============================================================================
+ESCALATION  (computed before the model ran)
+==============================================================================
+escalate: True   route: simulation
+  - positive imaging with key lab(s) absent: troponin, lactate
+
+==============================================================================
+MODEL OUTPUT   (438.6s)
+==============================================================================
+{
+  "differential": [
+    {
+      "diagnosis": "heart failure or pulmonary embolism",
+      "likelihood": "high",
+      "supporting": [
+        "b lines in the lungs (strong evidence)"
+      ],
+      "contradicting": []
+    }
+  ],
+  "missing_information": [
+    "troponin, BNP, D-dimer, lactate, CRP, WBC, creatinine, pH"
+  ],
+  "uncertainty": "The lack of lab data and imaging limitations make it difficult to rule out other conditions, such as pneumothorax, which is not modelled.",
+  "recommended_next_step": "Obtain troponin, BNP, D-dimer, and lactate levels to help determine the cause of the breathlessness and consider a chest X-ray to evaluate for any missed pulmonary issues."
+}
+
+written: models/demo_missing.json

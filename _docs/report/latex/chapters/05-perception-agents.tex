@@ -1,0 +1,298 @@
+% =========================================================================================
+% Chapter 5 -- Perception Agents
+%
+% Each module is written as a complete investigation ending in a decision: objective, data,
+% preprocessing, features/model, training, results, error analysis, calibration, and the
+% configuration retained. Rejected experiments belong inside the module that prompted them.
+% Cross-module synthesis is Chapter 8, not here.
+% =========================================================================================
+\section{Perception Agents}
+\label{sec:perception}
+
+\subsection{General Architecture}
+\label{subsec:perception-arch}
+\rmq{The design shared by all four modules, explained once here so the module sections need
+only report what differs: grouped cross-validation by case, calibrated confidence fitted
+out-of-fold, an explicit declaration of scope, and a common output format. State the
+reporting convention again in one sentence --- built, measured, concluded --- since this is
+the chapter where it does the most work.}
+
+% =========================================================================================
+\subsection{Triage Agent}
+\label{subsec:triage-agent}
+
+\subsubsection{Objective}
+\rmq{Estimate an urgency tier from structured patient data alone, calibrated well enough
+that its confidence is comparable with an imaging finding's. State what the agent is NOT
+for: it does not diagnose, and it never sees an image.}
+
+\subsubsection{Dataset}
+\rmq{The pooled emergency dataset: sources, visit counts, the tier definition (low / medium
+/ high) and why three tiers rather than the five-level scales used in hospital triage --- the
+reasoning layer consumes the tier to decide escalation, not to assign a waiting time. Refer
+back to Chapter~\ref{sec:data} for provenance rather than repeating it.}
+
+\subsubsection{Preprocessing}
+\rmq{Sentinel values are the point here. Vitals recorded as 0 mean "not measured", not a
+physiological zero, and were converted to genuine missing values so the model treats them as
+absent rather than as an extreme reading. Note that gradient-boosted trees handle missing
+values natively, which is part of why the family was chosen.}
+
+\subsubsection{Feature Engineering}
+\rmq{Two things to report, in this order.
+
+First, the clinically motivated composites --- shock index, a partial qSOFA, and the
+red-flag thresholds --- with the reasoning that these encode how a clinician actually reads
+a set of vitals, rather than leaving the model to rediscover it.
+
+Second, and more valuable, the features that were REMOVED and why. Disposition-related
+fields produced a markedly higher accuracy that reflected the outcome leaking into the
+input rather than clinical signal. Give both numbers, the inflated one and the honest one.
+Also report the coarse reason-for-visit grouping that was tested and rejected because it
+lost accuracy: collapsing hundreds of codes into a few categories discards real signal.}
+
+\subsubsection{Model Selection}
+\rmq{The comparison against logistic regression, random forest, a small MLP and CatBoost on
+identical data, and the result that none beat gradient-boosted trees. Make the argument
+explicitly: this establishes that the accuracy ceiling is a property of the data, not a
+limitation of the architecture, which is what licenses the interpretation in
+Section~\ref{subsec:triage-error}.}
+
+\subsubsection{Training}
+\rmq{The temporal split (train on the earlier year, test on the later), the class weighting,
+and the additional weight on the most urgent classes. Report that a more aggressive weight
+was tested and rejected because it cost substantial accuracy for negligible safety gain ---
+the sweet spot was found by measurement, not by assumption.}
+
+\subsubsection{Results}
+\label{subsec:triage-results}
+\rmq{Accuracy and macro F1 against the majority-class baseline, the confusion matrix, and
+per-source performance. A single pooled figure hides whether the model transfers between
+sources, so report the breakdown.
+
+Include the context that makes the number interpretable: published inter-rater agreement
+between human triage nurses on the same scale. A model that matches the agreement level of
+trained clinicians is in a different position from one that simply scores low, and the
+reader cannot know which without that reference.}
+
+\subsubsection{Error Analysis}
+\label{subsec:triage-error}
+\rmq{Not all errors cost the same. Report the dangerous-error rate --- high-urgency cases
+predicted low --- separately from overall error, and introduce accuracy-within-one-level as
+the metric appropriate to an ordinal target. Then the safety threshold: a "low" prediction
+is forbidden when the probability of "high" exceeds a fixed bound. Report the threshold
+sweep and what it bought: roughly half the dangerous errors for almost no overall accuracy.}
+
+\subsubsection{Calibration}
+\rmq{Method, the data it was fitted on (a held-out slice of training, never the test set),
+and ECE before and after. State plainly that accuracy is essentially unchanged: calibration
+does not make a model more accurate, it makes its stated confidence mean something.}
+
+\subsubsection{Final Decision}
+\rmq{The configuration retained, and the limitations declared to the reasoning layer.}
+
+% =========================================================================================
+\subsection{Ultrasound Agent: Organ Routing}
+\label{subsec:ultrasound-agent}
+\rmq{How an examination is dispatched to the correct module, and how an unsupported organ
+returns an explicit not-supported status in the ordinary output format rather than being
+omitted or answered with a low-confidence guess. Short section --- the substance is in the
+module sections that follow.}
+
+% =========================================================================================
+\subsection{Lung Module}
+\label{subsec:lung-module}
+
+\subsubsection{Objective}
+\rmq{Detect four findings --- B-lines, consolidation, pleural effusion, pleural thickening
+--- from a lung ultrasound clip. Emphasise that this is deliberately not a disease
+classifier: it reports findings, and the inference to pneumonia or oedema belongs to the
+reasoning layer.}
+
+\subsubsection{Dataset and the Multi-Label Formulation}
+\rmq{Why multi-label rather than single-label: a clip can show B-lines and consolidation at
+once, so the model emits four independent probabilities rather than one distribution. This
+is the first structural difference from the cardiac module and worth stating explicitly.}
+
+\subsubsection{Preprocessing and Clip Handling}
+\rmq{Eight evenly spaced frames per clip rather than every frame, since neighbouring frames
+are near-duplicates; frames decoded once and cached; per-frame inference aggregated to a
+clip probability by the median, so one blurred frame cannot dominate. Justify the median
+choice: frames from a clip are not independent evidence.}
+
+\subsubsection{Partially Labelled External Data}
+\rmq{The extra images positive for B-lines only, with no negatives and no labels for the
+other three findings. Report the solution --- a per-sample mask restricting the loss to the
+column that is actually known --- and the discipline around it: these samples entered the
+training set only, never validation.}
+
+\subsubsection{Model Selection and the Frozen-Backbone Discovery}
+\rmq{The single most valuable diagnostic in the project. An earlier configuration had the
+entire backbone frozen, leaving only the classifier head trainable, and since ultrasound
+speckle resembles nothing in ImageNet the frozen features could not adapt. Report the
+parameter counts before and after, and the measured effect of unfreezing the last blocks
+with a low learning rate --- the largest single gain recorded in this project.}
+
+\subsubsection{Training}
+\rmq{Mixed precision, the cosine learning-rate schedule, early stopping on validation AUROC,
+and the epoch budget. Keep it brief; the interesting decisions are elsewhere.}
+
+\subsubsection{Results}
+\label{subsec:lung-results}
+\rmq{Per-finding and macro AUROC at CASE level, with the clip and case counts behind each
+figure. Report the before/after of the leakage fix explicitly: the earlier, higher numbers
+were inflated by patient overlap between folds, and the honest figures are lower. Give both.
+State which findings have too few positive cases to support a reliable threshold; those are
+marked unreliable and the mark is carried through to the reasoning layer.}
+
+\subsubsection{Error Analysis}
+\rmq{Which findings the model confuses and whether the confusions are clinically adjacent.
+Relate the weakest findings to their positive-case counts rather than treating them as
+unexplained.}
+
+\subsubsection{Calibration}
+\rmq{Per-finding Platt scaling --- one calibrator per finding, since the four are
+independent --- fitted out-of-fold, with ECE per finding before and after. Explain why
+thresholds were tuned on the other folds and applied to the held-out one, never tuned and
+evaluated on the same data.}
+
+\subsubsection{Final Decision}
+\rmq{The retained configuration, the per-finding thresholds, and the declared limitations.}
+
+% =========================================================================================
+\subsection{Cardiac Module}
+\label{subsec:cardiac-module}
+
+\subsubsection{Objective}
+\rmq{Segment the left ventricle, myocardium and left atrium, and derive an ejection
+fraction from the segmentation. Note the difference in task type from every other module:
+this is the only pixel-level model in the system.}
+
+\subsubsection{Dataset}
+\rmq{CAMUS, with its explicit patient structure, and the external dataset used for
+validation. State the benchmark from Section~\ref{subsec:sota-existing} that the in-domain
+results are read against.}
+
+\subsubsection{Model and Loss}
+\rmq{U-Net with an EfficientNet-B0 encoder, and the composite loss. Explain why
+cross-entropy alone is insufficient: the structures occupy a small fraction of the image, so
+a model can score acceptably by predicting background everywhere. Soft Dice rewards overlap
+directly and counteracts that imbalance. Also cover ignore\_index for partially labelled
+masks.}
+
+\subsubsection{Training}
+\rmq{Early stopping on validation Dice with the best checkpoint retained rather than the
+last, and the schedule.}
+
+\subsubsection{In-Domain Results}
+\label{subsec:cardiac-results}
+\rmq{Per-structure Dice on held-out CAMUS patients, against the leaderboard figures in
+Tab.~\ref{tab:camus}. Report the left atrium honestly --- it is the weakest structure here
+as it is in the published results.}
+
+\subsubsection{External Validation and the Generalisation Gap}
+\rmq{The drop on the external dataset, stated plainly with both numbers. Then the
+investigation, in the order it happened:
+
+\begin{enumerate}
+  \item a hypothesis that the gap was a labelling-convention mismatch, formed from a handful
+        of images;
+  \item connected-component analysis over the full dataset, which DISPROVED it --- report
+        the reversal, it is evidence of method rather than an embarrassment;
+  \item what the remaining explanation is, and what it is not.
+\end{enumerate}
+
+This is the strongest passage available in the chapter. Do not compress it.}
+
+\subsubsection{Ejection Fraction}
+\rmq{The initial bias in the derived EF, the geometric explanation --- area and volume do
+not scale together --- the correction applied, and the agreement between the bias predicted
+from the geometry and the bias actually observed. That agreement is the result: a correction
+derived from theory and confirmed by measurement is worth more than a tuned constant. Report
+MAE before and after, the correlation, balanced accuracy against the three-class chance
+level, and the severe/normal confusion count.}
+
+\subsubsection{Rejected Adaptations}
+\rmq{Six strategies were tried to close the external gap and four were rejected. Report each
+as hypothesis, measurement, decision --- particularly fine-tuning, which improved the
+external number substantially while degrading CAMUS performance to an unacceptable degree.
+The conclusion follows: the non-fine-tuned model was retained, and its domain limitation is
+declared to the reasoning layer rather than hidden.}
+
+\subsubsection{Calibration}
+\rmq{Isotonic regression on the EF-derived severity classification, ECE before and after,
+and the confidence ceiling that follows from it.}
+
+\subsubsection{Final Decision}
+\rmq{The retained model and the scope it declares --- specifically that it is
+domain-limited, and what that forbids the reasoning layer from concluding.}
+
+% =========================================================================================
+\subsection{Gallbladder Module}
+\label{subsec:gallbladder-module}
+
+\subsubsection{Objective}
+\rmq{Single-label classification of gallbladder pathology at case level.}
+
+\subsubsection{Dataset and the Mislabelled Class}
+\rmq{The per-case inspection that found a class whose label did not match its images, and
+the methodological lesson: the class had first been judged from a handful of frames, and
+frames from one case are not a sample of a class. Sampling one frame per case across all
+cases reversed the conclusion. State this as a rule, because it generalises.}
+
+\subsubsection{Taxonomy Selection}
+\rmq{The best piece of experimental economy in the project. Rather than training a model per
+candidate taxonomy, the measured confusion matrix from the fine-grained model was collapsed
+arithmetically to estimate the accuracy each candidate would achieve. Report the predicted
+figure for the chosen taxonomy, then the measured figure after training. Their agreement is
+itself a result, and it is what justified spending GPU time on one configuration instead of
+several.}
+
+\subsubsection{Training}
+\rmq{Training on the fine-grained labels with class weights computed per fold from the
+training portion only. Explain the marginalisation: group probabilities are SUMMED, not
+obtained by mapping the argmax, because summing preserves the model's uncertainty across
+members of a group.}
+
+\subsubsection{Results}
+\label{subsec:gallbladder-results}
+\rmq{Balanced accuracy against the chance level for the number of classes, per-class recall,
+and the case count. Report the first, much lower result before the taxonomy correction as
+well --- the improvement is only meaningful with the starting point visible.}
+
+\subsubsection{Rejected Alternatives}
+\rmq{Two to report: training directly on merged labels, which was worse than merging
+probabilities from fine-grained training; and USCL initialisation, which underperformed
+ImageNet despite the published gain discussed in Section~\ref{subsec:sota-existing}. Give
+the numbers for both.}
+
+\subsubsection{Calibration}
+\rmq{Temperature scaling, the fitted temperature, and ECE before and after.}
+
+\subsubsection{Final Decision}
+\rmq{The retained configuration and its declared limitations --- in particular whether the
+module has a healthy class, since a module without one can never exclude disease.}
+
+% =========================================================================================
+\subsection{Explainability Across the Imaging Modules}
+\label{subsec:explainability}
+\rmq{Grad-CAM applies to all three imaging modules and is therefore treated once, here.
+
+The important methodological point: the maps were MEASURED, not inspected by eye. Report
+centroid spread, area above half-maximum and normalised entropy against reference values for
+uniform and concentrated attention, and the explicit test for centre bias --- a heatmap that
+always points at the middle of the image regardless of content is not an explanation. State
+what these statistics support (attention is concentrated) and what they cannot support (that
+the attention is anatomically correct).}
+
+% =========================================================================================
+\subsection{Perception Agent Output Contract}
+\label{subsec:output-contract}
+\rmq{The shared schema and its validation rules, each with its reason: findings are always a
+list because lung is multi-label; a status of "ok" with no findings is rejected; a stated
+confidence exceeding the declared ceiling is rejected. Show the schema and one worked
+example from each module.
+
+This section is the hinge between Chapters~\ref{sec:perception} and~\ref{sec:reasoning}, and
+it is what makes four heterogeneous models --- a segmentation network, two classifiers and a
+tree ensemble --- usable by a single reasoning layer.}

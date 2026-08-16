@@ -1,0 +1,267 @@
+% =========================================================================================
+% Chapter 1 -- Introduction
+% =========================================================================================
+\section{Introduction}
+\label{sec:introduction}
+
+\subsection{Context: Emergency Medicine and POCUS}
+\label{subsec:context}
+
+In emergency medicine, clinical decisions are made in an environment where time is
+limited, information is incomplete, and uncertainty is unavoidable. A patient arrives with
+a few symptoms and abnormal vital signs, and the physician must rapidly determine whether
+the situation is benign, potentially dangerous, or immediately life-threatening. In such
+circumstances, every additional source of reliable information can influence both the
+quality and the speed of the decision.
+
+Among the tools available at the bedside, point-of-care ultrasound (\gls{pocus}) has
+become an increasingly central component of emergency assessment. Unlike conventional imaging workflows, which may
+require transporting the patient, scheduling specialised equipment and waiting for a
+formal interpretation, \gls{pocus} allows the clinician to acquire images directly at the
+bedside and use them within the same examination. It is portable, involves no ionising
+radiation, costs comparatively little, and can provide information about the lungs, the
+heart and the abdomen within minutes.
+
+For the presentations that dominate emergency practice --- acute dyspnoea, chest pain,
+abdominal pain, undifferentiated shock --- \gls{pocus} frequently answers the decisive
+question faster than any other available investigation. Structured protocols have
+formalised this role: the BLUE protocol for acute respiratory failure
+\cite{lichtenstein2008blue} and the Focused Assessment with Sonography for Trauma
+(\gls{fast}) in injury both reduce a complex diagnostic question to a short sequence of
+bedside views, each with a defined interpretation.
+
+\subsection{Problem Statement}
+\label{subsec:problem}
+
+\begin{keystatement}
+The availability of an image does not, by itself, guarantee an accurate diagnosis.
+\end{keystatement}
+
+\gls{pocus} remains strongly dependent on the operator. Acquisition varies with probe
+position, anatomical orientation, patient habitus, machine settings and technique.
+Interpretation requires clinical expertise acquired over years of supervised practice, and
+it is hardest precisely where it matters most: in emergency situations, where several
+distinct conditions produce similar appearances, where the examination is performed under
+time pressure, often at night, and often by a clinician whose primary specialty is not
+radiology. The same clip that yields a confident diagnosis in experienced hands may yield
+nothing in less experienced ones.
+
+The challenge is therefore not to acquire more medical images, but to transform
+heterogeneous observations into reliable and actionable clinical information. It grows
+once the rest of the clinical picture is considered. An ultrasound examination is only one
+part of the evidence available during an emergency evaluation. Vital signs, symptoms, age,
+medical history and laboratory measurements provide additional evidence that may either
+support or contradict what is seen on the screen. A patient may appear relatively stable
+by their vital signs while the ultrasound reveals a potentially severe abnormality;
+conversely, an isolated imaging finding may carry limited significance once the patient's
+symptoms and physiological state are taken into account.
+
+The problem this project addresses can therefore be stated as a single question:
+
+\begin{keystatement}
+How can multimodal artificial intelligence be integrated into point-of-care ultrasound to
+improve diagnostic accuracy, assist clinicians at the bedside, and strengthen the quality
+of emergency care?
+\end{keystatement}
+
+This question decomposes into four concrete difficulties, each of which shapes a design
+decision later in this report.
+
+\paragraph{Operator dependence.} Image acquisition and interpretation both vary with the
+skill of the individual clinician. A system that assists interpretation must be robust to
+variation in acquisition, not merely accurate on well-acquired images.
+
+\paragraph{Interpretation under time pressure.} Emergency decisions are made in minutes.
+An assistant whose output requires careful reading provides no benefit; its findings must
+be immediately legible and must carry an explicit indication of how far they can be
+trusted.
+
+\paragraph{Fragmented information.} Vital signs, imaging, laboratory results and history
+arrive separately and at different times. The clinical decision depends on their
+combination, but each source is typically presented in isolation.
+
+\paragraph{The cost of unwarranted confidence.} A decision-support system that presents an
+uncertain finding with the same authority as a certain one is worse than no system at all,
+because it introduces error while appearing to reduce it. This constraint proved to be the
+single strongest influence on the architecture, and is the reason \gls{calibration},
+evidence grading and the escalation policy are treated as core components rather than as
+refinements.
+
+\subsection{Motivation}
+\label{subsec:motivation}
+
+Recent advances in artificial intelligence (\gls{ai}) offer a way to approach this problem
+from a multimodal perspective. Convolutional neural networks (\glspl{cnn}) can learn to
+recognise patterns in ultrasound images and now match specialist performance on several
+well-defined imaging tasks \cite{leclerc2019camus, isensee2021nnunet}. Supervised models
+on structured data can analyse vital signs and patient characteristics. More recently,
+large language models (\glspl{llm}) have demonstrated the ability to integrate
+heterogeneous information and produce structured reasoning over complex textual and
+numerical inputs \cite{chen2024huatuogpto1}.
+
+Yet most published work stops at a single organ and a single question --- a model that
+detects \gls{blines}, or one that segments the left ventricle --- evaluated in isolation.
+A clinician facing an undifferentiated patient does not have a single question. They have
+a patient, with vital signs, a history, laboratory results and an ultrasound probe, and
+they must integrate all of it. This is the gap the project addresses: not the accuracy of
+any individual model, but the absence of a layer that combines several of them with the
+rest of the clinical record.
+
+Placing a model in front of a physician does not, in itself, constitute a clinical
+decision-support system. A useful emergency system must understand what it is looking at,
+what it does not know, how reliable its information is, and when it should admit
+uncertainty. A model that produces a confident answer from incomplete or contradictory
+evidence is more dangerous than one that explicitly asks for additional information,
+because it introduces error while appearing to remove it. This observation motivates the
+central idea of the project:
+
+\begin{keystatement}
+Artificial intelligence should not replace the emergency clinician's reasoning. It should
+act as a clinical co-pilot that organises evidence, highlights important findings,
+identifies uncertainty, and supports safer decision-making.
+\end{keystatement}
+
+\subsection{Project Objectives}
+\label{subsec:objectives}
+
+\subsubsection{Business Objective}
+
+The \gls{bo} is to improve the quality and speed of emergency decision-making for
+critically ill patients. It decomposes into four measurable aims:
+
+\begin{itemize}[label=$\bullet$]
+  \setlength\itemsep{0.3em}
+  \item \textbf{Reduce time-to-diagnosis.} An interpretation available during the
+    examination itself, rather than after a formal report, shortens the interval between
+    the patient arriving and the decisive question being answered. This is the aim most
+    directly served by point-of-care imaging, and the one an assistant can most plausibly
+    improve.
+  \item \textbf{Reduce diagnostic error, particularly for less experienced operators.}
+    Interpretation quality varies with training. An assistant that recognises defined
+    pathologies narrows the gap between the confident reading an expert obtains and the
+    uncertain one a junior clinician obtains from the same images.
+  \item \textbf{Make uncertainty visible rather than implicit.} The value of the system
+    lies as much in flagging what it does not know as in what it detects. A finding
+    presented with an honest confidence, and an explicit statement of what has not been
+    measured, allows the clinician to weigh it correctly instead of accepting or
+    discarding it wholesale.
+  \item \textbf{Preserve the clinician's authority over the decision.} The system produces
+    a reasoned differential and, for ambiguous or high-stakes cases, exposes the reasoning
+    so the physician can examine it before committing. It recommends next steps; it does
+    not prescribe treatment and does not act autonomously.
+\end{itemize}
+
+\subsubsection{Data Science Objective}
+
+The \gls{dso} is to deliver the technical components that make the above possible:
+
+\begin{itemize}[label=$\bullet$]
+  \setlength\itemsep{-0.2em}
+  \item computer vision models that detect defined pathologies from \gls{pocus}, each
+    returning a calibrated confidence rather than a bare score;
+  \item an explainability layer relating model attention to anatomical regions a clinician
+    can verify;
+  \item a structured clinical state that records not only what was found, but what was not
+    measured and what the models cannot exclude;
+  \item a reasoning layer that converts imaging findings and clinical data into a ranked
+    differential diagnosis with grounded justification;
+  \item an escalation policy determining, from confidence, severity and data completeness,
+    whether a case can be answered directly or requires further examination.
+\end{itemize}
+
+These reduce to three verbs that recur throughout the report:
+
+\begin{enumerate}
+  \setlength\itemsep{-0.2em}
+  \item \textbf{Perceive} --- extract meaningful information from patient data and from
+    \gls{pocus} images.
+  \item \textbf{Reason} --- combine these observations with clinical knowledge and
+    contextual information.
+  \item \textbf{Escalate when necessary} --- recognise when the available evidence is
+    insufficient or contradictory, rather than generating an unjustified conclusion.
+\end{enumerate}
+
+\begin{keystatement}
+The objective is not to make artificial intelligence decide instead of the clinician, but
+to make the available clinical evidence easier to understand, cross-check and act upon.
+\end{keystatement}
+
+\subsection{Proposed Approach}
+\label{subsec:approach}
+
+The project explores this concept through a modular multi-agent architecture. Rather than
+developing a single model responsible for the entire diagnostic process, the system
+separates the problem into specialised components, each answering a question it has the
+information to answer. The overall organisation is shown in Fig.~\ref{fig:architecture};
+each component is described in detail in Section~\ref{subsec:architecture}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.70\textwidth]{fig_architecture.png}
+  \caption{Overall architecture of POCUS-Emergency. Perception, representation, reasoning
+    and decision support are separated into distinct layers. The Clinical State Builder
+    acts as a safety boundary between the perception models and the language model.}
+  \label{fig:architecture}
+\end{figure}
+
+Two perception agents operate in parallel. The \textbf{Triage Agent} focuses on the
+patient rather than the image, estimating an urgency level from the chief complaint, vital
+signs and age. The \textbf{Ultrasound Agent} focuses exclusively on \gls{pocus} data,
+routing an examination to the appropriate organ-specific model and returning structured
+findings with confidence information and Gradient-weighted Class Activation Mapping
+(\gls{gradcam}) explanations. Its objective is not
+to decide whether a patient is urgent, but to answer a more fundamental question: what
+does the ultrasound show?
+
+Their outputs are combined by the \textbf{Clinical Reasoning Agent}, which weighs them
+against laboratory results and history while accounting for missing information, model
+limitations and contradictions between sources. A retrieval-augmented generation
+(\gls{rag}) mechanism grounds the reasoning in a curated medical knowledge base
+\cite{lewis2020rag}, and a locally deployed
+medical language model transforms the structured evidence into a ranked differential
+diagnosis with supporting arguments, explicit uncertainty and an escalation decision.
+
+\paragraph{Reasoning under uncertainty.} A further objective is to address uncertainty
+explicitly rather than implicitly. In real emergency medicine, the absence of information
+is not equivalent to a normal result. A laboratory test that was never performed cannot be
+interpreted as negative, and a model that was never trained to detect a particular
+pathology cannot be used to exclude it. The system therefore incorporates an intermediate
+Clinical State Builder that standardises the outputs of the different agents and
+represents explicitly the information that is available and the information that is
+missing, the confidence attached to each finding and whether that confidence is
+calibrated, the stated limitations of each model, and any conflict between clinical and
+imaging evidence. This representation acts as a safety boundary: it prevents the reasoning
+layer from silently treating missing evidence as negative evidence, or from interpreting a
+model outside the scope it was trained for.
+
+\subsection{Report Organization}
+\label{subsec:organization}
+
+The report follows the order in which the system was built, so that each chapter depends
+only on what precedes it.
+
+\begin{itemize}[label=$\bullet$]
+  \setlength\itemsep{-0.1em}
+  \item \textbf{Chapter~\ref{sec:environment} --- Project Environment and Presentation.}
+    The host organisation, the context of the internship, the system architecture in
+    detail, and the development methodology.
+  \item \textbf{Chapter~\ref{sec:sota} --- Preliminary Study and State of the Art.}
+    Existing work in automated ultrasound interpretation and multimodal decision support,
+    its limitations, and the positioning of this project against it.
+  \item \textbf{Chapter~\ref{sec:data} --- Datasets and Data Preparation.} The datasets
+    used, their characteristics, and the determination of the statistical unit that
+    governs every result reported afterwards.
+  \item \textbf{Chapter~\ref{sec:perception} --- Perception Agents.} Development and
+    evaluation of the triage, lung, cardiac and gallbladder modules, including the
+    experiments that failed and the corrections they prompted.
+  \item \textbf{Chapter~\ref{sec:reasoning} --- Clinical Reasoning Agent.} The clinical
+    state representation, conflict detection, retrieval, the medical language model,
+    output validation and the escalation policy.
+  \item \textbf{Chapter~\ref{sec:integration} --- System Integration and Prototype.} The
+    end-to-end pipeline, the contract through which the agents communicate, and worked
+    clinical scenarios.
+  \item \textbf{Chapter~\ref{sec:results} --- Results and Discussion.} The measured
+    results for each module, what they mean clinically, and the limitations that remain.
+  \item \textbf{Chapter~\ref{sec:conclusion} --- Conclusion and Perspectives.} The
+    contributions, the objectives achieved, and directions for future work.
+\end{itemize}

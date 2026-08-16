@@ -1,0 +1,180 @@
+{
+  "generated_at": "2026-08-16T11:11:58+00:00",
+  "model": "HuatuoGPT-o1-8B-Q4_K_M (llama.cpp, n_gpu_layers=-1, temperature 0, seed 0)",
+  "retrieval": "NONE \u2014 pre-RAG baseline",
+  "cases": 5,
+  "delivered": [
+    "missing",
+    "concordant"
+  ],
+  "withheld": [
+    "conflict",
+    "reassuring",
+    "not_assessed"
+  ],
+  "revision_rounds_sent": 4,
+  "revision_complaints_fixed": 2,
+  "failure_counts": {
+    "A": 3,
+    "B": 4,
+    "C": 2,
+    "D": 2,
+    "E": 3
+  },
+  "per_case": [
+    {
+      "case": "missing",
+      "valid_json": true,
+      "escalate": true,
+      "escalation_correct": true,
+      "withheld": false,
+      "fatal_errors": 0,
+      "warnings": 1,
+      "revisions": 1,
+      "entries": 3,
+      "seconds": 74.1
+    },
+    {
+      "case": "conflict",
+      "valid_json": true,
+      "escalate": true,
+      "escalation_correct": true,
+      "withheld": true,
+      "fatal_errors": 1,
+      "warnings": 1,
+      "revisions": 1,
+      "entries": 1,
+      "seconds": 53.4
+    },
+    {
+      "case": "concordant",
+      "valid_json": true,
+      "escalate": false,
+      "escalation_correct": true,
+      "withheld": false,
+      "fatal_errors": 0,
+      "warnings": 3,
+      "revisions": 1,
+      "entries": 1,
+      "seconds": 74.2
+    },
+    {
+      "case": "reassuring",
+      "valid_json": true,
+      "escalate": true,
+      "escalation_correct": true,
+      "withheld": true,
+      "fatal_errors": 1,
+      "warnings": 0,
+      "revisions": 0,
+      "entries": 1,
+      "seconds": 32.8
+    },
+    {
+      "case": "not_assessed",
+      "valid_json": true,
+      "escalate": true,
+      "escalation_correct": true,
+      "withheld": true,
+      "fatal_errors": 4,
+      "warnings": 2,
+      "revisions": 1,
+      "entries": 2,
+      "seconds": 76.3
+    }
+  ],
+  "classification": {
+    "missing": [
+      {
+        "class": "D",
+        "evidence": "rated Pulmonary Edema 'high' with BNP and troponin never drawn",
+        "outcome": "fixed on revision -> moderate"
+      },
+      {
+        "class": "B",
+        "evidence": "respiratory rate 24 (HIGH) cited nowhere",
+        "outcome": "delivered as a warning"
+      }
+    ],
+    "conflict": [
+      {
+        "class": "A",
+        "evidence": "cited 'elevated troponin (5.0 ng/L)'; the state records 5.0 as NORMAL (ref <=14)",
+        "outcome": "not fixed on revision"
+      },
+      {
+        "class": "E",
+        "evidence": "differential withheld",
+        "outcome": "correct"
+      }
+    ],
+    "concordant": [
+      {
+        "class": "B",
+        "evidence": "heart rate 122, respiratory rate 28 and SpO2 88 cited nowhere",
+        "outcome": "delivered as a warning"
+      }
+    ],
+    "reassuring": [
+      {
+        "class": "A",
+        "evidence": "cited 'stable vitals' as contradicting evidence; the phrase appears nowhere in the state",
+        "outcome": "fatal, no revision offered"
+      },
+      {
+        "class": "A",
+        "evidence": "cited 'elevated troponin'; the state records 4.0 as NORMAL",
+        "outcome": "reported"
+      },
+      {
+        "class": "C",
+        "evidence": "proposed 'Cardiac Stress or Injury' and further cardiac testing for a 44-year-old with normal vitals, normal labs and a negative scan",
+        "outcome": "reported"
+      },
+      {
+        "class": "E",
+        "evidence": "differential withheld",
+        "outcome": "correct"
+      }
+    ],
+    "not_assessed": [
+      {
+        "class": "B",
+        "evidence": "the heart was never scanned and was not named in missing_information",
+        "outcome": "not fixed on revision"
+      },
+      {
+        "class": "C",
+        "evidence": "cited absent pleural thickening, consolidation and effusion as evidence against pulmonary embolism (3 claims)",
+        "outcome": "not fixed"
+      },
+      {
+        "class": "D",
+        "evidence": "rated Pulmonary Embolism 'high' with D-dimer never drawn",
+        "outcome": "fixed on revision -> moderate"
+      },
+      {
+        "class": "B",
+        "evidence": "respiratory rate 22 and SpO2 93 cited nowhere",
+        "outcome": "delivered as a warning"
+      },
+      {
+        "class": "E",
+        "evidence": "differential withheld",
+        "outcome": "correct"
+      }
+    ]
+  },
+  "hardware": "Tesla T4, all layers offloaded (n_gpu_layers=-1)",
+  "model_load_seconds": 14.1,
+  "seconds_per_case": {
+    "missing": 74.1,
+    "conflict": 53.4,
+    "concordant": 74.2,
+    "reassuring": 32.8,
+    "not_assessed": 76.3
+  },
+  "total_reasoning_seconds": 310.8,
+  "reproducibility_verified": true,
+  "reproducibility_note": "same case run twice in one session returned an identical differential; confirmed in-notebook after the KV cache reset"
+}

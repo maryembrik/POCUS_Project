@@ -1,0 +1,33 @@
+{
+  "encounter_id": "DEMO-MISSING",
+  "case_quality": "MODERATE",
+  "escalation": {
+    "escalate": true,
+    "triggers": [
+      "positive imaging with key lab(s) absent: troponin, lactate"
+    ],
+    "route": "simulation"
+  },
+  "prompt": {
+    "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nRules you must not break:\n\n1. Use ONLY findings, vitals and labs that appear in the state. Never introduce a test, finding\n   or measurement that is not listed.\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal. You may not use an absent test to argue\n   for or against any diagnosis. You may list it as information that would help.\n3. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n4. Respect the stated model limits. If a model has no healthy class, a finding from it never\n   excludes disease.\n5. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"...\", \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"finding or lab from the state\"],\n     \"contradicting\": [\"finding or lab from the state\"]}\n  ],\n  \"missing_information\": [\"test that would most change the assessment\"],\n  \"uncertainty\": \"one sentence on what limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+    "user": "CLINICAL STATE  DEMO-MISSING\n\nCASE QUALITY: MODERATE\n  - key lab(s) not obtained: troponin, lactate\n\nPATIENT\n  age: 74\n  chief_complaint: acute breathlessness\n  sex: F\n\nTRIAGE\n  urgency: high (confidence 0.79)\n\nIMAGING FINDINGS\n  lung: b lines (0.86)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 118.0 bpm  <-- HIGH\n  rr: 24.0 /min  <-- HIGH\n  sbp: 104.0 mmHg\n  spo2: 90.0 %  <-- LOW\n\nLABS\n  none resulted\n\nNOT MEASURED -- absent, NOT normal\n  labs: troponin, bnp, d_dimer, lactate, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+  },
+  "differential": {
+    "differential": [
+      {
+        "diagnosis": "heart failure or pulmonary embolism",
+        "likelihood": "high",
+        "supporting": [
+          "b lines in the lungs (strong evidence)"
+        ],
+        "contradicting": []
+      }
+    ],
+    "missing_information": [
+      "troponin, BNP, D-dimer, lactate, CRP, WBC, creatinine, pH"
+    ],
+    "uncertainty": "The lack of lab data and imaging limitations make it difficult to rule out other conditions, such as pneumothorax, which is not modelled.",
+    "recommended_next_step": "Obtain troponin, BNP, D-dimer, and lactate levels to help determine the cause of the breathlessness and consider a chest X-ray to evaluate for any missed pulmonary issues."
+  },
+  "validation_errors": null
+}

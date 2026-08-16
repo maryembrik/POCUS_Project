@@ -1,0 +1,41 @@
+% =========================================================================================
+% Appendices
+% =========================================================================================
+\appendix
+\renewcommand{\thesubsection}{\Alph{subsection}}
+\setcounter{subsection}{0}
+
+\section*{Appendices}
+\addcontentsline{toc}{section}{Appendices}
+
+\subsection{Dataset Details}
+\label{app:datasets}
+\rmq{Per-dataset detail too long for Chapter~\ref{sec:data}: full class definitions,
+licence terms and conditions of use, exact file and case counts, and the filename patterns
+used to recover case identity for the lung dataset.}
+
+\subsection{Model Architectures}
+\label{app:architectures}
+\rmq{Layer configurations, parameter counts, and the training hyperparameters for each
+module: optimiser, learning rate, schedule, batch size, epoch budget and early-stopping
+criterion.}
+
+\subsection{Additional Results}
+\label{app:results}
+\rmq{Per-fold results behind the pooled figures reported in Chapter~\ref{sec:results}, and
+the reliability diagrams accompanying each calibration.}
+
+\subsection{Confusion Matrices}
+\label{app:confusion}
+\rmq{Full confusion matrices at case level for the triage and gallbladder modules,
+including the fine-grained matrix from which the collapsed taxonomy was derived.}
+
+\subsection{Example Grad-CAM Maps}
+\label{app:gradcam}
+\rmq{Representative attention maps per module, chosen to include failure cases rather than
+only successful ones. A selection of successes alone is not evidence.}
+
+\subsection{Technical Implementation}
+\label{app:implementation}
+\rmq{Repository structure, environment and dependency versions, instructions for
+reproducing the training runs, and the output schema in full.}

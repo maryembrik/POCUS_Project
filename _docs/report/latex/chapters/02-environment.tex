@@ -1,0 +1,321 @@
+% =========================================================================================
+% Chapter 2 -- Project Environment and Presentation
+% =========================================================================================
+\section{Project Environment and Presentation}
+\label{sec:environment}
+
+\subsection{Host Organization}
+\label{subsec:host}
+
+\rmq{Describe the host organisation: its activity, size, position in its sector, and the
+department or team the internship took place in. Half a page to a page. If the project was
+carried out within the school rather than a company, describe the laboratory or programme
+instead.}
+
+\subsection{Internship Environment}
+\label{subsec:internship-env}
+
+The project was carried out as an individual end-of-studies internship over a period of
+three months, with the scope of a minimum viable product (\gls{mvp}) rather than a
+deployable clinical product. All
+design, implementation, experimentation and evaluation described in this report were
+performed by the author, with periodic supervision and review.
+
+The technical environment reflects that scope. Development was carried out in Python,
+using PyTorch for the imaging models and scikit-learn together with XGBoost for the
+structured-data model. Training was performed on Google Colab GPU instances, with local
+execution reserved for data preparation, analysis and inference. \rmq{State the supervision
+arrangement: frequency of meetings, review format, and any clinical input received.}
+
+The intermittent availability of GPU hardware was a genuine constraint on the experimental
+programme rather than an incidental inconvenience. It limited the number of training runs
+that could be spent on any single question, and consequently shaped the methodology
+described in Section~\ref{subsec:methodology}: candidate changes were, wherever possible,
+estimated analytically from measurements already obtained before being committed to a
+training run. This constraint is discussed further in Chapter~\ref{sec:conclusion}.
+
+\subsection{Project Context}
+\label{subsec:project-context}
+
+The clinical problem was set out in Chapter~\ref{sec:introduction}: point-of-care
+ultrasound is fast and available, but operator-dependent, and a single imaging finding
+rarely determines a decision on its own. Existing automated approaches, reviewed in
+Chapter~\ref{sec:sota}, address one organ and one question at a time.
+
+The project therefore targets the layer above the individual model. Its contribution is
+not a new segmentation architecture or a new classifier, but a system in which several
+perception models cooperate with structured clinical data under an explicit account of
+what each of them can and cannot support. That framing determines what counts as success:
+a module is useful to this system when its output is accompanied by a trustworthy
+statement of its own reliability, not merely when its headline metric is high.
+
+\subsection{POCUS-Emergency}
+\label{subsec:pocus-emergency}
+
+POCUS-Emergency is a modular multi-agent assistant for emergency ultrasound and clinical
+decision support. It accepts an ultrasound examination together with whatever structured
+clinical data is available for the same patient, and returns a ranked differential
+diagnosis, an explicit account of the uncertainty attached to it, and a decision on
+whether the case should be escalated for further examination.
+
+The system covers four perception modules --- triage, lung, cardiac and gallbladder ---
+and the reasoning layer that combines them. A vascular / deep vein thrombosis (\gls{dvt})
+module was considered
+during planning and deliberately excluded from the scope of the internship, in order to
+complete the four modules above to a defensible standard rather than five to a partial
+one. The examination types the Ultrasound Agent does not support return an explicit
+\textit{not supported} status rather than a low-confidence guess, for the reasons given in
+Section~\ref{subsec:architecture}.
+
+\subsection{System Architecture}
+\label{subsec:architecture}
+
+The system is organised as three agents with strictly separated responsibilities,
+summarised in Tab.~\ref{tab:agents}. The separation is not incidental: it is the mechanism
+by which the fourth difficulty of Section~\ref{subsec:problem} --- unwarranted confidence
+--- is controlled.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{lXX}
+    \toprule
+    \textbf{Agent} & \textbf{Input} & \textbf{Output} \\
+    \midrule
+    Triage Agent & Chief complaint, vital signs, age, red-flag symptoms &
+      Urgency level with calibrated confidence \\
+    \addlinespace[2pt]
+    Ultrasound Agent & Ultrasound image or clip, routed by organ &
+      Findings with calibrated confidence and attention maps \\
+    \addlinespace[2pt]
+    Clinical Reasoning Agent & Both of the above, plus laboratory results and history &
+      Ranked differential diagnosis and escalation decision \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Responsibilities of the three agents.}
+  \label{tab:agents}
+\end{table}
+
+Each component rests on a distinct technology, and the report names them precisely rather
+than describing the system uniformly as ``artificial intelligence''. Tab.~\ref{tab:tech}
+gives the correspondence.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Component} & \textbf{Technology} \\
+    \midrule
+    Triage Agent            & Gradient-boosted decision trees (XGBoost
+                              \cite{chen2016xgboost}) with post-hoc probability
+                              calibration \\
+    Lung module             & \gls{cnn} classifier, multi-label, EfficientNet-B0 backbone
+                              \cite{tan2019efficientnet} \\
+    Cardiac module          & U-Net segmentation \cite{ronneberger2015unet} with an
+                              EfficientNet-B0 encoder \\
+    Gallbladder module      & \gls{cnn} classifier, EfficientNet-B0 backbone \\
+    Explainability          & \gls{gradcam} \cite{selvaraju2017gradcam} \\
+    Clinical state          & Deterministic Python; no model \\
+    Knowledge grounding     & \gls{rag} over a curated corpus \cite{lewis2020rag} \\
+    Differential reasoning  & Medical \gls{llm} \cite{chen2024huatuogpto1} \\
+    Escalation              & Rule-based policy; deterministic \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Technology underlying each component of the system.}
+  \label{tab:tech}
+\end{table}
+
+\subsubsection{Triage Agent}
+
+The Triage Agent reads the patient record rather than the image. From the chief complaint,
+vital signs, age and available red-flag indicators it estimates an urgency tier --- low,
+medium or high --- together with a confidence. It operates on structured data only and
+never sees an ultrasound image.
+
+Two properties matter for the system as a whole. First, its confidence is calibrated, so
+that a stated probability can be compared meaningfully against the confidence attached to
+an imaging finding. Second, its output is deliberately coarse: three tiers rather than the
+five-level scales used in hospital triage systems, because the reasoning layer uses the
+tier to decide whether to escalate, not to assign a waiting time. The construction and
+evaluation of this model are described in Section~\ref{subsec:triage-agent}.
+
+\subsubsection{Ultrasound Agent}
+
+The Ultrasound Agent is a router with organ-specific models behind it. Given an
+examination and the organ examined, it dispatches the input to the corresponding module
+and returns findings in a single shared output format, regardless of which module
+produced them. Each finding carries a calibrated confidence, an indication of whether that
+calibration was actually available, and a \gls{gradcam} map relating the prediction to
+image regions the clinician can verify.
+
+\begin{keystatement}
+The Ultrasound Agent reports findings and does not assign urgency.
+\end{keystatement}
+
+This distinction is deliberate and is enforced throughout the implementation. A
+radiologist records ``multiple B-lines, small consolidation, no pleural effusion''; the
+inference to pulmonary oedema, and the decision about how urgently to act, require vital
+signs, laboratory results and history that the imaging model never sees. Allowing an
+imaging model to emit an urgency verdict would place a clinical decision inside a
+component that lacks the information to make it, and would duplicate that logic in two
+places within the system.
+
+The same reasoning governs unsupported examinations. An organ for which no module was
+built returns an explicit \textit{not supported} status in the ordinary output format,
+rather than being silently omitted or answered with a low-confidence guess. A missing
+module and a negative finding are different statements, and the reasoning layer must be
+able to tell them apart.
+
+\subsubsection{Clinical Reasoning Agent}
+
+The Clinical Reasoning Agent occupies the position of the senior physician who receives
+the nurse's rapid assessment and the imaging report, weighs both against the laboratory
+results and the patient's history, and reaches a conclusion. It is the only component
+permitted to decide urgency or recommend action.
+
+\begin{keystatement}
+A second separation applies within the reasoning agent itself: deterministic rules decide
+what is safe, and the language model explains.
+\end{keystatement}
+
+The safety-critical determinations --- which tests are absent, which model limitations
+apply, whether the agents disagree, whether escalation is warranted --- are computed by
+deterministic rules before the language model is consulted, and the model's output is
+checked against the structured state afterwards. The language model reasons over evidence
+that has already been constrained; it does not decide whether the case is safe. Asking a
+language model directly what should be done would place the least predictable component in
+charge of the most consequential decision. This design is described in
+Chapter~\ref{sec:reasoning}.
+
+\subsection{Development Methodology}
+\label{subsec:methodology}
+
+\subsubsection{CRISP-DM and how it was adapted}
+
+The project followed \gls{crisp}, the reference process model for data mining and data
+science work. It was chosen over a software-engineering methodology because the central
+risks here are not implementation risks. The difficulty in this project was rarely writing
+the code; it was establishing what the data actually represented and whether a measured
+result could be trusted. \gls{crisp} places those questions in named phases with explicit
+feedback loops, which matches how the work behaved.
+
+Tab.~\ref{tab:crispdm} states what each phase meant concretely here, and where the project
+departed from the standard description.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{lXX}
+    \toprule
+    \textbf{Phase} & \textbf{In this project} & \textbf{Adaptation} \\
+    \midrule
+    Business Understanding & The four difficulties of
+      Section~\ref{subsec:problem}; the Business and Data Science Objectives &
+      Extended with an explicit safety requirement: a confident wrong answer is worse
+      than no answer \\
+    \addlinespace[2pt]
+    Data Understanding & Provenance, acquisition characteristics, class distribution, and
+      the statistical unit of each dataset &
+      Far heavier than anticipated. The statistical unit was undocumented in every imaging
+      dataset and had to be recovered \\
+    \addlinespace[2pt]
+    Data Preparation & Cleaning, taxonomy correction, preprocessing, and case-level
+      grouping &
+      Grouping is treated as a modelling decision, not a preprocessing step, because it
+      determines what every later metric means \\
+    \addlinespace[2pt]
+    Modeling & The four perception modules and the reasoning layer &
+      Split across two levels: individual models, and the contract through which they
+      cooperate \\
+    \addlinespace[2pt]
+    Evaluation & Case-level metrics against baselines, calibration, error analysis and
+      explainability &
+      A calibration step was inserted between modelling and evaluation: the deliverable is
+      not a prediction but a prediction with a trustworthy confidence \\
+    \addlinespace[2pt]
+    Deployment & --- &
+      Out of scope for the internship. Replaced by integration and a prototype
+      (Chapter~\ref{sec:integration}); no clinical deployment was undertaken \\
+    \bottomrule
+  \end{tabularx}
+  \caption{The six CRISP-DM phases as applied in this project.}
+  \label{tab:crispdm}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.72\textwidth]{fig_crispdm.png}
+  \caption{The CRISP-DM cycle as followed here. The return path from modelling and
+    evaluation to data understanding, drawn in red, ran repeatedly and was the dominant
+    route through the cycle rather than an exception. Deployment was outside the scope of
+    the internship.}
+  \label{fig:crispdm}
+\end{figure}
+
+\paragraph{The loop back to the data was the main path, not an exception.} CRISP-DM allows
+a return from Evaluation to earlier phases; in this project that return was where most of
+the progress happened, and Fig.~\ref{fig:crispdm} draws it accordingly. Three times, a
+model was trained and evaluated before the evaluation itself revealed that the data had
+been misunderstood --- an unrecognised grouping structure in one dataset, a class whose
+label did not match its images in another, an input feature that encoded the outcome in a
+third. In each case the fix belonged to Data Understanding, not to Modeling, and the model
+had to be discarded and retrained. A linear reading of the process would have concluded
+after the first evaluation and reported a number that could not be defended.
+
+\subsubsection{Development phases}
+
+The work was organised into sequential phases, each concluding with a working, evaluated
+component. The ordering was chosen so that every phase produced something the next phase
+depended on, rather than developing components in parallel and integrating them at the
+end. The phases are listed in Tab.~\ref{tab:phases}.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{clXl}
+    \toprule
+    \textbf{Phase} & \textbf{Objective} & \textbf{Outcome} & \textbf{Status} \\
+    \midrule
+    1 & Triage Agent & Three-tier urgency classifier (low / medium / high), calibrated
+      & Complete \\
+    \addlinespace[2pt]
+    2 & Perception modules & Lung, cardiac and gallbladder models with calibrated
+      confidence & Complete \\
+    \addlinespace[2pt]
+    3 & Unified Ultrasound Agent & Organ routing, shared output contract, encounter
+      storage & Complete \\
+    \addlinespace[2pt]
+    4 & Clinical State Builder & Standardised representation of all agent outputs
+      & Complete \\
+    \addlinespace[2pt]
+    5 & Clinical Reasoning Agent & Safety layer, escalation policy, retrieval and
+      reasoning & In progress \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Development phases of the project.}
+  \label{tab:phases}
+\end{table}
+
+\subsubsection{Methodological rules}
+
+\paragraph{One methodological rule governed all phases.} No design decision was adopted on
+the basis of expectation alone. Where a change was proposed --- a different architecture,
+an augmentation strategy, an additional dataset --- it was implemented, measured against
+the existing baseline, and retained only if the measurement supported it.
+
+Several proposals that appeared well motivated were rejected on this basis, and those
+rejections are reported in the chapters that follow rather than omitted. They are, in
+several cases, more informative than the successes: a change that ought to have helped and
+did not tells the reader something about the data that a favourable number does not. In a
+clinical context, a result that cannot be defended is of no use regardless of how
+favourable it appears.
+
+\paragraph{Reporting convention.} Throughout Chapters~\ref{sec:perception}
+and~\ref{sec:results}, three distinct statements are kept separate: what was
+\textit{built}, what was \textit{measured}, and what may reasonably be \textit{concluded}.
+A model architecture is a construction; a Dice coefficient on a held-out partition is a
+measurement; a statement about how the model will behave on data from another hospital is
+a conclusion, and requires more than the measurement to support it. Conflating the three
+is the most common way a report overstates its results, and it is avoided here
+deliberately.

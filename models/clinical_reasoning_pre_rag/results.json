@@ -1,0 +1,327 @@
+{
+  "missing": {
+    "encounter_id": "DEMO-MISSING",
+    "case_quality": "MODERATE",
+    "escalation": {
+      "escalate": true,
+      "triggers": [
+        "positive imaging with key lab(s) absent: troponin, lactate"
+      ],
+      "route": "simulation"
+    },
+    "prompt": {
+      "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. Use ONLY findings, vitals and labs that appear in the state. Never introduce a test, finding\n   or measurement that is not listed.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal. You may not use an absent test to argue\n   for or against any diagnosis. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Before answering, go through the state line by line: each\n   abnormal vital, each detected finding, each NOT-detected finding, each LIMIT. Every value\n   marked HIGH or LOW must either appear in the \"supporting\" or \"contradicting\" array of at\n   least one diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence\n   is not permitted: a reader cannot tell an abnormal value you considered and dismissed from\n   one you failed to notice. Citing one finding when four were available is an incomplete\n   answer, even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. A finding the model screened for and did not\n   see may appear in \"contradicting\". A finding never assessed may not appear anywhere except\n   missing_information -- and it MUST appear there. If the state lists an organ as \"not\n   assessed\", naming that scan is usually the most useful next step available, so it belongs\n   in missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"every finding, vital or lab FROM THE STATE that argues for this\"],\n     \"contradicting\": [\"evidence FROM THE STATE that argues against this\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+      "user": "CLINICAL STATE  DEMO-MISSING\n\nCASE QUALITY: MODERATE\n  - key lab(s) not obtained: troponin, lactate\n\nPATIENT\n  age: 74\n  chief_complaint: acute breathlessness\n  sex: F\n\nTRIAGE\n  urgency: high (confidence 0.79)\n\nIMAGING FINDINGS\n  lung: b lines (0.86)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 118.0 bpm  <-- HIGH\n  rr: 24.0 /min  <-- HIGH\n  sbp: 104.0 mmHg\n  spo2: 90.0 %  <-- LOW\n\nLABS\n  none resulted\n\nNOT MEASURED -- absent, NOT normal\n  labs: troponin, bnp, d_dimer, lactate, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+    },
+    "differential": {
+      "differential": [
+        {
+          "diagnosis": "Pulmonary Edema",
+          "likelihood": "moderate",
+          "supporting": [
+            "b lines (0.86)",
+            "high heart rate (118 bpm)",
+            "low oxygen saturation (90%)"
+          ],
+          "contradicting": [],
+          "limitations": [
+            "model cannot exclude pneumothorax",
+            "model has no healthy class for lung findings"
+          ]
+        },
+        {
+          "diagnosis": "Pneumothorax",
+          "likelihood": "low",
+          "supporting": [
+            "high heart rate (118 bpm)",
+            "low oxygen saturation (90%)"
+          ],
+          "contradicting": [
+            "b lines (0.86)"
+          ],
+          "limitations": [
+            "model cannot confirm pneumothorax",
+            "model has no healthy class for lung findings"
+          ]
+        },
+        {
+          "diagnosis": "Pleural Thickening, Consolidation, or Effusion",
+          "likelihood": "low",
+          "supporting": [],
+          "contradicting": [
+            "b lines (0.86)",
+            "high heart rate (118 bpm)",
+            "low oxygen saturation (90%)"
+          ],
+          "limitations": [
+            "model did not detect these findings",
+            "model has no healthy class for lung findings"
+          ]
+        }
+      ],
+      "missing_information": [
+        "troponin",
+        "lactate"
+      ],
+      "uncertainty": "The model's inability to detect pleural thickening, consolidation, and effusion, along with the lack of a healthy class for lung findings, limits confidence in the diagnosis.",
+      "recommended_next_step": "Obtain troponin and lactate levels, and perform a chest X-ray or CT scan to further evaluate the patient's condition."
+    },
+    "validation_errors": null,
+    "revisions": [
+      {
+        "attempt": 1,
+        "complaints": [
+          "differential[0] 'Pulmonary Edema' is rated 'high' while bnp, troponin was never measured -- the test that would most confirm it is absent, so the evidence supports 'moderate' at best"
+        ],
+        "also_found": [
+          "abnormal value(s) not used and not explained: rr (24.0, high) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment"
+        ]
+      }
+    ],
+    "warnings": [
+      "abnormal value(s) not used and not explained: rr (24.0, high) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment"
+    ]
+  },
+  "conflict": {
+    "encounter_id": "DEMO-CONFLICT",
+    "case_quality": "MODERATE",
+    "escalation": {
+      "escalate": true,
+      "triggers": [
+        "agents disagree (1 conflict(s))",
+        "high-risk finding below decisive confidence: severe dysfunction (0.74)"
+      ],
+      "route": "simulation"
+    },
+    "prompt": {
+      "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. Use ONLY findings, vitals and labs that appear in the state. Never introduce a test, finding\n   or measurement that is not listed.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal. You may not use an absent test to argue\n   for or against any diagnosis. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Before answering, go through the state line by line: each\n   abnormal vital, each detected finding, each NOT-detected finding, each LIMIT. Every value\n   marked HIGH or LOW must either appear in the \"supporting\" or \"contradicting\" array of at\n   least one diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence\n   is not permitted: a reader cannot tell an abnormal value you considered and dismissed from\n   one you failed to notice. Citing one finding when four were available is an incomplete\n   answer, even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. A finding the model screened for and did not\n   see may appear in \"contradicting\". A finding never assessed may not appear anywhere except\n   missing_information -- and it MUST appear there. If the state lists an organ as \"not\n   assessed\", naming that scan is usually the most useful next step available, so it belongs\n   in missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"every finding, vital or lab FROM THE STATE that argues for this\"],\n     \"contradicting\": [\"evidence FROM THE STATE that argues against this\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+      "user": "CLINICAL STATE  DEMO-CONFLICT\n\nCASE QUALITY: MODERATE\n  - 1 unresolved conflict(s) between agents\n\nPATIENT\n  age: 61\n  chief_complaint: mild chest discomfort\n  sex: M\n\nTRIAGE\n  urgency: low (confidence 0.88)\n\nIMAGING FINDINGS\n  heart: severe dysfunction (0.74)  evidence=strong\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n\nVITALS\n  hr: 82.0 bpm\n  sbp: 128.0 mmHg\n  spo2: 96.0 %\n\nLABS\n  lactate: 1.1 mmol/L\n  troponin: 5.0 ng/L\n\nNOT MEASURED -- absent, NOT normal\n  labs: bnp, d_dimer, crp, wbc, creatinine, ph\n  vitals: rr, temp\n  Do not treat any of these as excluded. They were not obtained.\n\nCONFLICTS\n  - triage says low urgency but heart reports 'severe dysfunction' at 0.74\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+    },
+    "differential": {
+      "differential": [
+        {
+          "diagnosis": "Acute Coronary Syndrome",
+          "likelihood": "moderate",
+          "supporting": [
+            "severe heart dysfunction (0.74)",
+            "elevated troponin (5.0 ng/L)"
+          ],
+          "contradicting": [
+            "low urgency (0.88)"
+          ],
+          "limitations": [
+            "missing lab results: BNP, D-dimer, CRP, WBC, creatinine, pH"
+          ]
+        }
+      ],
+      "missing_information": [
+        "BNP, D-dimer, CRP, WBC, creatinine, pH"
+      ],
+      "uncertainty": "The conflicting urgency assessment and missing lab results limit confidence in this diagnosis.",
+      "recommended_next_step": "Retrieve the missing lab results to clarify the diagnosis and guide further treatment."
+    },
+    "validation_errors": [
+      "differential[0].supporting calls troponin 'elevated', but the state records it as normal (5.0)"
+    ],
+    "revisions": [
+      {
+        "attempt": 1,
+        "complaints": [
+          "differential[0].supporting calls troponin 'elevated', but the state records it as normal (5.0)"
+        ],
+        "also_found": [
+          "missing_information contains combined entries ['BNP, D-dimer, CRP, WBC, creatinine, pH'] -- one test per array element"
+        ]
+      }
+    ],
+    "warnings": [
+      "missing_information contains combined entries ['BNP, D-dimer, CRP, WBC, creatinine, pH'] -- one test per array element"
+    ],
+    "differential_withheld": true
+  },
+  "concordant": {
+    "encounter_id": "DEMO-CONCORDANT",
+    "case_quality": "GOOD",
+    "escalation": {
+      "escalate": false,
+      "triggers": [],
+      "route": "direct"
+    },
+    "prompt": {
+      "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. Use ONLY findings, vitals and labs that appear in the state. Never introduce a test, finding\n   or measurement that is not listed.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal. You may not use an absent test to argue\n   for or against any diagnosis. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Before answering, go through the state line by line: each\n   abnormal vital, each detected finding, each NOT-detected finding, each LIMIT. Every value\n   marked HIGH or LOW must either appear in the \"supporting\" or \"contradicting\" array of at\n   least one diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence\n   is not permitted: a reader cannot tell an abnormal value you considered and dismissed from\n   one you failed to notice. Citing one finding when four were available is an incomplete\n   answer, even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. A finding the model screened for and did not\n   see may appear in \"contradicting\". A finding never assessed may not appear anywhere except\n   missing_information -- and it MUST appear there. If the state lists an organ as \"not\n   assessed\", naming that scan is usually the most useful next step available, so it belongs\n   in missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"every finding, vital or lab FROM THE STATE that argues for this\"],\n     \"contradicting\": [\"evidence FROM THE STATE that argues against this\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+      "user": "CLINICAL STATE  DEMO-CONCORDANT\n\nCASE QUALITY: GOOD\n\nPATIENT\n  age: 79\n  chief_complaint: orthopnoea\n  sex: M\n\nTRIAGE\n  urgency: high (confidence 0.91)\n\nIMAGING FINDINGS\n  lung: b lines (0.92)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 122.0 bpm  <-- HIGH\n  rr: 28.0 /min  <-- HIGH\n  sbp: 96.0 mmHg\n  spo2: 88.0 %  <-- LOW\n\nLABS\n  bnp: 890.0 pg/mL  <-- HIGH (ref <=100; ventricular wall stress / heart failure)\n  lactate: 2.6 mmol/L  <-- HIGH (ref <=2.0; tissue hypoperfusion)\n  troponin: 62.0 ng/L  <-- HIGH (ref <=14; myocardial injury)\n\nNOT MEASURED -- absent, NOT normal\n  labs: d_dimer, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+    },
+    "differential": {
+      "differential": [
+        {
+          "diagnosis": "heart failure",
+          "likelihood": "high",
+          "supporting": [
+            "b lines (0.92)",
+            "high BNP (890 pg/mL)",
+            "high troponin (62 ng/L)",
+            "high lactate (2.6 mmol/L)"
+          ],
+          "contradicting": [],
+          "limitations": [
+            "pneumothorax cannot be excluded"
+          ]
+        }
+      ],
+      "missing_information": [
+        "d-dimer, CRP, WBC, creatinine, temperature"
+      ],
+      "uncertainty": "The absence of pleural thickening, consolidation, and pleural effusion findings limits confidence in this assessment.",
+      "recommended_next_step": "Check the patient's chest X-ray to confirm the diagnosis of heart failure and rule out other possibilities like pneumothorax."
+    },
+    "validation_errors": null,
+    "revisions": [
+      {
+        "attempt": 1,
+        "complaints": [
+          "abnormal value(s) not used and not explained: hr (122.0, high), rr (28.0, high), spo2 (88.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment"
+        ],
+        "also_found": [
+          "missing_information contains combined entries ['d-dimer, CRP, WBC, creatinine, temperature'] -- one test per array element",
+          "recommended_next_step claims to 'rule out' -- state what the test would inform, not what it would settle"
+        ]
+      }
+    ],
+    "warnings": [
+      "abnormal value(s) not used and not explained: hr (122.0, high), rr (28.0, high), spo2 (88.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+      "missing_information contains combined entries ['d-dimer, CRP, WBC, creatinine, temperature'] -- one test per array element",
+      "recommended_next_step claims to 'rule out' -- state what the test would inform, not what it would settle"
+    ]
+  },
+  "reassuring": {
+    "encounter_id": "DEMO-REASSURING",
+    "case_quality": "MODERATE",
+    "escalation": {
+      "escalate": true,
+      "triggers": [
+        "no positive finding, but the models cannot exclude disease"
+      ],
+      "route": "simulation"
+    },
+    "prompt": {
+      "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. Use ONLY findings, vitals and labs that appear in the state. Never introduce a test, finding\n   or measurement that is not listed.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal. You may not use an absent test to argue\n   for or against any diagnosis. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Before answering, go through the state line by line: each\n   abnormal vital, each detected finding, each NOT-detected finding, each LIMIT. Every value\n   marked HIGH or LOW must either appear in the \"supporting\" or \"contradicting\" array of at\n   least one diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence\n   is not permitted: a reader cannot tell an abnormal value you considered and dismissed from\n   one you failed to notice. Citing one finding when four were available is an incomplete\n   answer, even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. A finding the model screened for and did not\n   see may appear in \"contradicting\". A finding never assessed may not appear anywhere except\n   missing_information -- and it MUST appear there. If the state lists an organ as \"not\n   assessed\", naming that scan is usually the most useful next step available, so it belongs\n   in missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"every finding, vital or lab FROM THE STATE that argues for this\"],\n     \"contradicting\": [\"evidence FROM THE STATE that argues against this\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+      "user": "CLINICAL STATE  DEMO-REASSURING\n\nCASE QUALITY: MODERATE\n  - no positive imaging finding\n\nPATIENT\n  age: 44\n  chief_complaint: mild breathlessness\n  sex: F\n\nTRIAGE\n  urgency: low (confidence 0.86)\n\nIMAGING FINDINGS\n  none detected\n  lung: pleural thickening NOT detected (0.08)  evidence=limited\n  lung: b lines NOT detected (0.06)  evidence=limited\n  lung: consolidation NOT detected (0.04)  evidence=limited\n  lung: pleural effusion NOT detected (0.03)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 76.0 bpm\n  rr: 16.0 /min\n  sbp: 124.0 mmHg\n  spo2: 98.0 %\n\nLABS\n  lactate: 1.0 mmol/L\n  troponin: 4.0 ng/L\n\nNOT MEASURED -- absent, NOT normal\n  labs: bnp, d_dimer, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+    },
+    "differential": {
+      "differential": [
+        {
+          "diagnosis": "Cardiac Stress or Injury",
+          "likelihood": "moderate",
+          "supporting": [
+            "elevated troponin"
+          ],
+          "contradicting": [
+            "stable vitals"
+          ],
+          "limitations": [
+            "missing labs: BNP, D-dimer, CRP, WBC, creatinine, pH; cannot exclude pneumothorax"
+          ]
+        }
+      ],
+      "missing_information": [
+        "BNP, D-dimer, CRP, WBC, creatinine, pH"
+      ],
+      "uncertainty": "The imaging findings are limited, and the absence of certain labs makes it difficult to rule out other conditions, such as pneumothorax.",
+      "recommended_next_step": "Obtain the missing labs and consider further cardiac testing to rule out any serious cardiac issues."
+    },
+    "validation_errors": [
+      "differential[0].contradicting cites 'stable vitals', which does not appear anywhere in the clinical state (possible fabrication)"
+    ],
+    "also_found": [
+      "differential[0].supporting calls troponin 'elevated', but the state records it as normal (4.0)",
+      "missing_information contains combined entries ['BNP, D-dimer, CRP, WBC, creatinine, pH'] -- one test per array element",
+      "recommended_next_step claims to 'rule out' -- state what the test would inform, not what it would settle"
+    ],
+    "differential_withheld": true,
+    "revisions": []
+  },
+  "not_assessed": {
+    "encounter_id": "DEMO-NOT_ASSESSED",
+    "case_quality": "GOOD",
+    "escalation": {
+      "escalate": true,
+      "triggers": [
+        "organ(s) requested but not assessed: heart"
+      ],
+      "route": "simulation"
+    },
+    "prompt": {
+      "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. Use ONLY findings, vitals and labs that appear in the state. Never introduce a test, finding\n   or measurement that is not listed.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal. You may not use an absent test to argue\n   for or against any diagnosis. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Before answering, go through the state line by line: each\n   abnormal vital, each detected finding, each NOT-detected finding, each LIMIT. Every value\n   marked HIGH or LOW must either appear in the \"supporting\" or \"contradicting\" array of at\n   least one diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence\n   is not permitted: a reader cannot tell an abnormal value you considered and dismissed from\n   one you failed to notice. Citing one finding when four were available is an incomplete\n   answer, even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. A finding the model screened for and did not\n   see may appear in \"contradicting\". A finding never assessed may not appear anywhere except\n   missing_information -- and it MUST appear there. If the state lists an organ as \"not\n   assessed\", naming that scan is usually the most useful next step available, so it belongs\n   in missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"every finding, vital or lab FROM THE STATE that argues for this\"],\n     \"contradicting\": [\"evidence FROM THE STATE that argues against this\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+      "user": "CLINICAL STATE  DEMO-NOT_ASSESSED\n\nCASE QUALITY: GOOD\n\nPATIENT\n  age: 68\n  chief_complaint: chest pain and breathlessness\n  sex: M\n\nTRIAGE\n  urgency: high (confidence 0.82)\n\nIMAGING FINDINGS\n  lung: b lines (0.78)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n  not assessed: heart\n\nVITALS\n  hr: 104.0 bpm  <-- HIGH\n  rr: 22.0 /min  <-- HIGH\n  sbp: 112.0 mmHg\n  spo2: 93.0 %  <-- LOW\n\nLABS\n  lactate: 1.4 mmol/L\n  troponin: 9.0 ng/L\n\nNOT MEASURED -- absent, NOT normal\n  labs: bnp, d_dimer, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+    },
+    "differential": {
+      "differential": [
+        {
+          "diagnosis": "Pulmonary Embolism",
+          "likelihood": "moderate",
+          "supporting": [
+            "b lines (0.78)",
+            "high heart rate (104 bpm)"
+          ],
+          "contradicting": [
+            "pleural thickening (0.11)",
+            "consolidation (0.09)",
+            "pleural effusion (0.04)"
+          ],
+          "limitations": [
+            "lung: model has no healthy class",
+            "lung: pneumothorax is not modelled"
+          ]
+        },
+        {
+          "diagnosis": "Acute Coronary Syndrome",
+          "likelihood": "moderate",
+          "supporting": [
+            "troponin (9.0 ng/L)",
+            "high heart rate (104 bpm)"
+          ],
+          "contradicting": [
+            "pleural thickening (0.11)",
+            "consolidation (0.09)",
+            "pleural effusion (0.04)"
+          ],
+          "limitations": [
+            "lung: model has no healthy class"
+          ]
+        }
+      ],
+      "missing_information": [
+        "BNP, D-dimer, CRP, WBC, creatinine, pH"
+      ],
+      "uncertainty": "The high heart rate and troponin level suggest a heart issue, but the imaging findings are not definitive for either a pulmonary embolism or an acute coronary syndrome.",
+      "recommended_next_step": "CT pulmonary angiography to evaluate for pulmonary embolism and a repeat troponin test to assess for an acute coronary syndrome"
+    },
+    "validation_errors": [
+      "organ(s) never assessed and not named in missing_information: heart -- an unperformed scan is missing information, and the list is what determines what gets ordered next",
+      "differential[0] cites 'pleural thickening (0.11)' as evidence against 'Pulmonary Embolism', but the absence of pleural thickening does not bear on that diagnosis -- a finding the model did not look for, or that is unrelated, is not an argument against it",
+      "differential[0] cites 'consolidation (0.09)' as evidence against 'Pulmonary Embolism', but the absence of consolidation does not bear on that diagnosis -- a finding the model did not look for, or that is unrelated, is not an argument against it",
+      "differential[0] cites 'pleural effusion (0.04)' as evidence against 'Pulmonary Embolism', but the absence of pleural effusion does not bear on that diagnosis -- a finding the model did not look for, or that is unrelated, is not an argument against it"
+    ],
+    "revisions": [
+      {
+        "attempt": 1,
+        "complaints": [
+          "differential[0] 'Pulmonary Embolism' is rated 'high' while d_dimer was never measured -- the test that would most confirm it is absent, so the evidence supports 'moderate' at best"
+        ],
+        "also_found": [
+          "organ(s) never assessed and not named in missing_information: heart -- an unperformed scan is missing information, and the list is what determines what gets ordered next",
+          "differential[0] cites 'pleural thickening (0.11)' as evidence against 'Pulmonary Embolism', but the absence of pleural thickening does not bear on that diagnosis -- a finding the model did not look for, or that is unrelated, is not an argument against it",
+          "differential[0] cites 'consolidation (0.09)' as evidence against 'Pulmonary Embolism', but the absence of consolidation does not bear on that diagnosis -- a finding the model did not look for, or that is unrelated, is not an argument against it",
+          "differential[0] cites 'pleural effusion (0.04)' as evidence against 'Pulmonary Embolism', but the absence of pleural effusion does not bear on that diagnosis -- a finding the model did not look for, or that is unrelated, is not an argument against it",
+          "abnormal value(s) not used and not explained: rr (22.0, high), spo2 (93.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+          "missing_information contains combined entries ['BNP, D-dimer, CRP, WBC, creatinine, pH'] -- one test per array element"
+        ]
+      }
+    ],
+    "warnings": [
+      "abnormal value(s) not used and not explained: rr (22.0, high), spo2 (93.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+      "missing_information contains combined entries ['BNP, D-dimer, CRP, WBC, creatinine, pH'] -- one test per array element"
+    ],
+    "differential_withheld": true
+  }
+}

@@ -1,0 +1,261 @@
+% =========================================================================================
+% Chapter 4 -- Datasets and Data Preparation
+%
+% All counts here were read from the manifests, not from notes. Regenerate with
+% scratchpad/dataset_facts.py and dataset_facts2.py if the manifests change.
+% =========================================================================================
+\section{Datasets and Data Preparation}
+\label{sec:data}
+
+\subsection{Introduction}
+
+This chapter describes the data the four perception modules were built on, and the single
+question that had to be answered before any of them could be trained honestly: what counts
+as one independent observation.
+
+The question sounds procedural. It is not. Answering it wrongly inflates every metric that
+follows, and does so invisibly --- the model appears to work, the validation score confirms
+it, and nothing in the training process signals a problem. In each of the three imaging
+datasets used here, the answer was not the one the file listing suggested.
+
+\subsection{Dataset Overview}
+\label{subsec:data-overview}
+
+Four datasets were used, one per module. Tab.~\ref{tab:datasets} gives their composition.
+
+\begin{table}[H]
+  \centering
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{llrrl}
+    \toprule
+    \textbf{Module} & \textbf{Source} & \textbf{Files} & \textbf{Cases} &
+    \textbf{Label type} \\
+    \midrule
+    Triage      & Four pooled ED datasets            & 164{,}700 & 164{,}700 &
+      urgency tier (3) \\
+    Cardiac     & CAMUS \cite{leclerc2019camus}      & 2{,}000 & 500 &
+      pixel masks (3 structures) \\
+    Gallbladder & UIdataGB (Mendeley)                & 10{,}694 & 220 &
+      pathology class (9) \\
+    Lung        & POCUS \cite{born2021pocus}         & 187 & 165 &
+      findings (4, multi-label) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Composition of the four datasets. For the imaging datasets, ``files'' counts
+    images, annotated frames or clips, and ``cases'' counts independent patients or
+    acquisitions. The gap between the two columns is the subject of
+    Section~\ref{subsec:data-grouping}.}
+  \label{tab:datasets}
+\end{table}
+
+\rmq{Add a licence column, or a sentence per dataset stating the licence and conditions of
+use. Required for a public release of the report and easy to overlook.}
+
+\subsection{The Statistical Unit}
+\label{subsec:data-grouping}
+
+\begin{keystatement}
+The gallbladder dataset contains 10{,}694 images. It does not contain 10{,}694 patients. It
+contains 220.
+\end{keystatement}
+
+Medical imaging datasets are distributed as collections of files, and it is natural to treat
+each file as one observation. For these datasets that is wrong, because the files are not
+independent of one another. A single gallbladder examination contributed a median of 48
+images --- and in one case 228 --- taken seconds apart, of the same organ, in the same
+patient, under the same machine settings. Two such images are close to duplicates.
+
+The consequence is specific. If a partition into training and validation data is drawn over
+files, images from one examination land on both sides of it. The model then encounters, at
+validation time, near-copies of images it memorised during training. It scores well. The
+score measures recall of the training set, not generalisation to a new patient, and no
+diagnostic within the training process distinguishes the two.
+
+Fig.~\ref{fig:filesvscases} shows the size of the effect across the three imaging datasets.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.86\textwidth]{fig_files_vs_cases.png}
+  \caption{Files against independent cases for the three imaging datasets. The ratio bounds
+    how far a file-level evaluation can overstate performance: the gallbladder dataset
+    offers roughly 48 near-duplicate images per case, the cardiac dataset four annotated
+    frames per patient, and the lung dataset only marginally more clips than patients.}
+  \label{fig:filesvscases}
+\end{figure}
+
+The three datasets differ in how exposed they are. The lung dataset is nearly safe at
+\(\times 1.1\); the cardiac dataset is moderately exposed at \(\times 4\); the gallbladder
+dataset, at \(\times 48.6\), is where a file-level split would have produced a result with
+no meaning at all.
+
+\subsection{Recovering Case Identity}
+\label{subsec:data-cases}
+
+Knowing that the case is the unit is only useful if cases can be identified. The three
+datasets required three different amounts of work.
+
+\paragraph{Cardiac --- documented.} CAMUS is organised by patient. Each of the 500 patients
+contributes two views (two-chamber and four-chamber), each annotated at end-diastole and
+end-systole, giving 2{,}000 annotated frames. The grouping is read directly from the
+directory structure and needs no reconstruction.
+
+\paragraph{Gallbladder --- recoverable.} Case identity is not a column in the release, but
+it is encoded in the filenames, which carry a per-case prefix. Parsing it yields 220 cases
+across nine classes, with between 6 and 228 images each.
+
+\paragraph{Lung --- reconstructed, with residual uncertainty.} The POCUS release carries no
+patient identifier at all, while containing several clips of the same patient. Case identity
+had to be inferred from filename patterns: explicit case numbers where present, day-series
+markers for repeat examinations of one patient, and clip-numbering suffixes otherwise, with
+a list of generic tokens excluded so that words such as \textit{video} or \textit{butterfly}
+are not mistaken for patient identifiers. This recovered 165 cases from 187 files, with six
+cases contributing more than one file and the largest contributing eight.
+
+\begin{keystatement}
+This last mapping is a heuristic, not ground truth. It is reported as such.
+\end{keystatement}
+
+Two clips of the same patient under different filename conventions may still be counted as
+two cases, which would leave a small amount of leakage in place. The direction of that error
+is known --- it can only inflate the lung results, never deflate them --- and it is carried
+forward as a stated limitation rather than presented as a solved problem.
+
+\subsection{Cleaning and Exclusions}
+\label{subsec:data-cleaning}
+
+\paragraph{Lung.} Eleven files were excluded as off-target (not showing lung) and one as
+flagged unusable by the dataset curators, reducing 198 files to the 187 used.
+
+\paragraph{Gallbladder.} One class was found, on inspection, not to match its label. The
+error is worth recording because of how it was made rather than merely that it occurred: the
+class was first judged from a handful of images and appeared unremarkable. Viewing one image
+per case, across all cases, showed otherwise.
+
+\begin{keystatement}
+Images from one case are not a sample of a class. They are a sample of a patient.
+\end{keystatement}
+
+The rule generalises beyond this incident and was applied to every subsequent inspection.
+The affected class was excluded from training; the reasoning is given in
+Section~\ref{subsec:gallbladder-module}.
+
+\paragraph{Triage.} Vital signs recorded as zero are not physiological readings but an
+encoding of ``not measured'', and were converted to genuine missing values. Fields knowable
+only after triage --- final diagnosis, waiting time, disposition --- were removed, since a
+model that sees them predicts the past rather than the future.
+
+\subsection{Class Distribution and Baselines}
+\label{subsec:data-distribution}
+
+No score means anything on its own. A result must be read against what could be achieved
+without a model at all, and the appropriate reference depends on the metric.
+
+\begin{itemize}[label=$\bullet$]
+  \setlength\itemsep{0.2em}
+  \item For plain \textbf{accuracy}, the reference is the \textit{majority-class baseline}:
+    the score obtained by always predicting the commonest class, ignoring the patient
+    entirely.
+  \item For \textbf{balanced accuracy} --- the mean of the per-class recalls --- that
+    strategy scores no better than guessing, so the reference is the \textit{chance level},
+    \(1/K\) for \(K\) classes.
+  \item For \textbf{AUROC}, the reference is 0.500 regardless of how imbalanced the classes
+    are, since the measure is invariant to prevalence.
+\end{itemize}
+
+Tab.~\ref{tab:baselines} gives the reference for each module.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{lllr}
+    \toprule
+    \textbf{Module} & \textbf{Metric reported} & \textbf{Reference} &
+    \textbf{Value} \\
+    \midrule
+    Triage      & accuracy          & majority class, test split & 40.0\% \\
+    Triage      & balanced accuracy & chance, 3 classes          & 33.3\% \\
+    Gallbladder & balanced accuracy & chance, 5 classes          & 20.0\% \\
+    Gallbladder & accuracy          & majority class             & 33.2\% \\
+    Lung        & AUROC             & chance                     & 0.500 \\
+    \bottomrule
+  \end{tabular}
+  \caption{The reference each module's results must be read against. Baselines are computed
+    on the partition the module is evaluated on, not on the pooled data.}
+  \label{tab:baselines}
+\end{table}
+
+One subtlety in the triage figures deserves stating, because using the wrong number would
+misrepresent the result in both directions. Across the pooled data, 95{,}234 of 164{,}700
+visits are \textit{high} urgency, giving a majority baseline of 57.8\%. But the model is
+trained on earlier years and evaluated on the most recent, and in that test partition the
+class mix is different: the majority baseline there is 40.0\%. The test-set figure is the
+one a reported accuracy must be compared against.
+
+The class imbalance is real in every module. At case level the gallbladder classes range
+from 66 cases (inflammatory conditions) down to 25 (wall thickening) out of 199. In the lung
+data the four findings appear in 63, 60, 46 and 24 of 187 clips --- so pleural effusion
+rests on 24 positive examples, which is why it is later marked unreliable rather than
+reported as a result.
+
+One finding was dropped entirely. Pneumothorax was in the intended label set but has zero
+positive examples in the usable data, so the lung module reports four findings rather than
+five. A class with no positives cannot be learned, and a model claiming to detect it would
+be claiming something it had never seen.
+
+\subsection{Partitioning and Leakage Prevention}
+\label{subsec:data-splits}
+
+\paragraph{Imaging modules.} All three use grouped cross-validation by case: every file
+belonging to one case is assigned to the same fold, so no fold is evaluated on a patient it
+was trained on. Calibration data is held out separately, because fitting a calibrator on the
+same predictions used to evaluate it would make the resulting confidence circular.
+
+\paragraph{Triage.} The split is temporal rather than random --- earlier years for training,
+the most recent year for testing --- giving 148{,}520 training and 16{,}180 test visits. A
+random split would let the model learn from visits that occurred after the ones it is tested
+on, which no deployed system could do.
+
+\paragraph{A leak found by inspection, not by metrics.} Pooling four sources initially
+produced a markedly higher accuracy than any single source, which is the wrong direction for
+a harder, more heterogeneous problem. Investigation showed one source recorded vital signs
+almost exclusively for a particular urgency grade, as an artefact of its collection process.
+The model was not learning that abnormal vitals indicate urgency; it was learning that the
+\emph{presence of a vitals record} indicates a label.
+
+The fix was to null the affected fields for that source, keeping only those independently
+reliable. The cost is visible in the data: roughly 87--91\% of the pooled visits now carry no
+vital signs at all. That is a large loss of information, accepted because the alternative was
+a higher number that meant nothing.
+
+\subsection{Limitations}
+\label{subsec:data-limits}
+
+Stated as bounds on what may later be claimed:
+
+\begin{itemize}[label=$\bullet$]
+  \setlength\itemsep{0.2em}
+  \item \textbf{Case counts are small.} 220 gallbladder cases across nine classes, and 165
+    lung cases, are the true sample sizes. Confidence intervals on per-class results are
+    correspondingly wide.
+  \item \textbf{The lung case mapping is inferred.} Residual leakage is possible, and can
+    only act in the optimistic direction.
+  \item \textbf{The sources are public collections, not consecutive clinical series.} They
+    are not a random sample of any population, so prevalence in these data implies nothing
+    about prevalence in an emergency department.
+  \item \textbf{Most vital-sign data was discarded.} The triage model operates largely on
+    demographics and presenting complaint, which bounds how well it could possibly perform.
+  \item \textbf{No external validation cohort} was available for the lung, gallbladder or
+    triage modules. Only the cardiac module was tested on data from a different source.
+\end{itemize}
+
+\subsection{Conclusion}
+
+The work described here produced no model and improved no metric. It did the opposite: by
+establishing that the unit of analysis is the case rather than the file, it reduced the
+apparent size of every imaging dataset --- most dramatically from 10{,}694 to 220 --- and
+lowered every score that followed.
+
+That is the point. The numbers reported in Chapter~\ref{sec:perception} are smaller than
+those a file-level evaluation would have produced, and they are the ones that describe how
+the models behave on a patient they have not seen.

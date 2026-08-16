@@ -1,0 +1,109 @@
+% =========================================================================================
+% Chapter 8 -- Discussion
+%
+% Per-module results live in Chapter 5, where each module's investigation ends in its own
+% Results section. This chapter does NOT repeat them. It asks what they mean together:
+% what the system can and cannot support, what failed and why, and what the numbers imply
+% clinically. Cross-reference Chapter 5 rather than restating figures.
+% =========================================================================================
+\section{Discussion}
+\label{sec:results}
+
+\subsection{Introduction}
+\rmq{State the division explicitly in two sentences: each module was developed, measured and
+decided in Chapter~\ref{sec:perception}; this chapter asks what the four results mean as a
+system. A reader who has just finished Chapter 5 needs to know they are not about to read
+the same numbers again.}
+
+\subsection{The Modules Side by Side}
+\label{subsec:results-comparison}
+\rmq{One table drawing together all four modules: task type, model family, headline metric,
+the baseline it is read against, case count, calibration method and ECE after calibration.
+Metrics differ across modules and cannot be compared directly --- say so --- but the
+distance of each from its own baseline can be.
+
+The observation worth drawing out: the modules differ enormously in headline metric while
+being comparable in how far each sits above its own chance level. That is the honest way to
+read four numbers on four different tasks.}
+
+\subsection{Calibration as a System Property}
+\label{subsec:results-calibration}
+\rmq{Four modules, four calibration methods --- isotonic, Platt per finding, temperature,
+Platt --- chosen per module rather than uniformly. Explain why the choice differs and what
+each suited.
+
+Then the system-level argument, which is the real content of this section: calibration is
+what makes four heterogeneous models comparable to one another. Without it the reasoning
+layer would be combining numbers on incommensurable scales, and the escalation thresholds in
+Section~\ref{subsec:reasoning-escalation} would have no defensible basis. Calibration is not
+a finishing touch here; it is the precondition for the architecture working at all.}
+
+\subsection{What the Explainability Results Do and Do Not Establish}
+\label{subsec:results-explainability}
+\rmq{Summarise the Grad-CAM statistics across modules without repeating the tables from
+Section~\ref{subsec:explainability}. Be precise about the limit: concentrated attention is
+evidence that the model is responding to localised image content rather than to global
+brightness or position. It is NOT evidence that the attention falls on the anatomically
+correct structure, which would require expert annotation this project does not have. Stating
+that boundary is worth more than the statistics themselves.}
+
+\subsection{Clinical Reasoning Evaluation}
+\label{subsec:results-reasoning}
+\rmq{The benchmark cases and what was checked: schema validity, whether the hallucination
+guard fired when it should, and whether the escalation decision matched the intended one.
+Report the small size of the benchmark in the same breath as the results, not in a later
+limitations section.}
+
+\subsection{Overall System Evaluation}
+\label{subsec:results-system}
+\rmq{The properties that only appear once the modules are assembled, and that no per-module
+metric can show: graceful degradation when a module is unavailable, correct propagation of a
+module's declared limits into the escalation decision, and the behaviour on the worked
+scenarios of Section~\ref{subsec:integration-scenarios}. This is the section that justifies
+the architecture rather than the models.}
+
+\subsection{Rejected Experiments}
+\label{subsec:results-rejected}
+\rmq{Each rejection is reported inside the module that prompted it in
+Chapter~\ref{sec:perception}. Collect them here in a single table --- hypothesis,
+measurement, decision --- so that the pattern is visible: external-dataset integration,
+the augmentation upgrade that changed nothing measurable, USCL initialisation, cardiac
+fine-tuning, the alternative gallbladder taxonomy, the aggressive triage class weighting,
+and the coarse reason-for-visit grouping.
+
+Then the point the table makes, which no individual entry makes on its own: seven
+well-motivated changes were tested and rejected on measurement. That is the methodological
+rule of Section~\ref{subsec:methodology} shown working, and it is the strongest available
+evidence that the retained results were not selected for being favourable.}
+
+\subsection{Strengths}
+\label{subsec:results-strengths}
+\rmq{Argue from measurements, not from intent. The defensible claims: case-level evaluation
+throughout, on three datasets that did not provide it; calibrated confidence carried end to
+end rather than discarded at the module boundary; explicit representation of absent evidence;
+and safety decisions that do not depend on a language model. Each of these is checkable by an
+examiner, which is why they are the ones to claim.}
+
+\subsection{Limitations}
+\label{subsec:results-limitations}
+\rmq{State each as a bound on a specific claim rather than as a generic disclaimer. Small
+case-level datasets; public collections rather than consecutive clinical series; no external
+validation for most modules; the lung case mapping is a filename heuristic with residual
+uncertainty; the cardiac module is domain-limited; no clinical outcome validation; no
+prospective evaluation; the reasoning benchmark is small.
+
+For each, name what it forbids concluding. A limitation that does not change what may be
+claimed is not worth listing.}
+
+\subsection{Clinical Interpretation}
+\label{subsec:results-discussion}
+\rmq{What the numbers mean for a clinician rather than for a leaderboard. Which modules are
+close to being useful and which are not, and the argument that a well-calibrated model of
+moderate accuracy can be more useful in this system than a more accurate model whose
+confidence cannot be trusted --- because the reasoning layer can act on the first and cannot
+safely act on the second.
+
+Close by returning to the four difficulties of Section~\ref{subsec:problem} and assessing
+each honestly: which have been addressed, which have been partially addressed, and which
+remain open. Resist the temptation to mark all four as solved; the fourth in particular is
+mitigated rather than solved.}

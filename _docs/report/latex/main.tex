@@ -1,0 +1,198 @@
+% =========================================================================================
+% POCUS-Emergency -- End-of-Studies Internship Report
+% Compile with: pdflatex -> biber -> pdflatex -> pdflatex   (or latexmk -pdf main.tex)
+% =========================================================================================
+\documentclass[11pt, a4paper]{article}
+
+\input{preamble}
+\input{glossary}
+\addbibresource{bibfile.bib}
+
+% =========================================================================================
+% COMPILE-TIME CONTROL  --  the fix for "your compile timed out" on Overleaf's free plan
+%
+% The limit is per compile RUN, not a monthly quota, so the goal is simply to keep any one
+% build short. While writing a chapter, uncomment the line below and list ONLY the chapters
+% you are working on. The others keep their page numbers and cross-references from the .aux
+% files of the last full build, so \ref and the table of contents stay correct.
+%
+%   \includeonly{chapters/04-data}
+%
+% Comment it out again for the final full build. If a full build ever times out, see the
+% "Managing compile time" section of README.md.
+%
+% Images can also be stubbed out while drafting text -- uncomment to replace every figure
+% with an empty frame of the same size:
+%
+%   \setkeys{Gin}{draft}
+% =========================================================================================
+
+\begin{document}
+\begin{sloppypar}
+\pagestyle{empty}
+
+% =========================================================================================
+% TITLE PAGE
+% The project title is the visual centre; the administrative details sit below it.
+% =========================================================================================
+\newgeometry{margin=1in}
+\begin{titlepage}
+  \begin{center}
+
+    \IfFileExists{logos/esprit.png}
+      {\includegraphics[width=0.28\textwidth]{esprit.png}}
+      {\rmq{[ add the school logo as logos/esprit.png ]}}
+    \hfill
+    \IfFileExists{logos/host.png}
+      {\includegraphics[width=0.22\textwidth]{host.png}}
+      {}
+
+    \vspace{1.2cm}
+    \noindent\rule{\textwidth}{1.2pt}
+    \vspace{0.9cm}
+
+    {\Huge\bfseries\color{accent} POCUS-Emergency\par}
+    \vspace{0.7cm}
+    {\LARGE Intelligent Multimodal Assistant for Clinical\\[0.25cm]
+     Ultrasound and Decision Support in Emergencies\par}
+
+    \vspace{0.9cm}
+    \noindent\rule{\textwidth}{1.2pt}
+
+    \vspace{1.1cm}
+    {\Large\bfseries End-of-Studies Internship Report (PFE)\par}
+
+    \vspace{1.1cm}
+    {\Large Mariem Brik\par}
+    \vspace{0.35cm}
+    {\large Academic year \rmq{2025--2026}\par}
+
+    \vfill
+
+    \begin{flushleft}\large
+      \textbf{Educational institution:} \rmq{ESPRIT --- Higher School of Engineering
+        and Technology}\\[0.35cm]
+      \textbf{Host organisation:} \rmq{Name and address}\\[0.35cm]
+      \textbf{Academic supervisor:} \rmq{Mr./Ms. Name}\\[0.35cm]
+      \textbf{Company supervisor:} \rmq{Mr./Ms. Name}\\[0.35cm]
+      \textbf{Internship period:} \rmq{xx/xx/2026 -- xx/xx/2026}
+    \end{flushleft}
+
+    \vspace{0.6cm}
+    \noindent\rule{\textwidth}{0.6pt}
+  \end{center}
+  \setcounter{page}{0}
+\end{titlepage}
+\restoregeometry
+
+% =========================================================================================
+% FRONT MATTER
+% =========================================================================================
+\setcounter{page}{-5}
+
+\section*{Acknowledgments}
+\addcontentsline{toc}{section}{Acknowledgments}
+\rmq{Academic supervisor, company supervisor, the jury, family. One page.}
+
+\newpage
+
+\section*{Abstract}
+\addcontentsline{toc}{section}{Abstract}
+\noindent
+Point-of-care ultrasound has become central to emergency assessment, but its value remains
+bounded by the experience of the clinician holding the probe, and a single imaging finding
+rarely determines a decision on its own. This report presents POCUS-Emergency, a modular
+multi-agent assistant that combines automated interpretation of point-of-care ultrasound
+with structured clinical data to support emergency decision-making. A Triage Agent
+estimates urgency from vital signs and presenting complaint; an Ultrasound Agent routes an
+examination to an organ-specific vision model and returns findings with calibrated
+confidence and visual explanations; a Clinical Reasoning Agent integrates both with
+laboratory results and history to produce a ranked differential diagnosis and an
+escalation decision. A structured clinical state separates the two layers and records
+explicitly what was not measured and what the models cannot exclude, so that absent
+evidence is never silently treated as negative evidence. Every design decision reported
+here was retained on the basis of a measurement against a baseline, and the proposals
+rejected on measurement are reported alongside those that were kept.
+
+\vspace{0.4cm}
+\noindent\textbf{Keywords:} point-of-care ultrasound, emergency medicine, medical imaging,
+deep learning, model calibration, uncertainty quantification, clinical decision support,
+multi-agent systems, retrieval-augmented generation.
+
+\vspace{1.2cm}
+
+\section*{Résumé}
+\addcontentsline{toc}{section}{Résumé}
+\noindent
+L'échographie au point d'intervention occupe désormais une place centrale dans
+l'évaluation en médecine d'urgence, mais son apport reste limité par l'expérience du
+clinicien qui manipule la sonde, et un résultat d'imagerie isolé suffit rarement à fonder
+une décision. Ce rapport présente POCUS-Emergency, un assistant multi-agents modulaire
+associant l'interprétation automatique de l'échographie d'urgence à des données cliniques
+structurées. Un agent de triage estime le degré d'urgence à partir des signes vitaux et du
+motif de consultation~; un agent échographique oriente l'examen vers un modèle de vision
+spécifique à l'organe et restitue des observations accompagnées d'une confiance calibrée
+et d'explications visuelles~; un agent de raisonnement clinique intègre ces éléments aux
+résultats biologiques et aux antécédents pour produire un diagnostic différentiel
+hiérarchisé et une décision d'escalade. Un état clinique structuré sépare les deux couches
+et consigne explicitement ce qui n'a pas été mesuré ainsi que ce que les modèles ne
+peuvent pas exclure, afin qu'une information absente ne soit jamais assimilée à un
+résultat normal. Chaque choix de conception rapporté ici a été retenu sur la base d'une
+mesure comparée à une référence, et les propositions écartées par la mesure sont
+rapportées au même titre que celles qui ont été conservées.
+
+\vspace{0.4cm}
+\noindent\textbf{Mots clés~:} échographie au point d'intervention, médecine d'urgence,
+imagerie médicale, apprentissage profond, calibration, quantification de l'incertitude,
+aide à la décision clinique, systèmes multi-agents, génération augmentée par récupération.
+
+\newpage
+\tableofcontents
+
+\newpage
+\listoffigures
+\addcontentsline{toc}{section}{List of Figures}
+\listoftables
+\addcontentsline{toc}{section}{List of Tables}
+
+\newpage
+\section*{List of Acronyms}
+\addcontentsline{toc}{section}{List of Acronyms}
+\printacronymlist
+
+% =========================================================================================
+% BODY
+% =========================================================================================
+\newpage
+\setcounter{page}{1}
+\pagestyle{plain}
+
+% \include (not \input) so that \includeonly above can skip chapters while keeping their
+% page numbers and cross-references correct. Each \include starts a new page by itself,
+% so no \newpage is needed between them.
+\include{chapters/01-introduction}
+\include{chapters/02-environment}
+\include{chapters/03-state-of-the-art}
+\include{chapters/04-data}
+\include{chapters/05-perception-agents}
+\include{chapters/06-clinical-reasoning}
+\include{chapters/07-integration}
+\include{chapters/08-results}
+\include{chapters/09-conclusion}
+
+% =========================================================================================
+% BACK MATTER
+% =========================================================================================
+\newpage
+\printbibliography[heading=bibintoc, title={Bibliography}]
+
+\newpage
+\section*{Glossary}
+\addcontentsline{toc}{section}{Glossary}
+\printtermlist
+
+\newpage
+\input{appendices}
+
+\end{sloppypar}
+\end{document}
