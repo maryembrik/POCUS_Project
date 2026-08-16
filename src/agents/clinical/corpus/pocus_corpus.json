@@ -1,5 +1,5 @@
 {
-  "corpus_version": "0.5-cardiac-and-shock-sourced",
+  "corpus_version": "1.0-all-units-sourced",
   "description": "Emergency POCUS interpretation corpus for the Clinical Reasoning Agent. Thirty knowledge units, each answering one clinical question, rather than thirty documents.",
   "scope_note": "Clinical knowledge only. Laboratory reference ranges are deliberately NOT here: comparing a value against a threshold is deterministic, and clinical_state.py already does it, printing e.g. 'bnp: 890.0 pg/mL <-- HIGH (ref <=100)'. Putting the same information in a retrieval corpus would make a settled comparison depend on a similarity score.",
   "licence_note": "Store a citation and a short quotation per unit. Do NOT redistribute whole guideline documents: most are copyrighted. Every unit must name where its text came from before it is used for anything reported.",
@@ -113,37 +113,37 @@
     {
       "id": "F16",
       "topic": "fast_ruq",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Right upper quadrant FAST view: what is examined and where free fluid collects first."
+      "status": "sourced",
+      "source": "Savoia P, Jayanthi SK, Chammas MC. Focused Assessment with Sonography for Trauma (FAST). J Med Ultrasound. 2023;31(2):101-6. doi:10.4103/jmu.jmu_12_23 (CC BY-NC-SA 4.0 -- quoted verbatim and unaltered; ShareAlike binds derivatives, which a verbatim quotation is not)",
+      "text": "This should be the second FAST protocol region examined after confirming there is no hemopericardium. In the abdomen, it must be the first region examined because small amounts of hemoperitoneum may accumulate in there. The hepatorenal space, known as Morrison’s pouch, should be swept. Liquid in the perihepatic area should also be searched. Negative FAST is considered absolutely no fluid. Positive FAST is whether small or large amounts of fluid."
     },
     {
       "id": "F17",
       "topic": "fast_luq",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Left upper quadrant FAST view: landmarks and common pitfalls."
+      "status": "sourced",
+      "source": "Savoia P, Jayanthi SK, Chammas MC. Focused Assessment with Sonography for Trauma (FAST). J Med Ultrasound. 2023;31(2):101-6. doi:10.4103/jmu.jmu_12_23 (CC BY-NC-SA 4.0 -- quoted verbatim and unaltered; ShareAlike binds derivatives, which a verbatim quotation is not)",
+      "text": "If the right upper abdominal quadrant is inaccessible due to traumatic lesions, subcutaneous emphysema, and arm position or without liquid, the examination must proceed to the left upper abdominal quadrant, to search for liquid in the splenorenal space and/or perisplenic. Just as in Region 2, negative FAST is considered absolutely no fluid. Positive FAST is whether small or large amounts of fluid."
     },
     {
       "id": "F18",
       "topic": "fast_pelvic",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Pelvic FAST view: what is examined and the effect of bladder filling."
+      "status": "sourced",
+      "source": "Savoia P, Jayanthi SK, Chammas MC. Focused Assessment with Sonography for Trauma (FAST). J Med Ultrasound. 2023;31(2):101-6. doi:10.4103/jmu.jmu_12_23 (CC BY-NC-SA 4.0 -- quoted verbatim and unaltered; ShareAlike binds derivatives, which a verbatim quotation is not)",
+      "text": "If all regions above are FAST negative and/or inaccessible, the examination must proceed to the pelvis. One practical tip for examining this region is to perform the FAST protocol before bladder catheterization. Performing FAST protocol before it might find the patients bladder full, to be used as an acoustic window for better evaluation of the pelvis. Negative FAST is the absence of fluid. The presence of any quantity of fluid in males constitutes a positive FAST exam. Conversely, females of reproductive age may exhibit physiologically small amounts of fluid in the pouch of Douglas (cul-de-sac). In such cases, a positive FAST result is only established when a large quantity of fluid is observed."
     },
     {
       "id": "F19",
       "topic": "fast_pericardial",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "Pericardial FAST view: what it assesses in trauma."
+      "status": "sourced",
+      "source": "Savoia P, Jayanthi SK, Chammas MC. Focused Assessment with Sonography for Trauma (FAST). J Med Ultrasound. 2023;31(2):101-6. doi:10.4103/jmu.jmu_12_23 (CC BY-NC-SA 4.0 -- quoted verbatim and unaltered; ShareAlike binds derivatives, which a verbatim quotation is not)",
+      "text": "This should be the first region examined because hemopericardium is potentially more life-threatening than hemoperitoneum or hemothorax. Cardiac tamponade is a cause of cardiac arrest in asystole or pulseless electrical activity. There are two main ways of accessing the pericardial space: subxiphoid and/or anterior left intercostal views. The first one might be limited in patients with higher body mass index, however you may ask for the patient to deeply inspirate and/or use the liver left lobe as an acoustic window, if possible. Negative FAST is considered the absence or a small amount of pericardial fluid, physiological, up to 5 mm wide. A typically positive FAST would be a significant amount of pericardial fluid, responsible to explain the patient shock syndrome."
     },
     {
       "id": "F20",
       "topic": "fast_interpretation",
-      "status": "placeholder",
-      "source": "REPLACE: citation",
-      "text": "FAST interpretation: what free fluid indicates, and the sensitivity limits of a negative study."
+      "status": "sourced",
+      "source": "Savoia P, Jayanthi SK, Chammas MC. Focused Assessment with Sonography for Trauma (FAST). J Med Ultrasound. 2023;31(2):101-6. doi:10.4103/jmu.jmu_12_23 (CC BY-NC-SA 4.0 -- quoted verbatim and unaltered; ShareAlike binds derivatives, which a verbatim quotation is not)",
+      "text": "The traditional FAST protocol is directed to detect hemopericardium and hemoperitoneum with sensitivity of 85%–96% and specificity more than 98%. Ultrasound, however, achieves 85% sensitivity for intraperitoneal fluid detection only above 150–200 mL. In the context of trauma, fluids in pericardial, peritoneum, or pleural spaces are assumed to be blood until proven otherwise. This logic may lead to false positives once there are situations where fluids other than blood may be present, and ultrasound will not be able to differentiate them, for example, pericarditis, pleural effusions from other conditions, ascites, peritoneal dialysate, ventriculoperitoneal shunt outflow, bladder rupture, ovarian hyperstimulation, ovarian cyst rupture, and massive intravascular volume resuscitation. On the other hand, there are false-negative conditions, where the operator may not be able to detect the bleeding, such as superficial soft-tissue emphysema blocking the ultrasound beam; obese patients, which is a classical limitation for chest and abdominal sonographies; and isolated extraperitoneal injuries. Ultrasound is limited to detect extraperitoneal bleedings, such as an aortic rupture, for example, once the aorta is a retroperitoneal structure. Solid organ injuries are often underdiagnosed or not diagnosed by ultrasound (the numbers are even worse when there is no free fluid), the sensitivity is low, about 40%–63%."
     },
     {
       "id": "S21",
