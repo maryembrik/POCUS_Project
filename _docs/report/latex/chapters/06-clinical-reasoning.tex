@@ -15,9 +15,14 @@ should be done next. No combination of image classifiers answers that, because t
 also depends on the vitals, the laboratory results and the history, none of which the
 imaging models can see.
 
-This chapter describes the layer that brings those pieces together. It has one organising
-idea, stated below, and one design rule: the decisions that matter for safety are computed
-by ordinary code, not by the language model.
+This chapter describes the layer that brings those pieces together. Its design can be put
+in one sentence: the agent separates safety-critical decisions from generative reasoning.
+Whether a case is escalated is determined by ordinary code reading the structured record,
+while retrieval and the language model are responsible only for producing a differential
+and explaining the evidence behind it. Fig.~\ref{fig:pipeline} shows the two as separate
+branches that meet only at the output.
+
+Underneath that separation sits one organising idea.
 
 \begin{keystatement}
 Absent is not normal. A test that was never performed cannot support or contradict any
@@ -255,12 +260,23 @@ output.
   \label{fig:pipeline}
 \end{figure}
 
-Separating the branches is the central design choice. If the model crashes, escalation
-still exists. If retrieval finds nothing, escalation still exists. If the model invents
-evidence, the validator withholds the differential and the escalation is still reported.
-This was tested directly with a backend made to fail: the escalation decision and its
-triggers were produced unchanged, and the differential was withheld with the backend error
-recorded.
+Separating the branches is the central design choice, and its value is easiest to see by
+asking what happens when each part fails.
+
+\begin{itemize}[nosep, leftmargin=*]
+  \item \textbf{The model crashes or is unavailable.} The escalation decision and its
+        triggers are produced unchanged; the differential is withheld and the backend error
+        is recorded. This was run directly with a failing backend, not assumed.
+  \item \textbf{Retrieval returns nothing.} The prompt says so explicitly, so the answer
+        cannot imply support it never had. Escalation is unaffected.
+  \item \textbf{The model invents evidence.} The validator withholds the differential.
+        Escalation is still reported.
+  \item \textbf{The model is replaced.} Escalation behaviour does not change, because no
+        part of it reads the model's output.
+\end{itemize}
+
+None of this depends on the model behaving well, which is what distinguishes the design
+from putting the same instructions in a prompt and hoping they are followed.
 
 If the validator finds a serious fault, the answer is sent back once with a single
 correction request. Sending one complaint at a time works better than sending several
