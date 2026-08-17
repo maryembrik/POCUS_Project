@@ -101,11 +101,15 @@ and laboratory results. You never see images. Reason only over what you are give
 
 HARD RULES. These are not style preferences.
 
-1. Use ONLY findings, vitals and labs that appear in the state. Never introduce a test, finding
-   or measurement that is not listed.
+1. CITE EVIDENCE BY IDENTIFIER. "supporting" and "contradicting" take identifiers from the
+   AVAILABLE EVIDENCE block and nothing else: ["E1", "E4"]. Never write prose in those arrays,
+   never invent an identifier, and never cite one that is not listed. If a fact has no
+   identifier you may not use it as evidence -- that is what the list is for. The qualifier
+   travels with the identifier, so do not restate a value's meaning: cite E7 rather than
+   describing the troponin as elevated or normal yourself.
 
-2. Anything under "NOT MEASURED" is ABSENT, not normal. You may not use an absent test to argue
-   for or against any diagnosis. Put it in missing_information instead.
+2. Anything under "NOT MEASURED" is ABSENT, not normal, and has NO identifier. You cannot cite
+   it, which is deliberate. Put it in missing_information instead.
 
 3. ONE DIAGNOSIS PER ENTRY. Never write "A or B" in a diagnosis field. If two conditions are
    both plausible they are two entries, ranked, each with its own evidence. Merging them is not
@@ -116,19 +120,19 @@ HARD RULES. These are not style preferences.
    strong sign with the key laboratory values absent supports "moderate" at best, never "high".
    Reserve "high" for cases where several independent lines of evidence agree.
 
-5. ACCOUNT FOR EVERY ABNORMAL VALUE. Before answering, go through the state line by line: each
-   abnormal vital, each detected finding, each NOT-detected finding, each LIMIT. Every value
-   marked HIGH or LOW must either appear in the "supporting" or "contradicting" array of at
-   least one diagnosis, or be named in "uncertainty" as not bearing on the assessment. Silence
-   is not permitted: a reader cannot tell an abnormal value you considered and dismissed from
-   one you failed to notice. Citing one finding when four were available is an incomplete
-   answer, even if the one you cited is right.
+5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item
+   marked HIGH or LOW must appear in the "supporting" or "contradicting" array of at least one
+   diagnosis, or be named in "uncertainty" as not bearing on the assessment. Silence is not
+   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you
+   failed to notice. Citing one identifier when four were available is an incomplete answer,
+   even if the one you cited is right.
 
-6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. A finding the model screened for and did not
-   see may appear in "contradicting". A finding never assessed may not appear anywhere except
-   missing_information -- and it MUST appear there. If the state lists an organ as "not
-   assessed", naming that scan is usually the most useful next step available, so it belongs
-   in missing_information ahead of any laboratory test.
+6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for
+   and not seen, and may be cited in "contradicting" -- but only for a diagnosis it actually
+   bears on. An organ never assessed has no identifier and may appear only in
+   missing_information, where it MUST appear. If the state lists an organ as not assessed,
+   naming that scan is usually the most useful next step available, so it belongs in
+   missing_information ahead of any laboratory test.
 
 7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:
      - "no healthy class" means a finding never establishes that the patient is healthy;
@@ -150,8 +154,8 @@ Return ONLY valid JSON matching this shape, with no prose outside it:
   "differential": [
     {"diagnosis": "a single named condition",
      "likelihood": "high|moderate|low",
-     "supporting": ["every finding, vital or lab FROM THE STATE that argues for this"],
-     "contradicting": ["evidence FROM THE STATE that argues against this"],
+     "supporting": ["E1", "E4"],
+     "contradicting": ["E2"],
      "limitations": ["what the models cannot exclude, for this diagnosis"]}
   ],
   "missing_information": ["one test per element, most decisive first"],
@@ -160,10 +164,20 @@ Return ONLY valid JSON matching this shape, with no prose outside it:
 }"""
 
 
-def build_prompt(state_text: str, retrieved: list[dict] | None = None) -> dict[str, str]:
-    """System + user prompt. `retrieved` is the RAG payload; absent for now, and its absence is
-    stated rather than hidden so the model does not imply guideline grounding it never had."""
+def build_prompt(state_text: str, retrieved: list[dict] | None = None,
+                 evidence_text: str | None = None) -> dict[str, str]:
+    """System + user prompt. `retrieved` is the RAG payload; its absence is stated rather than
+    hidden so the model does not imply guideline grounding it never had.
+
+    `evidence_text` is the enumerated evidence block. It follows the state rather than
+    replacing it: the state carries the case quality, the limits and the NOT MEASURED section,
+    which are not citable facts and so have no identifiers, but still bound what may be
+    concluded.
+    """
     parts = [state_text]
+
+    if evidence_text:
+        parts.append("\n\n" + evidence_text)
 
     if retrieved:
         parts.append("\n\nRETRIEVED EVIDENCE")
@@ -647,6 +661,60 @@ Revise the answer to address every point above. Change only what the complaints 
 keep the rest of your reasoning. Return the same JSON shape and nothing else."""
 
 
+_EVIDENCE_ID = re.compile(r"^E\d+$")
+
+
+def check_evidence_ids(out: dict, evidence: list[dict]) -> list[str]:
+    """Every citation must be an identifier that exists.
+
+    This is the check the enumeration exists for. Prose in an evidence array is rejected on
+    sight, because prose is where the fabrications lived: "stable vitals" for a patient with
+    no vitals recorded, and -- once retrieval was added -- sentences lifted out of the corpus
+    and presented as observations about the patient.
+    """
+    known = {e["id"] for e in evidence}
+    errs: list[str] = []
+    for i, d in enumerate(out.get("differential", []) or []):
+        for field in ("supporting", "contradicting"):
+            cited = d.get(field, []) or []
+            if isinstance(cited, str):
+                cited = [cited]
+            for c in cited:
+                c = str(c).strip()
+                if not _EVIDENCE_ID.match(c):
+                    errs.append(
+                        f"differential[{i}].{field} contains {c!r}, which is not an evidence "
+                        f"identifier -- cite one of {', '.join(sorted(known, key=_ekey))} "
+                        f"and nothing else")
+                elif c not in known:
+                    errs.append(
+                        f"differential[{i}].{field} cites {c}, which does not exist -- the "
+                        f"available identifiers are {', '.join(sorted(known, key=_ekey))}")
+    return errs
+
+
+def _ekey(eid: str) -> int:
+    return int(eid[1:]) if eid[1:].isdigit() else 0
+
+
+def resolve_evidence(out: dict, evidence: list[dict]) -> dict:
+    """Replace identifiers with the text they stand for, keeping the identifiers alongside.
+
+    The model reasons in identifiers; everything downstream -- the validators, the clinician --
+    reads the clinical fact. Mutates and returns `out`. Only call once the identifiers are
+    known valid, or an unknown one would silently vanish.
+    """
+    by_id = {e["id"]: e["text"] for e in evidence}
+    for d in out.get("differential", []) or []:
+        for field in ("supporting", "contradicting"):
+            cited = d.get(field, []) or []
+            if isinstance(cited, str):
+                cited = [cited]
+            d[f"{field}_ids"] = [str(c).strip() for c in cited]
+            d[field] = [by_id[str(c).strip()] for c in cited if str(c).strip() in by_id]
+    return out
+
+
 def build_revision_prompt(previous: str, complaints: list[str]) -> str:
     bullets = "\n".join(f"  - {c}" for c in complaints)
     return (REVISION_PROMPT.format(complaints=bullets)
@@ -670,19 +738,23 @@ def _revisable(parsed: dict, state: dict,
 
 
 def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
-           max_revisions: int = 1) -> dict:
-    """Full pass: escalation, prompt, model call, validation, at most one revision.
-
-    `max_revisions` defaults to 1 on measurement, not preference. Across the five benchmark
-    cases the first revision round fixed 3 of 4 complaints and the second fixed 0 of 3, so a
-    second round costs a model call per case and buys nothing with this model.
-    """
-    """Full pass: escalation, prompt, model call, validation.
+           max_revisions: int = 2) -> dict:
+    """Full pass: escalation, prompt, model call, validation, at most `max_revisions` rounds.
 
     `llm_fn(system, user) -> str`. With no model supplied this still returns the escalation
     decision and the prompt, which is what makes the safety layer testable on its own.
+
+    `max_revisions` was 1 while evidence was free text: the first round fixed 3 of 4 complaints
+    and the second fixed 0 of 3, so a second round bought nothing. Enumerated identifiers
+    changed what a complaint asks for -- "cite E4 instead of E9" is a substitution the model
+    can make, where "stop inventing evidence" was not -- so a second round is worth its call
+    again. It is capped rather than unbounded because an 8B model asked repeatedly to correct
+    itself will keep producing corrections indefinitely.
     """
+    from .clinical_state import build_evidence, render_evidence
+
     esc = escalation_decision(state)
+    evidence = build_evidence(state)
     prompt = build_prompt_from_state(state, retrieved)
 
     from .retrieval import is_grounded, retrieval_note
@@ -693,6 +765,7 @@ def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
                       "note": retrieval_note(retrieved or [])},
         "case_quality": (state.get("case_quality") or {}).get("grade"),
         "escalation": esc,
+        "evidence": evidence,
         "prompt": prompt,
         "differential": None,
         "validation_errors": None,
@@ -730,8 +803,34 @@ def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
             result["revisions"] = revisions
             return result
 
-        # Fatal: the answer cites something that is not in the state. No revision is offered,
-        # because the failure is not a matter of degree.
+        # Identifiers first, and fatal rather than revisable. Prose in an evidence array is
+        # the fabrication this enumeration exists to stop, and an identifier that does not
+        # exist cites something the state does not contain -- both are grounding failures, and
+        # the pipeline has always treated those as fatal rather than as a matter of degree.
+        # Revisions are for judgements the model can reconsider, not for invention.
+        id_errs = check_evidence_ids(parsed, evidence)
+        if id_errs:
+            result["differential"] = parsed
+            result["validation_errors"] = id_errs
+            # The outcome is decided, but the remaining checks still run, as they do for any
+            # other fatal fault. The identifiers did not resolve, so these read the model's
+            # own words -- which is what the other validators were always given anyway.
+            _u, _t = _revisable(parsed, state, retrieved)
+            result["also_found"] = (_u + _t) or None
+            result["differential_withheld"] = True
+            result["revisions"] = revisions
+            return result
+
+        # From here the answer speaks in clinical facts rather than identifiers, so every
+        # existing validator reads what it always read.
+        resolve_evidence(parsed, evidence)
+
+        # Backstop rather than the primary guard now. With citations restricted to identifiers
+        # this can no longer fail through the evidence arrays -- an absent test has no
+        # identifier, so "cites something NOT MEASURED" is unreachable by construction. It is
+        # kept because it is cheap and because construction-level guarantees are worth a
+        # runtime check: if build_evidence ever emits an identifier it should not, this is
+        # what notices.
         fatal = validate_llm_output(parsed, state)
         if fatal:
             # The outcome is already decided, but the remaining checks still run. Returning on
@@ -804,5 +903,6 @@ def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
 
 
 def build_prompt_from_state(state: dict, retrieved: list[dict] | None = None) -> dict[str, str]:
-    from .clinical_state import render_state
-    return build_prompt(render_state(state), retrieved)
+    from .clinical_state import build_evidence, render_evidence, render_state
+    return build_prompt(render_state(state), retrieved,
+                        render_evidence(build_evidence(state)))

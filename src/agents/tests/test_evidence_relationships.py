@@ -11,7 +11,7 @@ from src.agents.clinical.clinical_state import build_clinical_state
 from src.agents.clinical.llm import ScriptedBackend
 from src.agents.clinical.reasoning import (check_evidence_relationships, check_recommendation_wording,
                                   reason)
-from .helpers import prop, bundle
+from .helpers import cite, prop, bundle
 
 RELATIONSHIP = "Evidence relationships"
 SEVERITY = "Failure severity"
@@ -114,6 +114,7 @@ def test_an_untidy_answer_is_delivered_with_a_warning():
     An earlier version did exactly that to the concordant case."""
     st = _lung_state()
     out = _entry("Pulmonary Edema", likelihood="moderate")
+    out["differential"][0]["supporting"] = cite(st, "b lines", "hr", "rr", "spo2")
     out["missing_information"] = ["troponin, lactate"]          # untidy only
     raw = json.dumps(out)
     res = reason(st, llm_fn=ScriptedBackend(raw, raw), max_revisions=1)
@@ -123,8 +124,17 @@ def test_an_untidy_answer_is_delivered_with_a_warning():
 
 
 @prop(SEVERITY)
-def test_an_unsound_answer_is_still_withheld():
-    """A misread value corrupts the reasoning and is not a presentation problem."""
+def test_a_misread_value_can_no_longer_be_expressed_at_all():
+    """This case used to be the value-qualifier check's headline: the model wrote "high
+    troponin level (5.0 ng/L)" for a troponin the state recorded as normal, and the misread was
+    caught after the fact.
+
+    Enumerated evidence removes the opportunity. The qualifier travels with the identifier --
+    "troponin: 5.0 ng/L -- NORMAL" -- so citing it cannot relabel it, and writing the
+    qualifier in prose is rejected as not being an identifier. The fault is now unreachable
+    rather than merely detected, which is why this test asserts the rejection instead of the
+    old error message.
+    """
     st = build_clinical_state(
         bundle(triage=S.make_triage("low", 0.88, features={"pulse": 82}),
                ultrasound={"heart": S.make_report(
@@ -132,15 +142,30 @@ def test_an_unsound_answer_is_still_withheld():
                    reliability={"confidence_calibrated": True,
                                 "has_normal_class": True})}),
         labs={"troponin": 5.0, "lactate": 1.1})
-    out = {"differential": [{"diagnosis": "Myocardial infarction", "likelihood": "moderate",
-                             "supporting": ["high troponin level (5.0 ng/L)"],
-                             "contradicting": [], "limitations": []}],
-           "missing_information": ["bnp"], "uncertainty": "u",
-           "recommended_next_step": "obtain a BNP"}
-    raw = json.dumps(out)
-    res = reason(st, llm_fn=ScriptedBackend(raw, raw), max_revisions=1)
+
+    # The misread, attempted in prose.
+    prose = json.dumps({
+        "differential": [{"diagnosis": "Myocardial infarction", "likelihood": "moderate",
+                          "supporting": ["high troponin level (5.0 ng/L)"],
+                          "contradicting": [], "limitations": []}],
+        "missing_information": ["bnp"], "uncertainty": "u",
+        "recommended_next_step": "obtain a BNP"})
+    res = reason(st, llm_fn=ScriptedBackend(prose, prose), max_revisions=1)
     assert res["differential_withheld"] is True
-    assert any("troponin" in e for e in res["validation_errors"])
+    assert any("not an evidence identifier" in e for e in res["validation_errors"]), \
+        res["validation_errors"]
+
+    # Cited properly instead, the value reaches the reader carrying its own qualifier.
+    ids = json.dumps({
+        "differential": [{"diagnosis": "Myocardial infarction", "likelihood": "moderate",
+                          "supporting": cite(st, "troponin", "severe dysfunction"),
+                          "contradicting": [], "limitations": []}],
+        "missing_information": ["bnp"], "uncertainty": "u",
+        "recommended_next_step": "obtain a BNP"})
+    ok = reason(st, llm_fn=ScriptedBackend(ids, ids), max_revisions=1)
+    cited = " ".join(ok["differential"]["differential"][0]["supporting"])
+    assert "NORMAL" in cited, cited
+    assert "high troponin" not in cited.lower()
 
 
 @prop(SEVERITY)
@@ -149,8 +174,12 @@ def test_a_revision_request_carries_one_complaint_not_all_of_them():
     all. The unsound fault is sent, because it is the one deciding whether the answer can be
     shown; the untidy fault becomes a warning either way."""
     st = _lung_state()
-    out = _entry("Pulmonary Embolism",
-                 contradicting=["lung: pleural thickening NOT detected (0.11)"])
+    out = _entry("Pulmonary Embolism")
+    out["differential"][0]["supporting"] = cite(st, "b lines", "hr", "rr", "spo2")
+    # A screened negative that has nothing to do with pulmonary embolism. Enumeration does not
+    # prevent this one: pleural thickening was genuinely assessed, so it has an identifier, and
+    # whether it bears on the diagnosis is a judgement no list of identifiers can settle.
+    out["differential"][0]["contradicting"] = cite(st, "pleural thickening")
     out["missing_information"] = ["troponin, lactate"]
     backend = ScriptedBackend(json.dumps(out))
     res = reason(st, llm_fn=backend, max_revisions=1)

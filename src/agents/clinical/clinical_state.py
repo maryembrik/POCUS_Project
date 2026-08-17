@@ -397,3 +397,85 @@ def render_state(state: dict) -> str:
             L.append(f"  - {c}")
 
     return "\n".join(L)
+
+
+# ---------------------------------------------------------------------------------------
+# Enumerated evidence
+#
+# The model used to write its evidence as free text, which meant it could write anything and
+# the fabrication was caught afterwards. On the five benchmark cases it invented "stable
+# vitals" for a patient whose vitals were never in the state, called a normal troponin
+# "elevated", and -- once retrieval was added -- quoted corpus sentences back as though they
+# were observations about the patient.
+#
+# Enumerating the citable facts and requiring the model to reference them by identifier makes
+# those three failures impossible to express rather than merely forbidden. There is no
+# identifier for "stable vitals", none for a reading the state does not hold, and none for a
+# sentence out of the corpus.
+#
+# Absent tests deliberately receive NO identifier. "An absent test cannot support or
+# contradict anything" stops being a rule the model is asked to follow and becomes a fact
+# about what it is able to say.
+# ---------------------------------------------------------------------------------------
+def build_evidence(state: dict) -> list[dict]:
+    """Every fact the model may cite, each with a stable identifier.
+
+    Order is fixed -- detected findings, screened negatives, vitals, labs, triage, conflicts --
+    so the same state always produces the same identifiers and a run stays reproducible.
+
+    Normal values are included on purpose. A normal troponin is real evidence and a clinician
+    may legitimately cite it against a cardiac diagnosis; excluding it would push the model
+    back into prose. Because the qualifier travels with the identifier, the model cites E7 and
+    cannot relabel 5.0 ng/L as "elevated" on the way past.
+    """
+    ev: list[dict] = []
+
+    def add(kind: str, text: str, **extra) -> None:
+        ev.append({"id": f"E{len(ev) + 1}", "kind": kind, "text": text, **extra})
+
+    findings = state["imaging"]["findings"]
+    for f in [x for x in findings if x["detected"]]:
+        add("finding",
+            f"{f['organ']}: {f['label']} DETECTED "
+            f"(confidence {f['confidence']:.2f}, evidence {f['evidence']})",
+            label=f["label"], organ=f["organ"], detected=True,
+            confidence=f["confidence"], group=f.get("group"))
+    for f in [x for x in findings if not x["detected"]]:
+        add("finding",
+            f"{f['organ']}: {f['label']} NOT DETECTED -- screened for and not seen "
+            f"(confidence {f['confidence']:.2f}, evidence {f['evidence']})",
+            label=f["label"], organ=f["organ"], detected=False,
+            confidence=f["confidence"], group=f.get("group"))
+
+    for k in sorted(state.get("vitals") or {}):
+        e = state["vitals"][k]
+        add("vital", f"{k}: {e['value']} {e['unit']} -- {e['flag'].upper()}",
+            label=k, flag=e["flag"], value=e["value"])
+
+    for k in sorted(state.get("labs") or {}):
+        e = state["labs"][k]
+        ref = f", reference {e['reference']}" if e.get("reference") else ""
+        add("lab", f"{k}: {e['value']} {e['unit']} -- {e['flag'].upper()}{ref}",
+            label=k, flag=e["flag"], value=e["value"])
+
+    t = state.get("triage")
+    if t:
+        add("triage",
+            f"triage urgency: {t['urgency']} (confidence {t['confidence']:.2f})",
+            label=f"{t['urgency']} urgency")
+
+    for c in state.get("conflicts") or []:
+        add("conflict", f"agent disagreement: {c}", label=c)
+
+    return ev
+
+
+def render_evidence(evidence: list[dict]) -> str:
+    """The evidence block as the model sees it."""
+    if not evidence:
+        return ("AVAILABLE EVIDENCE\n"
+                "  (none -- there is nothing in this state you may cite)")
+    L = ["AVAILABLE EVIDENCE -- cite these identifiers and nothing else"]
+    for e in evidence:
+        L.append(f"  [{e['id']}] {e['text']}")
+    return "\n".join(L)

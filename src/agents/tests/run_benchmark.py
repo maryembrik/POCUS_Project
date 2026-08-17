@@ -22,22 +22,19 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-MODULES = [
-    "src.agents.tests.test_schema",
-    "src.agents.tests.test_clinical_state",
-    "src.agents.tests.test_conflicts",
-    "src.agents.tests.test_escalation",
-    "src.agents.tests.test_hallucination_guard",
-    "src.agents.tests.test_negative_findings",
-    "src.agents.tests.test_llm_integration",
-    "src.agents.tests.test_confidence_guard",
-    "src.agents.tests.test_output_quality",
-    "src.agents.tests.test_evidence_relationships",
-    "src.agents.tests.test_benchmark_scenarios",
-    "src.agents.tests.test_unassessed_reporting",
-    "src.agents.tests.test_retrieval",
-    "src.agents.tests.test_end_to_end_safety",
-]
+def _modules() -> list[str]:
+    """Every test_*.py beside this file, discovered rather than listed.
+
+    This used to be a hand-maintained list, which failed the way hand-maintained lists do: a
+    new file of fourteen tests was added and the suite reported the same total as before, all
+    passing. A test that is never run is worse than no test, because the number at the bottom
+    says it was.
+    """
+    return [f"src.agents.tests.{p.stem}"
+            for p in sorted(Path(__file__).resolve().parent.glob("test_*.py"))]
+
+
+MODULES = _modules()
 
 
 def run() -> dict:

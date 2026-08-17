@@ -52,23 +52,49 @@ def corpus_status(data: dict[str, Any]) -> dict[str, int]:
 def build_query(state: dict) -> str:
     """Turn a clinical state into a retrieval query.
 
-    Uses the presenting complaint, the detected findings and the abnormal values -- the
-    things a clinician would look up. Deliberately excludes absent tests: querying on what
-    was NOT measured retrieves text about it and invites the model to reason from it.
+    Uses the presenting complaint, what was examined, and the abnormal values -- the things a
+    clinician would look up. Deliberately excludes absent tests: querying on what was NOT
+    measured retrieves text about it and invites the model to reason from it.
+
+    Screened negatives and organ names ARE included, and that distinction matters. A finding
+    the module looked for and did not see is an observation; a test never obtained is not.
+    Their absence from the query was measured: on the retrieval A/B the `concordant` and
+    `reassuring` cases retrieved nothing at all, because a patient whose values are normal and
+    whose scan is negative produced a query with almost no terms in it. Two of five cases
+    therefore carried no information about retrieval. A reassuring case is exactly where the
+    limits of a negative study most need to be on hand.
+
+    Nothing here forces a hit. The relevance floor still applies, so a query that matches
+    nothing well returns nothing and the answer is marked as not guideline-grounded.
+
+    Organ names were tried and removed. Adding "heart" to the conflict case diluted the query
+    vector enough to push its one good hit below the floor: coverage went to 4 of 5 by losing
+    the case it had previously served.
+
+    The gain is not free. Because a finding's name is in the query whether or not it fired,
+    four of the five lung cases now retrieve much the same passages. Coverage improved and
+    discrimination got worse, and on a corpus of thirty short units TF-IDF has little room to
+    separate them.
     """
     parts: list[str] = []
     cc = (state.get("demographics") or {}).get("chief_complaint")
     if cc:
         parts.append(str(cc))
+
     for f in state["imaging"]["findings"]:
-        if f.get("detected"):
-            parts.append(f["label"])
+        parts.append(f["label"])            # detected and screened-negative alike
+
     for name, v in (state.get("vitals") or {}).items():
         if v.get("flag") in ("high", "low"):
             parts.append(f"{v['flag']} {name}")
     for name, v in (state.get("labs") or {}).items():
         if v.get("flag") in ("high", "low"):
             parts.append(f"{v['flag']} {name}")
+
+    # An organ that was requested and never assessed is a gap in the record, not an absent
+    # test result, and what a missing view leaves unresolved is worth retrieving.
+    parts.extend(state["imaging"].get("organs_not_assessed", []))
+
     for s in state["imaging"].get("out_of_scope", []):
         parts.append(s.split(":")[-1])
     return " ".join(parts) or "emergency point of care ultrasound"

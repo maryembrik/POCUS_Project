@@ -12,7 +12,7 @@ from src.agents.clinical.clinical_state import build_clinical_state
 from src.agents.clinical.llm import ScriptedBackend
 from src.agents.clinical.reasoning import (check_confidence, check_evidence_coverage, reason,
                                   _decisive_for)
-from .helpers import prop, bundle, lung_report
+from .helpers import cite, prop, bundle, lung_report
 
 CALIBRATION = "Confidence calibration"
 COVERAGE = "Evidence coverage"
@@ -119,12 +119,9 @@ def test_normal_values_need_no_mention():
 @prop(CALIBRATION)
 def test_a_revisable_answer_is_sent_back_before_being_rejected():
     st = _state()
-    bad = json.dumps(_answer("Pulmonary Edema", "high",
-                             ["b lines", "heart rate 118", "respiratory rate 24",
-                              "oxygen 90%"]))
-    good = json.dumps(_answer("Pulmonary Edema", "moderate",
-                              ["b lines", "heart rate 118", "respiratory rate 24",
-                               "oxygen 90%"]))
+    ev = cite(st, "b_lines", "hr", "rr", "spo2")
+    bad = json.dumps(_answer("Pulmonary Edema", "high", ev))
+    good = json.dumps(_answer("Pulmonary Edema", "moderate", ev))
     backend = ScriptedBackend(bad, good)
     out = reason(st, llm_fn=backend, max_revisions=1)
     assert len(backend.calls) == 2, "the model should have been asked to revise"
@@ -136,8 +133,8 @@ def test_a_revisable_answer_is_sent_back_before_being_rejected():
 @prop(CALIBRATION)
 def test_the_revision_request_names_the_specific_complaint():
     st = _state()
-    bad = json.dumps(_answer("Pulmonary Edema", "high", ["b lines", "hr 118", "rr 24",
-                                                         "spo2 90"]))
+    bad = json.dumps(_answer("Pulmonary Edema", "high",
+                             cite(st, "b_lines", "hr", "rr", "spo2")))
     backend = ScriptedBackend(bad)
     reason(st, llm_fn=backend, max_revisions=1)
     _, revision_user = backend.calls[1]
@@ -150,8 +147,8 @@ def test_python_never_rewrites_the_models_answer():
     """If the model will not revise, the differential is withheld and the reason reported. A
     likelihood edited in post would be presented to a clinician as the model's judgement."""
     st = _state()
-    bad = json.dumps(_answer("Pulmonary Edema", "high", ["b lines", "hr 118", "rr 24",
-                                                         "spo2 90"]))
+    bad = json.dumps(_answer("Pulmonary Edema", "high",
+                             cite(st, "b_lines", "hr", "rr", "spo2")))
     out = reason(st, llm_fn=ScriptedBackend(bad, bad), max_revisions=1)
     assert out["differential_withheld"] is True
     assert out["differential"]["differential"][0]["likelihood"] == "high", \

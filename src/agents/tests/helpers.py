@@ -84,6 +84,34 @@ def bundle(*, triage: dict | None = None, ultrasound: dict | None = None,
     }
 
 
+def cite(state: dict, *labels: str) -> list[str]:
+    """Evidence identifiers for the named facts, for scripting a model answer.
+
+    Tests say what the answer cites -- `cite(st, "b_lines", "hr")` -- rather than hard-coding
+    E1 and E4. Identifiers are positional, so a fixture that gains a vital would otherwise
+    have every later identifier shift underneath it and the test would still pass while
+    citing something else entirely.
+
+    Raises rather than returning a wrong identifier: a test that silently cited the wrong fact
+    would be worse than one that fails.
+    """
+    from src.agents.clinical.clinical_state import build_evidence
+
+    evidence = build_evidence(state)
+    out: list[str] = []
+    for want in labels:
+        key = str(want).replace("_", " ").lower().strip()
+        for e in evidence:
+            if str(e.get("label", "")).replace("_", " ").lower().strip() == key:
+                out.append(e["id"])
+                break
+        else:
+            raise AssertionError(
+                f"no evidence identifier for {want!r}; this state offers "
+                f"{[e.get('label') for e in evidence]}")
+    return out
+
+
 def llm_output(supporting: list[str], *, diagnosis: str = "Pulmonary oedema",
                likelihood: str = "moderate",
                contradicting: list[str] | None = None,

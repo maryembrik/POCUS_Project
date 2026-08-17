@@ -10,7 +10,7 @@ from src.agents import schema as S
 from src.agents.clinical.clinical_state import build_clinical_state
 from src.agents.clinical.llm import ScriptedBackend
 from src.agents.clinical.reasoning import check_unassessed_reported, reason
-from .helpers import prop, bundle, lung_report
+from .helpers import cite, prop, bundle, lung_report
 
 UNASSESSED = "Unassessed-organ reporting"
 
@@ -24,9 +24,13 @@ def _state():
         labs={"troponin": 9.0, "lactate": 1.4})
 
 
-def _answer(missing_information):
+def _answer(missing_information, state=None):
+    """Free-text evidence by default: most tests here call check_unassessed_reported directly,
+    which reads missing_information and never looks at what was cited. Pass `state` for the
+    tests that go through reason(), where citations must be evidence identifiers."""
+    supporting = cite(state, "troponin") if state is not None else ["troponin 9.0"]
     return {"differential": [{"diagnosis": "Cardiac event", "likelihood": "low",
-                              "supporting": ["troponin 9.0"], "contradicting": [],
+                              "supporting": supporting, "contradicting": [],
                               "limitations": []}],
             "missing_information": missing_information,
             "uncertainty": "u",
@@ -60,8 +64,9 @@ def test_no_complaint_when_every_organ_was_assessed():
 def test_it_is_unsound_so_an_unfixed_answer_is_withheld():
     """A gap in the workup presented as a complete assessment is not a presentation
     problem."""
-    raw = json.dumps(_answer(["bnp"]))
-    out = reason(_state(), llm_fn=ScriptedBackend(raw, raw), max_revisions=1)
+    st = _state()
+    raw = json.dumps(_answer(["bnp"], state=st))
+    out = reason(st, llm_fn=ScriptedBackend(raw, raw), max_revisions=1)
     assert out["differential_withheld"] is True
     assert any("never assessed" in e for e in out["validation_errors"]), \
         out["validation_errors"]
@@ -81,7 +86,11 @@ def test_every_fault_is_reported_even_when_the_answer_is_already_doomed():
         "recommended_next_step": "obtain a BNP"})
     out = reason(st, llm_fn=ScriptedBackend(bad), max_revisions=1)
     assert out["differential_withheld"] is True
-    assert any("fabrication" in e for e in out["validation_errors"])
+    # "ST elevation on ECG" is now rejected one step earlier, as prose where an identifier was
+    # required, rather than as an ungrounded citation. Either way the answer is refused; what
+    # this test is about is that refusing it does not stop the other faults being reported.
+    assert any("not an evidence identifier" in e for e in out["validation_errors"]), \
+        out["validation_errors"]
     assert out["also_found"], "the other faults must still be listed"
     joined = " ".join(out["also_found"])
     assert "troponin" in joined     # the misread value
