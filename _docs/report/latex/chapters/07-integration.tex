@@ -178,10 +178,38 @@ record actually lacks.
 \subsection{User Interface}
 \label{subsec:integration-ui}
 
-The prototype has no graphical application. Stating that plainly is more useful than
-overstating it, since an overstated prototype is the easiest claim for an examiner to test.
+A browser application was built with Streamlit. Its design follows from a measurement rather
+than from a mock-up: Section~\ref{subsec:integration-execution} shows that everything except
+the language model completes in under two seconds, which means the safety layer is fast enough
+to be \emph{interactive} while the differential is not.
 
-What exists is three interfaces, each honest about its fidelity:
+The interface is built around that asymmetry. Rather than replaying fixed cases, it lets the
+user construct a patient --- triage tier, which organs were requested, which were actually
+scanned, each finding and its confidence, and for every vital and laboratory value a checkbox
+that makes it \emph{never measured} rather than normal. The clinical state, the conflicts, the
+list of what is absent, the evidence identifiers and the escalation decision are recomputed on
+every change, with no model and no GPU involved.
+
+Three things about it are worth reporting.
+
+\paragraph{Absence is visible as absence.} Unticking a laboratory value moves it out of the
+evidence list and into a panel headed \emph{never measured --- no identifier exists}. The
+consequence is shown rather than described: with no identifier, that value cannot be cited for
+or against any diagnosis, and the escalation decision changes in front of the user.
+
+\paragraph{The failure path is executed, not illustrated.} A control labelled \emph{break the
+model} calls \texttt{reason} with a backend that raises on every invocation. What appears is
+the system's actual output: the differential withheld with the backend error recorded, and the
+escalation decision unchanged beside it. This is the central architectural claim of the project,
+and the interface demonstrates it by performing it.
+
+\paragraph{Live and recorded are labelled distinctly.} The differential requires a 4.9\,GB model
+on a GPU, so for the five benchmark cases the interface displays the answers recorded from the
+frozen run of Section~\ref{subsec:reasoning-ab}, marked \textsc{recorded} with their measured
+latency, while everything computed in the browser is marked \textsc{live}. An interface that
+blurred the two would misrepresent what the machine in front of the examiner is doing.
+
+Alongside the application, three lower-level interfaces remain, each honest about its fidelity:
 
 \begin{itemize}
   \item \textbf{Notebooks.} The perception modules run in Jupyter notebooks on Colab, one per
@@ -197,9 +225,15 @@ What exists is three interfaces, each honest about its fidelity:
         withheld --- suitable for display but not yet displayed by anything.
 \end{itemize}
 
-The rendering is the part a user interface would present, and it was written deterministically
+The rendering underlies what the application displays, and it was written deterministically
 for that reason: the same bundle always produces byte-identical output, so what a clinician
-would read is reproducible and auditable rather than regenerated each time.
+reads is reproducible and auditable rather than regenerated each time.
+
+What the application is \emph{not} is also worth stating. It has no authentication, no patient
+record, no persistence between sessions and no connection to any hospital system. It runs the
+prototype's own synthetic encounters on a laptop, and it would need all of the above before it
+could be shown a real patient --- which the limitations of Section~ef{subsec:results-limitations}
+forbid in any case.
 
 \subsection{End-to-End Execution}
 \label{subsec:integration-execution}
