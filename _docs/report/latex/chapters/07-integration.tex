@@ -6,51 +6,240 @@
 
 \subsection{End-to-End Architecture}
 \label{subsec:integration-arch}
-\rmq{The assembled system. Refer back to Fig.~\ref{fig:architecture} rather than repeating
-it, and concentrate on what is added here: where each component runs, what is persisted,
-and what happens when a component is unavailable.}
+
+The assembled system is the one shown in Fig.~\ref{fig:architecture}. This section does not
+repeat that diagram; it describes what the diagram omits --- where each component actually
+runs, what is written to disk, and what happens when a component is not there.
+
+\paragraph{Where each component runs.} The four perception modules load PyTorch checkpoints and
+run on a GPU. The reasoning agent loads a 4.9\,GB quantised language model through
+\texttt{llama.cpp} and also wants a GPU. These do not fit together in the free Colab session
+this project had available: the organ models and an 8-billion-parameter model cannot occupy one
+runtime, and attempting it exhausts memory. The agents therefore run at different times, in
+different sessions.
+
+That constraint shaped the architecture rather than being worked around. Because the agents
+cannot run in one process, they cannot call each other, and the interface between them had to
+become a persisted artefact instead of a function call. The consequences turned out to be
+advantages, and Section~\ref{subsec:integration-comm} describes them.
+
+\paragraph{What is persisted.} One JSON document per encounter, the \emph{encounter bundle},
+holding four sections: the patient's demographics and presenting complaint, the triage agent's
+output, one section per organ examined by the ultrasound agent, and the laboratory and vital
+values available. The bundle is the complete input to the reasoning agent; nothing else is
+consulted, and no image reaches the reasoning layer at any point.
+
+\paragraph{What happens when a component is unavailable.} Every degradation is represented in
+the ordinary format rather than as an absence:
+
+\begin{itemize}
+  \item an organ with no implemented module returns \texttt{status: "not\_supported"} with an
+        empty finding list;
+  \item a module whose calibration file is missing runs anyway and reports
+        \texttt{confidence\_calibrated: false}, so the reasoning layer discounts it rather than
+        treating a raw score as a probability;
+  \item a module that fails at inference --- the cardiac module on an image where no ventricle
+        is found, for instance --- returns \texttt{status: "failed"} rather than an invented
+        measurement;
+  \item the language model failing to load, timing out or running out of memory produces a
+        withheld differential with the error recorded, while the escalation decision, computed
+        before the model is consulted, is returned unchanged.
+\end{itemize}
+
+The last case is the one that matters most and it is verified directly rather than assumed: run
+with a backend that raises on every call, the pipeline returns the escalation decision with its
+triggers intact and withholds only the differential.
 
 \subsection{Agent Communication}
 \label{subsec:integration-comm}
-\rmq{The shared schema as an interface contract: a single validated format written by the
-perception agents and read by the reasoning agent, with atomic writes so a partially
-written encounter is never read. Explain why the agents communicate through stored
-encounter records rather than direct calls --- it makes each agent independently testable
-and each decision reproducible after the fact.}
+
+The agents communicate through the shared schema of Section~\ref{subsec:output-contract}, which
+functions as an interface contract rather than a convention. A perception agent writes through
+\texttt{make\_report}, the only exit from a module, and the result is validated before it is
+stored: a malformed report is rejected at the boundary rather than discovered downstream.
+
+Writes are atomic. A bundle section is written to a temporary file and moved into place, so a
+crash mid-write cannot leave a partially written encounter that still parses as valid JSON. A
+truncated bundle read as complete would be worse than a missing one, because nothing downstream
+would signal that anything was wrong.
+
+Communicating through stored records rather than direct calls has three consequences worth
+stating, because they were what made the rest of this project tractable:
+
+\begin{enumerate}
+  \item \textbf{Each agent is independently testable.} The reasoning agent can be exercised
+        against a hand-written bundle with no imaging model present at all, which is how all
+        180 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
+        no model weights.
+  \item \textbf{Each decision is reproducible after the fact.} The bundle that produced a given
+        output is on disk. A decision can be re-examined months later against exactly the inputs
+        it was made from, which is a precondition for auditing anything clinical.
+  \item \textbf{The agents can be replaced independently.} The reasoning layer does not know
+        which model produced a finding, only that the finding arrived through the contract with
+        a calibrated confidence and a declared scope.
+\end{enumerate}
 
 \subsection{Data Flow}
 \label{subsec:integration-flow}
-\rmq{Trace one encounter from arrival to output, naming the artefact produced at each step.
-A figure or sequence diagram works better than prose here.}
+
+One encounter proceeds through five stages, each producing a named artefact.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Artefacts produced at each stage of one encounter.}
+  \label{tab:dataflow}
+  \begin{tabularx}{\textwidth}{@{}llX@{}}
+    \toprule
+    Stage & Artefact & Content \\
+    \midrule
+    1. Arrival & bundle created & demographics, presenting complaint, vitals, labs \\
+    2. Triage & \texttt{triage} section & urgency tier, calibrated confidence, features used \\
+    3. Imaging & one section per organ & findings detected, findings screened and not detected,
+      confidences, declared scope \\
+    4. State & clinical state & the sections merged, plus what is \emph{missing}, the conflicts
+      between agents, and a case-quality grade \\
+    5. Reasoning & result & escalation decision, evidence list, differential or withheld, the
+      abnormal values considered \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Stages 2 and 3 are independent and neither depends on the other, which is why they can run in
+either order or in parallel; the triage agent never sees an image and the ultrasound agent
+never sees a vital sign. Stage 4 is where the two meet, and it is also where the system first
+computes something neither agent could: what is \emph{absent}, and whether the two agents
+disagree.
+
+Stage 5 splits internally. The escalation decision is computed from the state alone and is
+complete before the language model is consulted. The differential is produced by the model,
+checked against the state, and either delivered or withheld. Both leave the system together, so
+a withheld differential still arrives with an escalation decision attached.
 
 \subsection{Example Clinical Scenarios}
 \label{subsec:integration-scenarios}
-\rmq{Three worked cases, each shown end to end: the inputs, the intermediate clinical
-state, the escalation decision and the final output. These make the system concrete for a
-reader who will not read the code, and they are the most persuasive part of the chapter.
-Use synthetic or de-identified cases and say which.}
+
+Three cases are traced end to end below. All three are \textbf{synthetic}, constructed to
+exercise specific behaviours rather than drawn from patients; no clinical data was used at any
+point in this project. The outputs shown are the actual recorded outputs of the frozen system
+described in Section~\ref{subsec:reasoning-ab}, not illustrations of intended behaviour.
 
 \subsubsection{Concordant Case}
-\rmq{Triage and imaging agree, evidence is strong, key laboratory values are present.
-Expected behaviour: a direct answer with a ranked differential.}
+
+Triage and imaging agree, the imaging evidence is strong, and the key laboratory values are
+present. The clinical state grades case quality \textsc{good}.
+
+The escalation policy finds no trigger: there is no disagreement between the agents, no
+high-risk finding on weak evidence, no key laboratory value absent, and no organ left
+unassessed. The route is \emph{direct}.
+
+The model returns \emph{heart failure} at high likelihood, citing four items of evidence by
+identifier --- the lung finding and three abnormal laboratory values. The answer passes every
+grounding check and is delivered, carrying two warnings: three abnormal vital signs were not
+cited anywhere in the reasoning, and the recommendation is phrased as confirming a diagnosis
+rather than informing one. Both are reported to the reader alongside the answer, and the three
+uncited vitals appear in the evidence list regardless.
+
+This is the case the system is meant to answer directly, and it does.
 
 \subsubsection{Conflicting Case}
-\rmq{A low triage tier alongside a high-confidence severe imaging finding. Expected
-behaviour: the conflict is detected and the case is escalated rather than resolved.}
+
+The triage agent reports \emph{low} urgency with 0.88 confidence. The cardiac module reports
+\emph{severe dysfunction} at 0.74. These cannot both be acted on.
+
+The conflict is detected in the state builder, before any reasoning, by comparing the triage
+tier against the severity of the imaging findings. Two escalation triggers fire: the agents
+disagree, and a high-risk finding is reported below the confidence at which the policy would
+treat it as decisive. The route is \emph{simulation} and the case quality falls to
+\textsc{moderate}.
+
+The important property is what the system does \emph{not} do. It does not average the two
+assessments, does not defer to whichever agent is more confident, and does not resolve the
+disagreement. It has no information with which to decide which agent is wrong, so it makes the
+disagreement visible and escalates. The differential is still produced --- \emph{acute coronary
+syndrome} --- but it arrives with the conflict attached, and the escalation is what a clinician
+sees first.
 
 \subsubsection{Missing Data Case}
-\rmq{A positive imaging finding with a key laboratory value never measured. Expected
-behaviour: the absent test appears under NOT MEASURED, is barred from supporting or
-contradicting any diagnosis, is named as the information that would most change the
-assessment, and triggers escalation.}
+
+A positive lung finding is present, and troponin and lactate were never measured.
+
+Both absent tests appear in the state under \textsc{not measured --- absent, not normal}. They
+have no evidence identifier, which means the model cannot cite them for or against any
+diagnosis: the constraint is structural rather than an instruction the model is asked to
+follow. Escalation fires on positive imaging with key laboratory values absent.
+
+The model returns \emph{pulmonary embolism} at moderate likelihood, and names troponin and
+lactate first in \texttt{missing\_information} --- the tests that would most change the
+assessment. That list is what determines what gets ordered next, which is why an entry that is
+merely plausible is not good enough there and why the validator checks it against what the
+record actually lacks.
 
 \subsection{User Interface}
 \label{subsec:integration-ui}
-\rmq{Describe the interface actually built, at the level of fidelity it actually has. If it
-is a notebook rather than an application, say so; an overstated prototype is the easiest
-claim for a jury to test and disprove.}
+
+The prototype has no graphical application. Stating that plainly is more useful than
+overstating it, since an overstated prototype is the easiest claim for an examiner to test.
+
+What exists is three interfaces, each honest about its fidelity:
+
+\begin{itemize}
+  \item \textbf{Notebooks.} The perception modules run in Jupyter notebooks on Colab, one per
+        organ for training and one for unified inference. These are the working interface and
+        the one all reported results were produced through.
+  \item \textbf{A command-line entry point.} \texttt{run\_case} executes a complete encounter
+        end to end, with switches for the retrieval backend, the number of correction rounds
+        and whether to consult the model at all. Its \texttt{-{}-dry-run} mode prints the
+        clinical state, the escalation decision and the exact prompt without loading the
+        language model, which is how the safety layer is inspected without a GPU.
+  \item \textbf{A rendered clinical summary.} The system produces a deterministic text
+        rendering of the encounter --- state, escalation, evidence considered, differential or
+        withheld --- suitable for display but not yet displayed by anything.
+\end{itemize}
+
+The rendering is the part a user interface would present, and it was written deterministically
+for that reason: the same bundle always produces byte-identical output, so what a clinician
+would read is reproducible and auditable rather than regenerated each time.
 
 \subsection{End-to-End Execution}
 \label{subsec:integration-execution}
-\rmq{Runtime and resource requirements for a complete encounter, broken down by stage, and
-the practical constraints this places on bedside use.}
+
+Table~\ref{tab:runtime} gives measured times for a complete encounter on the hardware this
+project had available: a Colab T4 GPU.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Measured runtime for one encounter, Colab T4.}
+  \label{tab:runtime}
+  \begin{tabular}{@{}lr@{}}
+    \toprule
+    Stage & Time \\
+    \midrule
+    Perception model loading (three organs) & $\sim$10\,s \\
+    Per-organ inference & $<$1\,s \\
+    State construction and escalation & $<$0.1\,s \\
+    Retrieval over the corpus & $<$0.1\,s \\
+    Language model loading (4.9\,GB) & 14--21\,s \\
+    Reasoning, including one correction round & 33--105\,s \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two features of this profile constrain bedside use.
+
+The first is that everything except the language model is fast. Perception, state construction,
+conflict detection and the entire escalation decision complete in under two seconds. A
+deployment that offered only the escalation decision --- which is the safety-critical output,
+and the one that does not depend on the model --- would be effectively instantaneous.
+
+The second is that the reasoning step dominates and is variable, from 33 to 105 seconds
+depending on the case and whether a correction round was needed. On CPU the same workload takes
+approximately 23 minutes per case, which rules out CPU-only deployment entirely.
+
+The practical implication is that the two outputs have different latency profiles and should
+probably be delivered differently. The escalation decision is available immediately and is what
+a clinician needs first; the differential and its reasoning arrive up to two minutes later and
+are what they would read while waiting. The architecture already separates these two paths for
+safety reasons, and the timing measurements suggest the same separation is right for
+interaction as well.

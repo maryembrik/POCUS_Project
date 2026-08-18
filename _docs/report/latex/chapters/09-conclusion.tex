@@ -6,57 +6,216 @@
 
 \subsection{Summary of Contributions}
 \label{subsec:conclusion-contributions}
-\rmq{State the contributions at the level they were actually made. The individual
-architectures are standard and are not claimed. What was built is the layer above them: a
-shared output contract across organs, calibrated confidence carried from perception through
-to reasoning, an explicit representation of absent evidence and model scope, and a
-deterministic escalation policy independent of the language model. Add the methodological
-contribution: case-level evaluation established for three datasets that did not provide it.}
+
+The individual model architectures used here are standard and are not claimed as
+contributions. EfficientNet-B0, U-Net and gradient-boosted trees are established tools applied
+in established ways, and a reader should assume that any competent practitioner would have
+reached comparable per-module figures on the same data.
+
+What was built is the layer above them.
+
+\paragraph{A shared output contract across heterogeneous models.} A segmentation network, two
+classifiers and a tree ensemble write through one validated schema, so a reasoning layer can
+consume all four without knowing which produced what. The contract is enforced rather than
+conventional: four validation rules reject reports that would be ambiguous downstream, each rule
+written against a failure that actually occurred.
+
+\paragraph{Calibrated confidence carried end to end.} Each module's confidence is calibrated by
+a method suited to its own miscalibration and travels with the finding to the point of use,
+instead of being computed for a metrics table and discarded at the module boundary. Where a
+calibrator is absent the output says so, and the reasoning layer discounts it.
+
+\paragraph{An explicit representation of absent evidence and model scope.} The system
+distinguishes a finding detected, a finding screened for and not seen, and a finding never
+assessed --- three states that a simpler design collapses into two. Each module declares what it
+cannot exclude, and those declarations reach the escalation policy rather than remaining in
+documentation. The practical consequence is that an all-negative scan escalates instead of
+reassuring.
+
+\paragraph{A deterministic escalation policy independent of the language model.} The
+safety-critical decision is computed from the structured state before the model is consulted and
+is unchanged by anything the model does, including failing entirely. This is demonstrated rather
+than asserted: 180 tests exercise it with no model present, and the decision was verified
+identical across three backends including one that raises on every call.
+
+\paragraph{An evidence interface that makes fabrication unrepresentable.} The reasoning layer
+does not ask the model to avoid inventing evidence; it removes the ability. Citations are
+identifiers drawn from an enumerated list of facts the state actually holds, so there is no
+identifier for an invented observation, none for a test never performed, and none for a sentence
+lifted from the reference corpus. Section~\ref{subsec:reasoning-ab} reports what that changed.
+
+\paragraph{A methodological contribution.} Case-level evaluation was established for three
+datasets that did not provide it. Each required reconstructing the statistical unit before any
+model could be honestly evaluated, and in two of the three the reconstruction changed the
+reported figures materially --- downward.
 
 \subsection{Achieved Objectives}
 \label{subsec:conclusion-objectives}
-\rmq{Return to the Business and Data Science Objectives of Section~\ref{subsec:objectives}
-and assess each against the evidence. Mark partially achieved objectives as partial. An
-honest assessment here is more persuasive than a complete one, because the limitations
-chapter immediately precedes it and the jury has already read it.}
+
+The objectives of Section~\ref{subsec:objectives} are assessed below against the evidence of
+Chapters~\ref{sec:perception} to~\ref{sec:results}. Several are partial, and they are marked
+partial: the limitations chapter immediately precedes this one and a reader who has just read it
+will not be persuaded by a clean scorecard.
+
+\subsubsection{Business Objectives}
+
+\paragraph{Reduce time-to-diagnosis --- not demonstrated.} The system produces an escalation
+decision in under two seconds and a differential within two minutes, which is fast enough to be
+used during an examination. Whether it shortens time-to-diagnosis is a claim about clinical
+workflow that requires clinical evaluation, and none was performed. What can be said is that
+nothing in the measured runtime prevents it.
+
+\paragraph{Reduce diagnostic error for less experienced operators --- not demonstrated.} This
+objective requires comparing clinicians using the system against clinicians without it. No such
+comparison exists in this work, and the per-module accuracy figures do not substitute for one.
+
+\paragraph{Make uncertainty visible rather than implicit --- achieved.} This is the objective
+the work most directly meets, and the one that survives the limitations. Every finding carries a
+calibrated confidence; absent tests are recorded as absent and cannot be cited as evidence;
+every module declares what it cannot exclude; and every abnormal value reaches the clinician
+whether or not the reasoning model referred to it. Each of these is enforced in code and
+verified by tests rather than left to convention.
+
+\paragraph{Preserve the clinician's authority over the decision --- achieved.} The system
+recommends next steps and does not prescribe treatment; a validator rejects output that
+instructs treatment. It escalates rather than resolving disagreements it lacks the information
+to settle, and it withholds a differential it cannot ground rather than presenting an unreliable
+one. The clinician sees the evidence, the escalation and the reasoning, and decides.
+
+\subsubsection{Data Science Objectives}
+
+\paragraph{Computer vision models returning calibrated confidence --- achieved.} Three modules,
+each calibrated, each reporting a probability rather than a bare score. Their accuracy is
+moderate and is reported as such.
+
+\paragraph{An explainability layer relating attention to anatomical regions --- partial.}
+Grad-CAM was implemented for all three imaging modules and its output was measured rather than
+inspected by eye. What was established is that attention is concentrated and content-dependent.
+What was \emph{not} established is that it falls on the anatomically correct structure, which is
+what the objective asked for and which requires expert annotation this project does not have.
+
+\paragraph{A structured clinical state recording what was not measured --- achieved.} This is
+the component the rest of the architecture rests on, and it does what the objective specifies.
+
+\paragraph{A reasoning layer producing a grounded differential --- partial.} A ranked
+differential is produced and every citation is grounded in the state by construction. But the
+model reasons from part of the available evidence rather than all of it, phrases recommendations
+more strongly than decision support should, and has never been evaluated against clinical ground
+truth. Grounding was achieved; reasoning quality was not established.
+
+\paragraph{An escalation policy from confidence, severity and completeness --- achieved.} Seven
+deterministic triggers, computed before the model runs, tested by 11 dedicated tests within the
+180.
 
 \subsection{Current Limitations}
 \label{subsec:conclusion-limitations}
-\rmq{Summarise Section~\ref{subsec:results-limitations} in a few sentences; do not repeat
-it. The single most important sentence: this system has not been validated against clinical
-outcomes and is not a diagnostic device.}
+
+Section~\ref{subsec:results-limitations} states these in full and they are not repeated here.
+In summary: the case-level datasets are small, the images are curated public collections rather
+than consecutive clinical series, only the triage model was evaluated across independent
+sources, and the reasoning benchmark comprises five synthetic cases.
+
+One sentence carries more weight than the rest. \textbf{This system has not been validated
+against clinical outcomes and is not a diagnostic device.} Nothing in this work was measured
+against what happened to a patient or against what a clinician concluded, and no figure reported
+anywhere in it should be read as evidence of clinical utility.
 
 \subsection{Difficulties Encountered}
 \label{subsec:conclusion-difficulties}
-\rmq{The genuine obstacles and what each forced. Intermittent GPU availability, which made
-each training run expensive enough to justify estimating candidate changes analytically
-first; datasets whose statistical unit was undocumented; taxonomies that did not match the
-images; and hypotheses that had to be abandoned when measurement contradicted them. Frame
-each as a constraint that shaped the method, which is what they were.}
+
+Four obstacles shaped the method rather than merely delaying it.
+
+\paragraph{Intermittent GPU availability.} Training ran on free Colab sessions with no
+guarantee of allocation and a runtime that could be reclaimed mid-experiment. This made each
+training run expensive enough that speculative experimentation was not affordable, which forced
+a habit of estimating a candidate change before spending a run on it. The clearest instance is
+the gallbladder taxonomy selection of Section~\ref{subsec:gallbladder-module}, where collapsing
+an existing confusion matrix arithmetically predicted the accuracy each candidate grouping would
+reach, and one configuration was trained instead of several. The constraint produced a better
+method than abundance would have.
+
+\paragraph{Datasets whose statistical unit was undocumented.} Three of the four datasets provide
+frame-level or image-level labels with no explicit case identifier, and none states that
+splitting on them would leak. Reconstructing case identity --- from directory structure, from
+metadata, and for the lung dataset from a filename heuristic --- was a precondition for any
+honest figure, and it lowered the reported results in two modules. The earlier, higher numbers
+were not wrong through carelessness; they were wrong because the unit of analysis had been
+inherited from the dataset's layout rather than chosen.
+
+\paragraph{Taxonomies that did not match the images.} A gallbladder class whose contents did not
+correspond to its label was found only by sampling one frame per case across the whole folder.
+The first inspection, from a handful of frames, had judged it consistent. The lesson generalised
+beyond that dataset and is stated as a rule in Section~\ref{subsec:gallbladder-module}: frames
+from one case are not a sample of a class.
+
+\paragraph{Hypotheses contradicted by measurement.} The cardiac generalisation gap was first
+attributed to a labelling-convention mismatch, on evidence from a small number of images.
+Connected-component analysis over the full external dataset disproved it. The hypothesis was
+abandoned and the reversal is reported in Section~\ref{subsec:cardiac-module} rather than
+quietly dropped, because a method that only records the hypotheses that survived gives a reader
+no way to judge it.
 
 \subsection{Future Work}
 \label{subsec:conclusion-future}
 
 \subsubsection{Additional organs}
-\rmq{The vascular / DVT module deliberately excluded from this internship, and the FAST
-examination. Both fit the existing contract without changes to it.}
+
+Vascular imaging for deep vein thrombosis was deliberately excluded from the scope of this
+internship, and the FAST examination was defined but not implemented. Both already return
+\texttt{status: "not\_supported"} through the ordinary contract, which means adding them
+requires a module and no change to anything that consumes one. The reasoning layer, the
+escalation policy and the schema would be untouched.
+
+The reference corpus already contains sourced passages for the FAST views, so the knowledge
+those modules would need to be reasoned about is in place before the modules themselves.
 
 \subsubsection{Video analysis}
-\rmq{All imaging modules operate on frames. Lung sliding and cardiac wall motion are
-temporal signs that a frame-based model cannot represent at all, which bounds what the
-current system can detect regardless of how much data it is given.}
+
+Every imaging module here operates on frames. The lung module samples eight frames from a clip
+and aggregates them by median, which is aggregation over still images rather than analysis of
+motion.
+
+This is a hard bound rather than a refinement. Lung sliding is defined by movement of the
+pleural line between frames; the lung point is defined by the transition between sliding and
+absent sliding at a location; cardiac wall motion abnormality is a temporal pattern. None of
+these can be represented by a model that sees frames independently, however much data it is
+given. Pneumothorax detection in particular --- absent from this system for want of positive
+cases --- depends on exactly the temporal signs a frame-based model cannot see.
 
 \subsubsection{Improved calibration and external validation}
-\rmq{Larger case-level datasets, prospective data collection, and validation on a cohort
-from a different institution --- the evidence the current results most lack.}
+
+The evidence these results most lack is external. Only the triage model was evaluated across
+independent sources, and the 17-point spread it showed between them is the best available
+indication of how much the imaging figures might move on data from another institution.
+
+What is needed is larger case-level datasets, prospective collection rather than curated
+archives, and validation on a cohort from a different institution than the one that produced
+the training data. Calibration would also improve: the current calibrators are fitted and scored
+on the same out-of-fold predictions, so the reported expected calibration errors are optimistic,
+and a properly held-out calibration set would give an honest figure.
 
 \subsubsection{Simulation and the digital twin}
-\rmq{The escalation route currently ends at a recommendation to examine further. The
-intended continuation is a simulation environment in which a candidate decision can be
-explored before it is committed to. Present this as a perspective, and be explicit that no
-part of it was built during this internship.}
+
+The escalation route currently ends at a recommendation to examine further. The intended
+continuation, and the reason the escalation output is named \texttt{simulation}, is an
+environment in which a candidate decision could be explored against a patient model before being
+committed to.
+
+\textbf{No part of this was built during the internship.} It is stated here as a perspective
+because the architecture was arranged to accommodate it --- escalation is a routing decision
+with a named destination, and that destination is currently unimplemented --- and not because
+any of it exists.
 
 \subsubsection{Clinical evaluation}
-\rmq{The step that would make the system meaningful: evaluation with clinicians, measuring
-whether the assistant changes time-to-diagnosis or error rate rather than whether its
-individual models score well.}
+
+The step that would make this system meaningful is the one it does not have. Every figure in
+this report measures whether a model scores well or whether a safety mechanism behaves as
+specified. None measures whether a clinician using the system reaches a better decision, or a
+faster one, than a clinician without it.
+
+That evaluation would be a study rather than an experiment: clinicians of varying experience,
+real presentations, and outcomes measured against what actually happened to the patient. Its
+endpoints would be time-to-diagnosis and diagnostic error --- the two business objectives of
+Section~\ref{subsec:objectives} that this work explicitly could not demonstrate. Until it is
+performed, the honest description of what has been built is a prototype whose safety properties
+are verified and whose clinical value is unknown.
