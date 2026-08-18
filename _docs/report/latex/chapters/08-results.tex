@@ -10,100 +10,358 @@
 \label{sec:results}
 
 \subsection{Introduction}
-\rmq{State the division explicitly in two sentences: each module was developed, measured and
-decided in Chapter~\ref{sec:perception}; this chapter asks what the four results mean as a
-system. A reader who has just finished Chapter 5 needs to know they are not about to read
-the same numbers again.}
+
+Each module was developed, measured and decided in Chapter~\ref{sec:perception}, where its
+investigation ends in its own results section. This chapter does not repeat those figures. It
+asks what the four results mean when the modules are assembled into one system: which claims
+they support, which they do not, and what the assembled behaviour shows that no individual
+metric can.
+
+The distinction matters because the properties this project set out to demonstrate are not
+properties of any single model. Whether an absent test is treated as absent, whether a
+module's declared limits survive into the decision that follows, and whether the system
+degrades safely when a component fails are all questions about the assembly.
 
 \subsection{The Modules Side by Side}
 \label{subsec:results-comparison}
-\rmq{One table drawing together all four modules: task type, model family, headline metric,
-the baseline it is read against, case count, calibration method and ECE after calibration.
-Metrics differ across modules and cannot be compared directly --- say so --- but the
-distance of each from its own baseline can be.
 
-The observation worth drawing out: the modules differ enormously in headline metric while
-being comparable in how far each sits above its own chance level. That is the honest way to
-read four numbers on four different tasks.}
+Table~\ref{tab:modules-side-by-side} draws the four modules together. The headline metrics are
+not comparable with one another --- a Dice coefficient, an AUROC, a balanced accuracy and a
+macro F1 measure different things on different tasks --- and no conclusion should be drawn from
+one number being larger than another. What can be compared is the distance of each result from
+the baseline appropriate to its own task.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{The four perception modules. Headline metrics are not comparable across rows;
+    the distance of each from its own baseline is.}
+  \label{tab:modules-side-by-side}
+  \begin{tabularx}{\textwidth}{@{}lXlll@{}}
+    \toprule
+    Module & Task & Headline & Baseline & Cases \\
+    \midrule
+    Triage & 3-tier urgency, tabular & macro F1 0.666 & 0.333 (chance) & 16\,180 enc. \\
+    Lung & 4 findings, multi-label & macro AUROC 0.788 & 0.500 (chance) & 165 \\
+    Cardiac & segmentation $\rightarrow$ EF & Dice 0.93 / 0.83 / 0.89 & --- & 100 patients \\
+    Gallbladder & 5 pathology classes & bal.\ acc.\ 63.1\% & 20.0\% (chance) & 199 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Read that way, the modules are more alike than their headline figures suggest. The gallbladder
+classifier reaches roughly three times its chance level on a five-class problem; the triage
+model twice its chance level on a three-class one; the lung classifier sits well above the
+uninformative 0.5 on every finding it models. None of them is close to the accuracy a
+deployed clinical tool would require, and all of them are clearly doing something other than
+guessing.
+
+The cardiac module has no chance-level baseline because segmentation is not a classification
+task. Its derived ejection fraction carries a mean absolute error of 7.1 percentage points,
+which is the figure a clinician would actually act on, and
+Section~\ref{subsec:cardiac-results} reports what that error means against the bands used to
+call function normal, reduced or severe.
+
+Two observations survive the comparison. The first is that case counts are small everywhere
+except triage, and Section~\ref{subsec:results-limitations} states what that forbids. The
+second is that the triage model is the only one evaluated across multiple independent sources,
+and its accuracy varies substantially between them --- from 0.617 to 0.789 across the three
+datasets. A single pooled figure conceals that spread, which is why the per-source breakdown
+is reported alongside it.
 
 \subsection{Calibration as a System Property}
 \label{subsec:results-calibration}
-\rmq{Four modules, four calibration methods --- isotonic, Platt per finding, temperature,
-Platt --- chosen per module rather than uniformly. Explain why the choice differs and what
-each suited.
 
-Then the system-level argument, which is the real content of this section: calibration is
-what makes four heterogeneous models comparable to one another. Without it the reasoning
-layer would be combining numbers on incommensurable scales, and the escalation thresholds in
-Section~\ref{subsec:reasoning-escalation} would have no defensible basis. Calibration is not
-a finishing touch here; it is the precondition for the architecture working at all.}
+Four modules were calibrated by four different methods: isotonic regression for cardiac, Platt
+scaling per finding for lung, temperature scaling for gallbladder, and Platt scaling for
+triage. The choice was made per module rather than uniformly, because the shape of the
+miscalibration differed. Temperature scaling has a single parameter and preserves the ranking
+of classes, which suits a multi-class head that is confidently wrong at the top end. Isotonic
+regression is non-parametric and can correct an arbitrary monotone distortion, which suits a
+confidence derived from agreement across test-time augmentations rather than from a softmax.
+Platt scaling fitted separately per finding suits a multi-label head whose four outputs are
+miscalibrated to different degrees.
+
+The system-level argument matters more than any of these choices. Calibration is what makes
+four heterogeneous models comparable to one another. The reasoning layer receives a confidence
+from a segmentation network, a confidence from a multi-label classifier and a confidence from
+a tabular model, and it must weigh them against each other; without calibration those numbers
+would sit on incommensurable scales and the escalation thresholds of
+Section~\ref{subsec:reasoning-escalation} would have no defensible basis. A threshold of 0.80
+means nothing unless 0.80 means approximately the same thing whichever module produced it.
+
+Calibration is therefore not a finishing touch in this architecture. It is the precondition
+for the architecture working at all, and the schema enforces it: a module that ships without
+its calibrator reports \texttt{confidence\_calibrated: false}, and the reasoning layer
+discounts it rather than treating an uncalibrated number as if it carried the same meaning.
+
+The triage model illustrates both the value and the limit. Its expected calibration error fell
+from 0.044 to 0.036 under calibration --- a real improvement, and a small one, because the
+model was already reasonably calibrated. Calibration corrects miscalibration; it does not
+manufacture reliability that was never there.
 
 \subsection{What the Explainability Results Do and Do Not Establish}
 \label{subsec:results-explainability}
-\rmq{Summarise the Grad-CAM statistics across modules without repeating the tables from
-Section~\ref{subsec:explainability}. Be precise about the limit: concentrated attention is
-evidence that the model is responding to localised image content rather than to global
-brightness or position. It is NOT evidence that the attention falls on the anatomically
-correct structure, which would require expert annotation this project does not have. Stating
-that boundary is worth more than the statistics themselves.}
+
+The Grad-CAM statistics of Section~\ref{subsec:explainability} establish that attention is
+concentrated rather than diffuse. That is evidence the models respond to localised image
+content rather than to global brightness, framing or position, which is a real and
+non-trivial thing to have shown: a classifier that had learned the average intensity of an
+image would not produce concentrated attention maps.
+
+It is not evidence that the attention falls on the anatomically correct structure. Establishing
+that would require expert annotation of where the relevant structure lies in each image, which
+this project does not have. The distinction is not pedantic. A model attending consistently to
+a burned-in annotation marker, a probe artefact or a caption would also produce concentrated
+maps, and the gallbladder module in particular showed a pronounced central prior that is
+consistent with either a genuine anatomical focus or an acquisition convention.
+
+Stating that boundary is worth more than the statistics themselves. Grad-CAM here is a
+plausibility check that the models are not obviously broken, and it is reported as such rather
+than as evidence of clinical validity.
 
 \subsection{Clinical Reasoning Evaluation}
 \label{subsec:results-reasoning}
-\rmq{The benchmark cases and what was checked: schema validity, whether the hallucination
-guard fired when it should, and whether the escalation decision matched the intended one.
-Report the small size of the benchmark in the same breath as the results, not in a later
-limitations section.}
+
+The reasoning agent was evaluated on five synthetic scenarios, each designed to exercise a
+specific failure mode: a case with key laboratory values absent, a case where triage and
+imaging disagree, a case where the evidence agrees and the record is complete, a case where
+every finding is negative, and a case where a requested organ was never scanned. Five cases is
+a small benchmark, and that is stated here rather than deferred: no proportion computed over
+five cases separates a real effect from a small one, and none is presented as if it did.
+
+What was checked on each case was schema validity, whether the hallucination guard fired when
+it should, whether every cited item existed in the state, and whether the escalation decision
+matched the one the policy of Section~\ref{subsec:reasoning-escalation} specifies.
+
+The result worth reporting is not a score but a change. With the evidence fields written as
+free text, the model produced six unsupported-output errors across the five cases and the
+safety layer withheld the differential on three of them. The failures were of a consistent
+kind: an invented observation (``stable vitals'' for a patient whose vitals were not in the
+state), a value relabelled against the record (a troponin the state printed as normal,
+described as elevated), and --- once retrieval was added --- sentences drawn from the corpus
+and placed among the patient's findings.
+
+Constraining the interface removed them. When \texttt{supporting} and \texttt{contradicting}
+were changed to accept only identifiers drawn from an enumerated list of citable facts, the
+errors fell from six to zero and the withheld differentials from three of five to none. The
+mechanism is worth stating precisely: the failures did not become easier to detect, they
+became impossible to express. There is no identifier for a fact the state does not hold, none
+for a test that was never performed, and none for a sentence out of a guideline.
+
+Two faults resisted this treatment, both of them concerning how the answer is written rather
+than what it claims: an abnormal value the model failed to cite, and a recommendation phrased
+as though a test would settle a question rather than inform it. Two attempts to correct them
+through the model failed --- first as an instruction in the prompt, then as a revision request
+naming the exact identifier to add, across two correction rounds. They were resolved instead
+by moving them out of the model: a comma-joined list is normalised in Python, and every
+abnormal value is surfaced to the clinician from the state itself regardless of what the model
+cited. The overclaiming wording was deliberately not corrected in code, because rewording a
+recommendation changes what the system asserts, and it is reported as a warning instead.
+
+The evaluation demonstrated the robustness of the safety and evidence-grounding mechanisms on
+a five-case synthetic benchmark. It does not constitute clinical validation or a diagnostic
+accuracy assessment, and no accuracy figure for the reasoning agent is reported anywhere in
+this work, because no clinical ground truth exists against which one could be computed.
+
+On retrieval, the finding is negative and is reported as such. On the five-case benchmark,
+retrieval did not demonstrate a measurable improvement over the no-retrieval condition, and
+one additional error occurred in the retrieval condition; its contribution to reasoning
+quality remains inconclusive. Retrieval retains an architectural role --- it grounds the
+model in a curated corpus whose provenance is recorded per passage --- but this project did
+not measure a benefit from it.
 
 \subsection{Overall System Evaluation}
 \label{subsec:results-system}
-\rmq{The properties that only appear once the modules are assembled, and that no per-module
-metric can show: graceful degradation when a module is unavailable, correct propagation of a
-module's declared limits into the escalation decision, and the behaviour on the worked
-scenarios of Section~\ref{subsec:integration-scenarios}. This is the section that justifies
-the architecture rather than the models.}
+
+Three properties appear only once the modules are assembled, and none of them is visible in
+any per-module metric.
+
+\paragraph{Graceful degradation.} A module that has no weights, no calibrator or no
+implementation reports its status in the ordinary schema rather than raising or being absent.
+The reasoning layer never branches on whether a key exists; an unsupported organ is an empty
+finding list with a status. The consequence was tested directly with a deliberately failing
+model backend: the escalation decision and its triggers were produced unchanged and the
+differential was withheld with the backend error recorded. The safety-critical output survives
+the failure of the least predictable component, which is the property the architecture was
+arranged to have.
+
+\paragraph{Propagation of declared limits.} Each module declares what it cannot exclude --- the
+gallbladder classifier has no healthy class, the lung classifier does not model pneumothorax
+--- and those declarations reach the escalation policy rather than stopping at the module
+boundary. A scan in which nothing fires therefore escalates, on the ground that the models
+cannot exclude disease, and does not read as a normal study. This is the inverse of the
+behaviour a naive assembly would produce, in which an all-negative scan is the most reassuring
+possible result.
+
+\paragraph{Absence represented explicitly.} The system distinguishes three states that a
+simpler design collapses into two: a finding detected, a finding screened for and not seen,
+and a finding never assessed. The distinction is carried from the imaging module through the
+clinical state into the prompt and the validators. Its practical effect was measured: a
+defect in which an all-negative lung scan was represented by a placeholder entry in the
+findings list caused the absence of findings to escalate less readily than their presence,
+which is backwards, and the correction was verified end to end.
+
+The behaviour on the worked scenarios of Section~\ref{subsec:integration-scenarios} exercises
+all three together.
 
 \subsection{Rejected Experiments}
 \label{subsec:results-rejected}
-\rmq{Each rejection is reported inside the module that prompted it in
-Chapter~\ref{sec:perception}. Collect them here in a single table --- hypothesis,
-measurement, decision --- so that the pattern is visible: external-dataset integration,
-the augmentation upgrade that changed nothing measurable, USCL initialisation, cardiac
-fine-tuning, the alternative gallbladder taxonomy, the aggressive triage class weighting,
-and the coarse reason-for-visit grouping.
 
-Then the point the table makes, which no individual entry makes on its own: seven
-well-motivated changes were tested and rejected on measurement. That is the methodological
-rule of Section~\ref{subsec:methodology} shown working, and it is the strongest available
-evidence that the retained results were not selected for being favourable.}
+Each rejection is reported inside the module that prompted it in
+Chapter~\ref{sec:perception}. Table~\ref{tab:rejected} collects them so that the pattern is
+visible.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Well-motivated changes tested and rejected on measurement.}
+  \label{tab:rejected}
+  \begin{tabularx}{\textwidth}{@{}lXl@{}}
+    \toprule
+    Change & Hypothesis and measured outcome & Decision \\
+    \midrule
+    External-dataset integration & \rmq{one line: what was added, what it cost} & rejected \\
+    Augmentation upgrade & Stronger augmentation would improve generalisation; the measured
+      difference was within run-to-run variation & rejected \\
+    USCL initialisation & Ultrasound-specific pretraining would beat ImageNet weights; it
+      underperformed them & rejected \\
+    Cardiac fine-tuning & Fine-tuning would close the external-domain gap; it improved the
+      external set at the cost of the primary one & rejected \\
+    Gallbladder taxonomy & An alternative grouping would separate the classes better; the
+      collapsed confusion matrix predicted worse separation and training confirmed it &
+      rejected \\
+    Triage class weighting & Aggressive weighting would improve safety on the
+      under-represented tier; it cost substantial accuracy for negligible safety gain &
+      rejected \\
+    Reason-for-visit grouping & A coarser grouping would generalise across sources;
+      \rmq{measured outcome} & rejected \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+The table makes a point that no individual entry makes. Seven well-motivated changes were
+tested and rejected on measurement rather than on preference, and each is reported with the
+number that decided it. This is the methodological rule of Section~\ref{subsec:methodology}
+shown working, and it is the strongest available evidence that the retained results were not
+selected for being favourable. A project that reports only what worked gives a reader no way
+to judge how much was tried.
+
+The same discipline applied to the reasoning agent, where two changes were adopted and one
+rejected: enumerated evidence was retained on measurement, a second correction round was
+tested and reverted after it produced no change for a third more runtime, and the sharpened
+complaint wording was retained only because it cost nothing, not because it was shown to work.
 
 \subsection{Strengths}
 \label{subsec:results-strengths}
-\rmq{Argue from measurements, not from intent. The defensible claims: case-level evaluation
-throughout, on three datasets that did not provide it; calibrated confidence carried end to
-end rather than discarded at the module boundary; explicit representation of absent evidence;
-and safety decisions that do not depend on a language model. Each of these is checkable by an
-examiner, which is why they are the ones to claim.}
+
+Four claims are defensible from measurement rather than from intent, and each is checkable by
+an examiner.
+
+\paragraph{Case-level evaluation throughout.} Three of the four datasets provide image-level
+or frame-level labels only. Splitting on those directly leaks the same patient across train
+and test and inflates every figure. Case-level grouping was reconstructed for each --- for the
+lung dataset by a filename heuristic whose residual uncertainty is stated in
+Section~\ref{subsec:results-limitations} --- and every reported metric is computed over
+independent cases.
+
+\paragraph{Calibrated confidence carried end to end.} Confidence is calibrated in each module,
+exported with the weights, and consumed by the reasoning layer, rather than being computed and
+discarded at the module boundary. Where a calibrator is missing the output says so.
+
+\paragraph{Absent evidence represented explicitly.} The three-state distinction described in
+Section~\ref{subsec:results-system} is enforced by the schema, not by convention: a report
+claiming an assessment occurred while recording nothing about it is rejected.
+
+\paragraph{Safety decisions independent of the language model.} Escalation is computed from
+the structured state before the model is consulted and is unchanged by anything the model
+does. This is demonstrated rather than asserted: 180 tests exercise the safety layer with no
+model present, and the decision was verified identical across three different backends
+including one that fails.
 
 \subsection{Limitations}
 \label{subsec:results-limitations}
-\rmq{State each as a bound on a specific claim rather than as a generic disclaimer. Small
-case-level datasets; public collections rather than consecutive clinical series; no external
-validation for most modules; the lung case mapping is a filename heuristic with residual
-uncertainty; the cardiac module is domain-limited; no clinical outcome validation; no
-prospective evaluation; the reasoning benchmark is small.
 
-For each, name what it forbids concluding. A limitation that does not change what may be
-claimed is not worth listing.}
+Each limitation below is stated as a bound on a specific claim. A limitation that does not
+change what may be concluded is not listed.
+
+\paragraph{Small case-level datasets.} 165 lung cases, 199 gallbladder cases, 100 cardiac
+validation patients. Confidence intervals on every per-module figure are wide, and differences
+of a few percentage points between configurations are not interpretable. This forbids
+comparative claims about closely-spaced variants.
+
+\paragraph{Public collections rather than consecutive clinical series.} The images are
+teaching-atlas stills and curated public clips, which are better framed and less noisy than
+bedside acquisition. This forbids any claim that the reported accuracy would transfer to
+point-of-care use.
+
+\paragraph{No external validation for most modules.} Only the triage model was evaluated
+across independent sources, and its accuracy varied from 0.617 to 0.789 between them. For the
+imaging modules the absence of external evaluation forbids any claim of generalisation beyond
+the collection each was trained on.
+
+\paragraph{The lung case mapping is a heuristic.} Case identity was reconstructed from
+filenames rather than provided by the dataset. Residual uncertainty remains, and it forbids
+treating the lung case count as exact.
+
+\paragraph{The cardiac module is domain-limited.} It was trained on CAMUS-like four-chamber
+stills and its performance dropped on an external collection; fine-tuning to close that gap
+was tested and rejected because it cost primary-domain accuracy. This forbids applying it to
+acquisitions unlike its training domain.
+
+\paragraph{No clinical outcome validation and no prospective evaluation.} Nothing in this
+work was measured against what happened to a patient, or against what a clinician concluded.
+This forbids every claim of clinical utility, and is the reason no diagnostic accuracy figure
+appears for the system as a whole.
+
+\paragraph{The reasoning benchmark is five synthetic cases.} It measures whether the safety
+mechanisms behave as specified. It forbids any statement about how the reasoning agent would
+perform on real presentations, and it is too small to establish that retrieval does or does
+not help.
+
+\paragraph{The per-organ inference functions are not under test.} The 180 tests build module
+reports directly and none of them imports the per-organ prediction code, which lives in a
+notebook. The suite proves the contract is enforced, not that the ultrasound agent honours it;
+that link is currently verified by running the notebook rather than by the test suite.
 
 \subsection{Clinical Interpretation}
 \label{subsec:results-discussion}
-\rmq{What the numbers mean for a clinician rather than for a leaderboard. Which modules are
-close to being useful and which are not, and the argument that a well-calibrated model of
-moderate accuracy can be more useful in this system than a more accurate model whose
-confidence cannot be trusted --- because the reasoning layer can act on the first and cannot
-safely act on the second.
 
-Close by returning to the four difficulties of Section~\ref{subsec:problem} and assessing
-each honestly: which have been addressed, which have been partially addressed, and which
-remain open. Resist the temptation to mark all four as solved; the fourth in particular is
-mitigated rather than solved.}
+None of the four modules is accurate enough to be relied upon alone, and the gallbladder
+classifier at 63.1\% balanced accuracy on five classes is the clearest example: as a
+standalone diagnostic it would be unusable. Read as one input among several, weighted by a
+calibrated confidence, and unable to assert that a patient is healthy because it has no
+healthy class, it is a different proposition --- not because the number is better than it
+looks, but because the architecture never asks it to carry a decision by itself.
+
+That is the argument this project is really making. A well-calibrated model of moderate
+accuracy can be more useful inside a system like this than a more accurate model whose
+confidence cannot be trusted, because the reasoning layer can act on the first and cannot
+safely act on the second. A confidence of 0.4 that means 0.4 tells the escalation policy to
+escalate; a confidence of 0.9 that means 0.6 tells it to proceed, and it is wrong. The
+project's emphasis on calibration follows from that, and so does its willingness to report a
+model that is only moderately accurate rather than tuning until a headline figure improves.
+
+Returning to the four difficulties of Section~\ref{subsec:problem}:
+
+\paragraph{Operator dependence and image quality} is \emph{not addressed}. Every model here
+was trained and evaluated on curated images. The difficulty is acknowledged in the corpus,
+which records that a point-of-care study is dependent on the skill of the clinician
+performing it, but nothing in this work measures or mitigates it.
+
+\paragraph{Fragmented evidence across modalities} is \emph{addressed}. The clinical state
+assembles imaging, vitals, laboratory results and triage into one structure with a single
+contract, and the reasoning layer reads all of it together. This is the difficulty the
+architecture most directly answers.
+
+\paragraph{Confidence that cannot be compared across models} is \emph{addressed}, by
+calibration carried end to end and by the schema's refusal to let an uncalibrated number pass
+as a calibrated one.
+
+\paragraph{Unreliable reasoning over the assembled evidence} is \emph{mitigated, not solved}.
+Unsupported evidence citations were eliminated by constraining the interface, and the safety
+decision does not depend on the model at all. But the model still reasons from part of the
+available evidence rather than all of it, still phrases recommendations more strongly than
+decision support should, and has not been evaluated against clinical ground truth. What this
+work establishes is that a language model of this size can be constrained so that its failures
+are contained and visible --- not that its reasoning is reliable.
