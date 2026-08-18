@@ -1,0 +1,1644 @@
+{
+  "none": {
+    "missing": {
+      "encounter_id": "DEMO-MISSING",
+      "retrieval": {
+        "passages": 0,
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      },
+      "case_quality": "MODERATE",
+      "escalation": {
+        "escalate": true,
+        "triggers": [
+          "positive imaging with key lab(s) absent: troponin, lactate"
+        ],
+        "route": "simulation"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "lung: b lines DETECTED (confidence 0.86, evidence strong)",
+          "label": "b lines",
+          "organ": "lung",
+          "detected": true,
+          "confidence": 0.86,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "finding",
+          "text": "lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)",
+          "label": "pleural thickening",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.11,
+          "group": null
+        },
+        {
+          "id": "E3",
+          "kind": "finding",
+          "text": "lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)",
+          "label": "consolidation",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.09,
+          "group": null
+        },
+        {
+          "id": "E4",
+          "kind": "finding",
+          "text": "lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)",
+          "label": "pleural effusion",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.04,
+          "group": null
+        },
+        {
+          "id": "E5",
+          "kind": "vital",
+          "text": "hr: 118.0 bpm -- HIGH",
+          "label": "hr",
+          "flag": "high",
+          "value": 118.0
+        },
+        {
+          "id": "E6",
+          "kind": "vital",
+          "text": "rr: 24.0 /min -- HIGH",
+          "label": "rr",
+          "flag": "high",
+          "value": 24.0
+        },
+        {
+          "id": "E7",
+          "kind": "vital",
+          "text": "sbp: 104.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 104.0
+        },
+        {
+          "id": "E8",
+          "kind": "vital",
+          "text": "spo2: 90.0 % -- LOW",
+          "label": "spo2",
+          "flag": "low",
+          "value": 90.0
+        },
+        {
+          "id": "E9",
+          "kind": "triage",
+          "text": "triage urgency: high (confidence 0.79)",
+          "label": "high urgency"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-MISSING\n\nCASE QUALITY: MODERATE\n  - key lab(s) not obtained: troponin, lactate\n\nPATIENT\n  age: 74\n  chief_complaint: acute breathlessness\n  sex: F\n\nTRIAGE\n  urgency: high (confidence 0.79)\n\nIMAGING FINDINGS\n  lung: b lines (0.86)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 118.0 bpm  <-- HIGH\n  rr: 24.0 /min  <-- HIGH\n  sbp: 104.0 mmHg\n  spo2: 90.0 %  <-- LOW\n\nLABS\n  none resulted\n\nNOT MEASURED -- absent, NOT normal\n  labs: troponin, bnp, d_dimer, lactate, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] lung: b lines DETECTED (confidence 0.86, evidence strong)\n  [E2] lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)\n  [E3] lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)\n  [E4] lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)\n  [E5] hr: 118.0 bpm -- HIGH\n  [E6] rr: 24.0 /min -- HIGH\n  [E7] sbp: 104.0 mmHg -- NORMAL\n  [E8] spo2: 90.0 % -- LOW\n  [E9] triage urgency: high (confidence 0.79)\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "Pulmonary Embolism",
+            "likelihood": "moderate",
+            "supporting": [
+              "lung: b lines DETECTED (confidence 0.86, evidence strong)",
+              "hr: 118.0 bpm -- HIGH"
+            ],
+            "contradicting": [],
+            "limitations": [
+              "lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease",
+              "lung: pneumothorax is not modelled and cannot be excluded"
+            ],
+            "supporting_ids": [
+              "E1",
+              "E5"
+            ],
+            "contradicting_ids": []
+          }
+        ],
+        "missing_information": [
+          "troponin",
+          "lactate",
+          "D-dimer"
+        ],
+        "uncertainty": "The lack of measured labs, particularly troponin, lactate, and D-dimer, limits our confidence in this assessment.",
+        "recommended_next_step": "Order a CT pulmonary angiography to confirm the diagnosis of a pulmonary embolism."
+      },
+      "validation_errors": null,
+      "revisions": [
+        {
+          "attempt": 1,
+          "complaints": [
+            "differential[0] 'Pulmonary Embolism' is rated 'high' while d_dimer was never measured -- the test that would most confirm it is absent, so the evidence supports 'moderate' at best"
+          ],
+          "also_found": [
+            "abnormal value(s) not used and not explained: rr (24.0, high) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+            "recommended_next_step claims to 'confirm the diagnosis' -- state what the test would inform, not what it would settle"
+          ]
+        }
+      ],
+      "warnings": [
+        "abnormal value(s) not used and not explained: rr (24.0, high), spo2 (90.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+        "recommended_next_step claims to 'confirm the diagnosis' -- state what the test would inform, not what it would settle"
+      ],
+      "_seconds": 47.16922736167908,
+      "_retrieval": {
+        "passages": 0,
+        "ids": [],
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      }
+    },
+    "conflict": {
+      "encounter_id": "DEMO-CONFLICT",
+      "retrieval": {
+        "passages": 0,
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      },
+      "case_quality": "MODERATE",
+      "escalation": {
+        "escalate": true,
+        "triggers": [
+          "agents disagree (1 conflict(s))",
+          "high-risk finding below decisive confidence: severe dysfunction (0.74)"
+        ],
+        "route": "simulation"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "heart: severe dysfunction DETECTED (confidence 0.74, evidence strong)",
+          "label": "severe dysfunction",
+          "organ": "heart",
+          "detected": true,
+          "confidence": 0.74,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "vital",
+          "text": "hr: 82.0 bpm -- NORMAL",
+          "label": "hr",
+          "flag": "normal",
+          "value": 82.0
+        },
+        {
+          "id": "E3",
+          "kind": "vital",
+          "text": "sbp: 128.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 128.0
+        },
+        {
+          "id": "E4",
+          "kind": "vital",
+          "text": "spo2: 96.0 % -- NORMAL",
+          "label": "spo2",
+          "flag": "normal",
+          "value": 96.0
+        },
+        {
+          "id": "E5",
+          "kind": "lab",
+          "text": "lactate: 1.1 mmol/L -- NORMAL",
+          "label": "lactate",
+          "flag": "normal",
+          "value": 1.1
+        },
+        {
+          "id": "E6",
+          "kind": "lab",
+          "text": "troponin: 5.0 ng/L -- NORMAL",
+          "label": "troponin",
+          "flag": "normal",
+          "value": 5.0
+        },
+        {
+          "id": "E7",
+          "kind": "triage",
+          "text": "triage urgency: low (confidence 0.88)",
+          "label": "low urgency"
+        },
+        {
+          "id": "E8",
+          "kind": "conflict",
+          "text": "agent disagreement: triage says low urgency but heart reports 'severe dysfunction' at 0.74",
+          "label": "triage says low urgency but heart reports 'severe dysfunction' at 0.74"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-CONFLICT\n\nCASE QUALITY: MODERATE\n  - 1 unresolved conflict(s) between agents\n\nPATIENT\n  age: 61\n  chief_complaint: mild chest discomfort\n  sex: M\n\nTRIAGE\n  urgency: low (confidence 0.88)\n\nIMAGING FINDINGS\n  heart: severe dysfunction (0.74)  evidence=strong\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n\nVITALS\n  hr: 82.0 bpm\n  sbp: 128.0 mmHg\n  spo2: 96.0 %\n\nLABS\n  lactate: 1.1 mmol/L\n  troponin: 5.0 ng/L\n\nNOT MEASURED -- absent, NOT normal\n  labs: bnp, d_dimer, crp, wbc, creatinine, ph\n  vitals: rr, temp\n  Do not treat any of these as excluded. They were not obtained.\n\nCONFLICTS\n  - triage says low urgency but heart reports 'severe dysfunction' at 0.74\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] heart: severe dysfunction DETECTED (confidence 0.74, evidence strong)\n  [E2] hr: 82.0 bpm -- NORMAL\n  [E3] sbp: 128.0 mmHg -- NORMAL\n  [E4] spo2: 96.0 % -- NORMAL\n  [E5] lactate: 1.1 mmol/L -- NORMAL\n  [E6] troponin: 5.0 ng/L -- NORMAL\n  [E7] triage urgency: low (confidence 0.88)\n  [E8] agent disagreement: triage says low urgency but heart reports 'severe dysfunction' at 0.74\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "Acute Coronary Syndrome",
+            "likelihood": "high",
+            "supporting": [
+              "heart: severe dysfunction DETECTED (confidence 0.74, evidence strong)"
+            ],
+            "contradicting": [],
+            "limitations": [
+              "The triage model suggests low urgency, but the heart scan indicates severe dysfunction, which is a significant conflict."
+            ],
+            "supporting_ids": [
+              "E1"
+            ],
+            "contradicting_ids": []
+          }
+        ],
+        "missing_information": [
+          "BNP, D-dimer, CRP, WBC, creatinine, pH, rr, temp"
+        ],
+        "uncertainty": "The conflict between the triage indicating low urgency and the heart scan showing severe dysfunction is a significant uncertainty that limits confidence in this assessment.",
+        "recommended_next_step": "Obtain a BNP test to help clarify the diagnosis and determine the next steps in management."
+      },
+      "validation_errors": null,
+      "revisions": [
+        {
+          "attempt": 1,
+          "complaints": [
+            "missing_information contains combined entries ['BNP, D-dimer, CRP, WBC, creatinine, pH, rr, temp'] -- one test per array element"
+          ],
+          "also_found": null
+        }
+      ],
+      "warnings": [
+        "missing_information contains combined entries ['BNP, D-dimer, CRP, WBC, creatinine, pH, rr, temp'] -- one test per array element"
+      ],
+      "_seconds": 53.72102499008179,
+      "_retrieval": {
+        "passages": 0,
+        "ids": [],
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      }
+    },
+    "concordant": {
+      "encounter_id": "DEMO-CONCORDANT",
+      "retrieval": {
+        "passages": 0,
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      },
+      "case_quality": "GOOD",
+      "escalation": {
+        "escalate": false,
+        "triggers": [],
+        "route": "direct"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "lung: b lines DETECTED (confidence 0.92, evidence strong)",
+          "label": "b lines",
+          "organ": "lung",
+          "detected": true,
+          "confidence": 0.92,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "finding",
+          "text": "lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)",
+          "label": "pleural thickening",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.11,
+          "group": null
+        },
+        {
+          "id": "E3",
+          "kind": "finding",
+          "text": "lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)",
+          "label": "consolidation",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.09,
+          "group": null
+        },
+        {
+          "id": "E4",
+          "kind": "finding",
+          "text": "lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)",
+          "label": "pleural effusion",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.04,
+          "group": null
+        },
+        {
+          "id": "E5",
+          "kind": "vital",
+          "text": "hr: 122.0 bpm -- HIGH",
+          "label": "hr",
+          "flag": "high",
+          "value": 122.0
+        },
+        {
+          "id": "E6",
+          "kind": "vital",
+          "text": "rr: 28.0 /min -- HIGH",
+          "label": "rr",
+          "flag": "high",
+          "value": 28.0
+        },
+        {
+          "id": "E7",
+          "kind": "vital",
+          "text": "sbp: 96.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 96.0
+        },
+        {
+          "id": "E8",
+          "kind": "vital",
+          "text": "spo2: 88.0 % -- LOW",
+          "label": "spo2",
+          "flag": "low",
+          "value": 88.0
+        },
+        {
+          "id": "E9",
+          "kind": "lab",
+          "text": "bnp: 890.0 pg/mL -- HIGH, reference <=100",
+          "label": "bnp",
+          "flag": "high",
+          "value": 890.0
+        },
+        {
+          "id": "E10",
+          "kind": "lab",
+          "text": "lactate: 2.6 mmol/L -- HIGH, reference <=2.0",
+          "label": "lactate",
+          "flag": "high",
+          "value": 2.6
+        },
+        {
+          "id": "E11",
+          "kind": "lab",
+          "text": "troponin: 62.0 ng/L -- HIGH, reference <=14",
+          "label": "troponin",
+          "flag": "high",
+          "value": 62.0
+        },
+        {
+          "id": "E12",
+          "kind": "triage",
+          "text": "triage urgency: high (confidence 0.91)",
+          "label": "high urgency"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-CONCORDANT\n\nCASE QUALITY: GOOD\n\nPATIENT\n  age: 79\n  chief_complaint: orthopnoea\n  sex: M\n\nTRIAGE\n  urgency: high (confidence 0.91)\n\nIMAGING FINDINGS\n  lung: b lines (0.92)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 122.0 bpm  <-- HIGH\n  rr: 28.0 /min  <-- HIGH\n  sbp: 96.0 mmHg\n  spo2: 88.0 %  <-- LOW\n\nLABS\n  bnp: 890.0 pg/mL  <-- HIGH (ref <=100; ventricular wall stress / heart failure)\n  lactate: 2.6 mmol/L  <-- HIGH (ref <=2.0; tissue hypoperfusion)\n  troponin: 62.0 ng/L  <-- HIGH (ref <=14; myocardial injury)\n\nNOT MEASURED -- absent, NOT normal\n  labs: d_dimer, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] lung: b lines DETECTED (confidence 0.92, evidence strong)\n  [E2] lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)\n  [E3] lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)\n  [E4] lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)\n  [E5] hr: 122.0 bpm -- HIGH\n  [E6] rr: 28.0 /min -- HIGH\n  [E7] sbp: 96.0 mmHg -- NORMAL\n  [E8] spo2: 88.0 % -- LOW\n  [E9] bnp: 890.0 pg/mL -- HIGH, reference <=100\n  [E10] lactate: 2.6 mmol/L -- HIGH, reference <=2.0\n  [E11] troponin: 62.0 ng/L -- HIGH, reference <=14\n  [E12] triage urgency: high (confidence 0.91)\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "heart failure",
+            "likelihood": "high",
+            "supporting": [
+              "lung: b lines DETECTED (confidence 0.92, evidence strong)",
+              "bnp: 890.0 pg/mL -- HIGH, reference <=100",
+              "lactate: 2.6 mmol/L -- HIGH, reference <=2.0",
+              "troponin: 62.0 ng/L -- HIGH, reference <=14"
+            ],
+            "contradicting": [],
+            "limitations": [
+              "lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease"
+            ],
+            "supporting_ids": [
+              "E1",
+              "E9",
+              "E10",
+              "E11"
+            ],
+            "contradicting_ids": []
+          }
+        ],
+        "missing_information": [
+          "d_dimer",
+          "crp",
+          "wbc",
+          "creatinine",
+          "ph",
+          "temp"
+        ],
+        "uncertainty": "The imaging findings, particularly the absence of pleural thickening, consolidation, and pleural effusion, introduce uncertainty in the diagnosis.",
+        "recommended_next_step": "Obtain a chest X-ray or CT scan to further evaluate the lung findings and confirm the diagnosis."
+      },
+      "validation_errors": null,
+      "revisions": [
+        {
+          "attempt": 1,
+          "complaints": [
+            "abnormal value(s) not used and not explained: hr (122.0, high), rr (28.0, high), spo2 (88.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment"
+          ],
+          "also_found": [
+            "recommended_next_step claims to 'confirm the diagnosis' -- state what the test would inform, not what it would settle"
+          ]
+        }
+      ],
+      "warnings": [
+        "abnormal value(s) not used and not explained: hr (122.0, high), rr (28.0, high), spo2 (88.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+        "recommended_next_step claims to 'confirm the diagnosis' -- state what the test would inform, not what it would settle"
+      ],
+      "_seconds": 83.80066561698914,
+      "_retrieval": {
+        "passages": 0,
+        "ids": [],
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      }
+    },
+    "reassuring": {
+      "encounter_id": "DEMO-REASSURING",
+      "retrieval": {
+        "passages": 0,
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      },
+      "case_quality": "MODERATE",
+      "escalation": {
+        "escalate": true,
+        "triggers": [
+          "no positive finding, but the models cannot exclude disease"
+        ],
+        "route": "simulation"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.08, evidence limited)",
+          "label": "pleural thickening",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.08,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "finding",
+          "text": "lung: b lines NOT DETECTED -- screened for and not seen (confidence 0.06, evidence limited)",
+          "label": "b lines",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.06,
+          "group": null
+        },
+        {
+          "id": "E3",
+          "kind": "finding",
+          "text": "lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)",
+          "label": "consolidation",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.04,
+          "group": null
+        },
+        {
+          "id": "E4",
+          "kind": "finding",
+          "text": "lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.03, evidence limited)",
+          "label": "pleural effusion",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.03,
+          "group": null
+        },
+        {
+          "id": "E5",
+          "kind": "vital",
+          "text": "hr: 76.0 bpm -- NORMAL",
+          "label": "hr",
+          "flag": "normal",
+          "value": 76.0
+        },
+        {
+          "id": "E6",
+          "kind": "vital",
+          "text": "rr: 16.0 /min -- NORMAL",
+          "label": "rr",
+          "flag": "normal",
+          "value": 16.0
+        },
+        {
+          "id": "E7",
+          "kind": "vital",
+          "text": "sbp: 124.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 124.0
+        },
+        {
+          "id": "E8",
+          "kind": "vital",
+          "text": "spo2: 98.0 % -- NORMAL",
+          "label": "spo2",
+          "flag": "normal",
+          "value": 98.0
+        },
+        {
+          "id": "E9",
+          "kind": "lab",
+          "text": "lactate: 1.0 mmol/L -- NORMAL",
+          "label": "lactate",
+          "flag": "normal",
+          "value": 1.0
+        },
+        {
+          "id": "E10",
+          "kind": "lab",
+          "text": "troponin: 4.0 ng/L -- NORMAL",
+          "label": "troponin",
+          "flag": "normal",
+          "value": 4.0
+        },
+        {
+          "id": "E11",
+          "kind": "triage",
+          "text": "triage urgency: low (confidence 0.86)",
+          "label": "low urgency"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-REASSURING\n\nCASE QUALITY: MODERATE\n  - no positive imaging finding\n\nPATIENT\n  age: 44\n  chief_complaint: mild breathlessness\n  sex: F\n\nTRIAGE\n  urgency: low (confidence 0.86)\n\nIMAGING FINDINGS\n  none detected\n  lung: pleural thickening NOT detected (0.08)  evidence=limited\n  lung: b lines NOT detected (0.06)  evidence=limited\n  lung: consolidation NOT detected (0.04)  evidence=limited\n  lung: pleural effusion NOT detected (0.03)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 76.0 bpm\n  rr: 16.0 /min\n  sbp: 124.0 mmHg\n  spo2: 98.0 %\n\nLABS\n  lactate: 1.0 mmol/L\n  troponin: 4.0 ng/L\n\nNOT MEASURED -- absent, NOT normal\n  labs: bnp, d_dimer, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.08, evidence limited)\n  [E2] lung: b lines NOT DETECTED -- screened for and not seen (confidence 0.06, evidence limited)\n  [E3] lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)\n  [E4] lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.03, evidence limited)\n  [E5] hr: 76.0 bpm -- NORMAL\n  [E6] rr: 16.0 /min -- NORMAL\n  [E7] sbp: 124.0 mmHg -- NORMAL\n  [E8] spo2: 98.0 % -- NORMAL\n  [E9] lactate: 1.0 mmol/L -- NORMAL\n  [E10] troponin: 4.0 ng/L -- NORMAL\n  [E11] triage urgency: low (confidence 0.86)\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "Non-specific chest discomfort",
+            "likelihood": "moderate",
+            "supporting": [
+              "triage urgency: low (confidence 0.86)"
+            ],
+            "contradicting": [
+              "lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.08, evidence limited)",
+              "lung: b lines NOT DETECTED -- screened for and not seen (confidence 0.06, evidence limited)",
+              "lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)",
+              "lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.03, evidence limited)"
+            ],
+            "limitations": [
+              "lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease",
+              "lung: pneumothorax is not modelled and cannot be excluded"
+            ],
+            "supporting_ids": [
+              "E11"
+            ],
+            "contradicting_ids": [
+              "E1",
+              "E2",
+              "E3",
+              "E4"
+            ]
+          }
+        ],
+        "missing_information": [
+          "bnp",
+          "d_dimer",
+          "crp",
+          "wbc",
+          "creatinine",
+          "ph"
+        ],
+        "uncertainty": "The imaging findings are weak, and the normal vitals and labs don't provide strong evidence for a specific diagnosis. This makes it difficult to be certain about the diagnosis.",
+        "recommended_next_step": "Get a chest X-ray to get a clearer picture of what's going on in the lungs."
+      },
+      "validation_errors": null,
+      "revisions": [],
+      "_seconds": 36.63728046417236,
+      "_retrieval": {
+        "passages": 0,
+        "ids": [],
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      }
+    },
+    "not_assessed": {
+      "encounter_id": "DEMO-NOT_ASSESSED",
+      "retrieval": {
+        "passages": 0,
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      },
+      "case_quality": "GOOD",
+      "escalation": {
+        "escalate": true,
+        "triggers": [
+          "organ(s) requested but not assessed: heart"
+        ],
+        "route": "simulation"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "lung: b lines DETECTED (confidence 0.78, evidence strong)",
+          "label": "b lines",
+          "organ": "lung",
+          "detected": true,
+          "confidence": 0.78,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "finding",
+          "text": "lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)",
+          "label": "pleural thickening",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.11,
+          "group": null
+        },
+        {
+          "id": "E3",
+          "kind": "finding",
+          "text": "lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)",
+          "label": "consolidation",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.09,
+          "group": null
+        },
+        {
+          "id": "E4",
+          "kind": "finding",
+          "text": "lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)",
+          "label": "pleural effusion",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.04,
+          "group": null
+        },
+        {
+          "id": "E5",
+          "kind": "vital",
+          "text": "hr: 104.0 bpm -- HIGH",
+          "label": "hr",
+          "flag": "high",
+          "value": 104.0
+        },
+        {
+          "id": "E6",
+          "kind": "vital",
+          "text": "rr: 22.0 /min -- HIGH",
+          "label": "rr",
+          "flag": "high",
+          "value": 22.0
+        },
+        {
+          "id": "E7",
+          "kind": "vital",
+          "text": "sbp: 112.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 112.0
+        },
+        {
+          "id": "E8",
+          "kind": "vital",
+          "text": "spo2: 93.0 % -- LOW",
+          "label": "spo2",
+          "flag": "low",
+          "value": 93.0
+        },
+        {
+          "id": "E9",
+          "kind": "lab",
+          "text": "lactate: 1.4 mmol/L -- NORMAL",
+          "label": "lactate",
+          "flag": "normal",
+          "value": 1.4
+        },
+        {
+          "id": "E10",
+          "kind": "lab",
+          "text": "troponin: 9.0 ng/L -- NORMAL",
+          "label": "troponin",
+          "flag": "normal",
+          "value": 9.0
+        },
+        {
+          "id": "E11",
+          "kind": "triage",
+          "text": "triage urgency: high (confidence 0.82)",
+          "label": "high urgency"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-NOT_ASSESSED\n\nCASE QUALITY: GOOD\n\nPATIENT\n  age: 68\n  chief_complaint: chest pain and breathlessness\n  sex: M\n\nTRIAGE\n  urgency: high (confidence 0.82)\n\nIMAGING FINDINGS\n  lung: b lines (0.78)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n  not assessed: heart\n\nVITALS\n  hr: 104.0 bpm  <-- HIGH\n  rr: 22.0 /min  <-- HIGH\n  sbp: 112.0 mmHg\n  spo2: 93.0 %  <-- LOW\n\nLABS\n  lactate: 1.4 mmol/L\n  troponin: 9.0 ng/L\n\nNOT MEASURED -- absent, NOT normal\n  labs: bnp, d_dimer, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] lung: b lines DETECTED (confidence 0.78, evidence strong)\n  [E2] lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)\n  [E3] lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)\n  [E4] lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)\n  [E5] hr: 104.0 bpm -- HIGH\n  [E6] rr: 22.0 /min -- HIGH\n  [E7] sbp: 112.0 mmHg -- NORMAL\n  [E8] spo2: 93.0 % -- LOW\n  [E9] lactate: 1.4 mmol/L -- NORMAL\n  [E10] troponin: 9.0 ng/L -- NORMAL\n  [E11] triage urgency: high (confidence 0.82)\n\n\nNO RETRIEVED EVIDENCE \u2014 reason from the state alone and do not claim guideline support."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "pulmonary edema due to heart failure",
+            "likelihood": "moderate",
+            "supporting": [
+              "lung: b lines DETECTED (confidence 0.78, evidence strong)",
+              "hr: 104.0 bpm -- HIGH",
+              "rr: 22.0 /min -- HIGH"
+            ],
+            "contradicting": [],
+            "limitations": [
+              "lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease",
+              "heart: bnp not measured"
+            ],
+            "supporting_ids": [
+              "E1",
+              "E5",
+              "E6"
+            ],
+            "contradicting_ids": []
+          }
+        ],
+        "missing_information": [
+          "heart: bnp, d_dimer, crp, wbc, creatinine, ph",
+          "vitals: temp"
+        ],
+        "uncertainty": "The absence of BNP measurement and certain lab results limits confidence in this assessment.",
+        "recommended_next_step": "Perform an echocardiogram to assess the heart's function and guide further treatment."
+      },
+      "validation_errors": null,
+      "revisions": [
+        {
+          "attempt": 1,
+          "complaints": [
+            "differential[0] 'pulmonary edema due to heart failure' is rated 'high' while bnp was never measured -- the test that would most confirm it is absent, so the evidence supports 'moderate' at best"
+          ],
+          "also_found": [
+            "missing_information contains combined entries ['labs: bnp, d_dimer, crp, wbc, creatinine, ph'] -- one test per array element"
+          ]
+        }
+      ],
+      "warnings": [
+        "abnormal value(s) not used and not explained: spo2 (93.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+        "missing_information contains combined entries ['heart: bnp, d_dimer, crp, wbc, creatinine, ph'] -- one test per array element"
+      ],
+      "_seconds": 68.6459813117981,
+      "_retrieval": {
+        "passages": 0,
+        "ids": [],
+        "grounded": false,
+        "note": "no relevant passage retrieved"
+      }
+    }
+  },
+  "tfidf": {
+    "missing": {
+      "encounter_id": "DEMO-MISSING",
+      "retrieval": {
+        "passages": 4,
+        "grounded": true,
+        "note": "4 sourced passage(s) retrieved"
+      },
+      "case_quality": "MODERATE",
+      "escalation": {
+        "escalate": true,
+        "triggers": [
+          "positive imaging with key lab(s) absent: troponin, lactate"
+        ],
+        "route": "simulation"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "lung: b lines DETECTED (confidence 0.86, evidence strong)",
+          "label": "b lines",
+          "organ": "lung",
+          "detected": true,
+          "confidence": 0.86,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "finding",
+          "text": "lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)",
+          "label": "pleural thickening",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.11,
+          "group": null
+        },
+        {
+          "id": "E3",
+          "kind": "finding",
+          "text": "lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)",
+          "label": "consolidation",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.09,
+          "group": null
+        },
+        {
+          "id": "E4",
+          "kind": "finding",
+          "text": "lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)",
+          "label": "pleural effusion",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.04,
+          "group": null
+        },
+        {
+          "id": "E5",
+          "kind": "vital",
+          "text": "hr: 118.0 bpm -- HIGH",
+          "label": "hr",
+          "flag": "high",
+          "value": 118.0
+        },
+        {
+          "id": "E6",
+          "kind": "vital",
+          "text": "rr: 24.0 /min -- HIGH",
+          "label": "rr",
+          "flag": "high",
+          "value": 24.0
+        },
+        {
+          "id": "E7",
+          "kind": "vital",
+          "text": "sbp: 104.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 104.0
+        },
+        {
+          "id": "E8",
+          "kind": "vital",
+          "text": "spo2: 90.0 % -- LOW",
+          "label": "spo2",
+          "flag": "low",
+          "value": 90.0
+        },
+        {
+          "id": "E9",
+          "kind": "triage",
+          "text": "triage urgency: high (confidence 0.79)",
+          "label": "high urgency"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-MISSING\n\nCASE QUALITY: MODERATE\n  - key lab(s) not obtained: troponin, lactate\n\nPATIENT\n  age: 74\n  chief_complaint: acute breathlessness\n  sex: F\n\nTRIAGE\n  urgency: high (confidence 0.79)\n\nIMAGING FINDINGS\n  lung: b lines (0.86)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 118.0 bpm  <-- HIGH\n  rr: 24.0 /min  <-- HIGH\n  sbp: 104.0 mmHg\n  spo2: 90.0 %  <-- LOW\n\nLABS\n  none resulted\n\nNOT MEASURED -- absent, NOT normal\n  labs: troponin, bnp, d_dimer, lactate, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] lung: b lines DETECTED (confidence 0.86, evidence strong)\n  [E2] lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)\n  [E3] lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)\n  [E4] lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)\n  [E5] hr: 118.0 bpm -- HIGH\n  [E6] rr: 24.0 /min -- HIGH\n  [E7] sbp: 104.0 mmHg -- NORMAL\n  [E8] spo2: 90.0 % -- LOW\n  [E9] triage urgency: high (confidence 0.79)\n\n\nRETRIEVED EVIDENCE\n[1] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): In the BLUE protocol, the terms used for lung consolidation are pneumonia for anterior consolidation and posterolateral alveolar and/or pleural syndrome (PLAPS) for consolidation and/or pleural effusion in posterolateral lung zones. Anterior consolidation is designated a C-profile, while posterolateral consolidation in a patient showing A-profile anteriorly is designated an A-no V-PLAPS profile; unilateral lung rockets are designated A/B profile, and diffuse bilateral B-lines with loss of lung sliding a B' profile. Four patterns of consolidation were described to diagnose pneumonia: non-translobar consolidation, translobar consolidation, small subpleural consolidation identified by a C-line, and the unilateral lung rocket pattern. A shredded margin or frank hepatisation with sonographic bronchograms denotes underlying lung consolidation.\n[2] Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0): Thoracic ultrasound has been increasingly used in the management of patients who visit the emergency department due to acute dyspnea and respiratory failure. Lung ultrasound is applied to pneumothorax, alveolar-interstitial syndrome, pulmonary consolidation, pleural effusion, and to neonates and pediatrics, with robust evidence and strong recommendations. When a normal lung pattern, characterized by a bat sign, A line, and lung sliding, is observed on lung ultrasound, pneumothorax and interstitial syndrome can be excluded.\n[3] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): In the BLUE protocol the lung line, quad sign and sinusoid sign are described as criteria for diagnosis of pleural effusion, disregarding the echogenicity of the collection. The lung line is a regular line which outlines the effusion, indicating the visceral pleural line, roughly parallel to the pleural line, so that all effusions, anechoic or echoic, can be diagnosed using it; the quad sign refers to the rough quadrilateral appearance of the effusion framed by the pleural line superiorly, the visceral line inferiorly and rib shadows on either side. On M-mode, a sinusoidal pattern is noted due to movement of the lung line towards the motionless pleural line on inspiration and downward movement on expiration; this sign is specific for pleural effusion, however it is absent in very viscous or septate effusions.\n[4] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): The A'-profile is defined by abolished lung sliding at the anterior chest wall with the A-line sign. The presence of air between the parietal and visceral pleura in the case of pneumothorax results in a lack of lung sliding; this is further confirmed using the M-mode tracing, which will display horizontal lines above and below the pleural line, known as the barcode or stratosphere sign. The A-line sign refers to a pattern of exclusive A-lines with a complete absence of B-lines, the loss of B-lines being a result of air accumulating within the pleural space, eliminating the acoustic impedance gradient and thereby hindering the propagation of sound waves.\n\nCite passages as [1], [2] where you use them."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "Pulmonary Edema",
+            "likelihood": "moderate",
+            "supporting": [
+              "lung: b lines DETECTED (confidence 0.86, evidence strong)"
+            ],
+            "contradicting": [],
+            "limitations": [
+              "lung model has no healthy class; troponin and lactate are not measured"
+            ],
+            "supporting_ids": [
+              "E1"
+            ],
+            "contradicting_ids": []
+          },
+          {
+            "diagnosis": "Pneumothorax",
+            "likelihood": "low",
+            "supporting": [],
+            "contradicting": [
+              "lung: b lines DETECTED (confidence 0.86, evidence strong)"
+            ],
+            "limitations": [
+              "lung model has no healthy class; pneumothorax is not modelled"
+            ],
+            "supporting_ids": [],
+            "contradicting_ids": [
+              "E1"
+            ]
+          }
+        ],
+        "missing_information": [
+          "troponin",
+          "lactate"
+        ],
+        "uncertainty": "The absence of troponin and lactate levels makes it difficult to fully assess the patient's condition, as these tests are crucial for evaluating cardiac and metabolic status.",
+        "recommended_next_step": "Perform a chest X-ray or CT scan to confirm the diagnosis and rule out pneumothorax."
+      },
+      "validation_errors": null,
+      "revisions": [
+        {
+          "attempt": 1,
+          "complaints": [
+            "differential[0] 'Pulmonary Edema' is rated 'high' while bnp, troponin was never measured -- the test that would most confirm it is absent, so the evidence supports 'moderate' at best"
+          ],
+          "also_found": [
+            "abnormal value(s) not used and not explained: hr (118.0, high), rr (24.0, high), spo2 (90.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+            "recommended_next_step claims to 'rule out' -- state what the test would inform, not what it would settle"
+          ]
+        }
+      ],
+      "warnings": [
+        "abnormal value(s) not used and not explained: hr (118.0, high), rr (24.0, high), spo2 (90.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+        "recommended_next_step claims to 'rule out' -- state what the test would inform, not what it would settle"
+      ],
+      "_seconds": 66.89271593093872,
+      "_retrieval": {
+        "passages": 4,
+        "ids": [
+          "L07",
+          "B26",
+          "L08",
+          "L05"
+        ],
+        "grounded": true,
+        "note": "4 sourced passage(s) retrieved"
+      }
+    },
+    "conflict": {
+      "encounter_id": "DEMO-CONFLICT",
+      "retrieval": {
+        "passages": 1,
+        "grounded": true,
+        "note": "1 sourced passage(s) retrieved"
+      },
+      "case_quality": "MODERATE",
+      "escalation": {
+        "escalate": true,
+        "triggers": [
+          "agents disagree (1 conflict(s))",
+          "high-risk finding below decisive confidence: severe dysfunction (0.74)"
+        ],
+        "route": "simulation"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "heart: severe dysfunction DETECTED (confidence 0.74, evidence strong)",
+          "label": "severe dysfunction",
+          "organ": "heart",
+          "detected": true,
+          "confidence": 0.74,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "vital",
+          "text": "hr: 82.0 bpm -- NORMAL",
+          "label": "hr",
+          "flag": "normal",
+          "value": 82.0
+        },
+        {
+          "id": "E3",
+          "kind": "vital",
+          "text": "sbp: 128.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 128.0
+        },
+        {
+          "id": "E4",
+          "kind": "vital",
+          "text": "spo2: 96.0 % -- NORMAL",
+          "label": "spo2",
+          "flag": "normal",
+          "value": 96.0
+        },
+        {
+          "id": "E5",
+          "kind": "lab",
+          "text": "lactate: 1.1 mmol/L -- NORMAL",
+          "label": "lactate",
+          "flag": "normal",
+          "value": 1.1
+        },
+        {
+          "id": "E6",
+          "kind": "lab",
+          "text": "troponin: 5.0 ng/L -- NORMAL",
+          "label": "troponin",
+          "flag": "normal",
+          "value": 5.0
+        },
+        {
+          "id": "E7",
+          "kind": "triage",
+          "text": "triage urgency: low (confidence 0.88)",
+          "label": "low urgency"
+        },
+        {
+          "id": "E8",
+          "kind": "conflict",
+          "text": "agent disagreement: triage says low urgency but heart reports 'severe dysfunction' at 0.74",
+          "label": "triage says low urgency but heart reports 'severe dysfunction' at 0.74"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-CONFLICT\n\nCASE QUALITY: MODERATE\n  - 1 unresolved conflict(s) between agents\n\nPATIENT\n  age: 61\n  chief_complaint: mild chest discomfort\n  sex: M\n\nTRIAGE\n  urgency: low (confidence 0.88)\n\nIMAGING FINDINGS\n  heart: severe dysfunction (0.74)  evidence=strong\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n\nVITALS\n  hr: 82.0 bpm\n  sbp: 128.0 mmHg\n  spo2: 96.0 %\n\nLABS\n  lactate: 1.1 mmol/L\n  troponin: 5.0 ng/L\n\nNOT MEASURED -- absent, NOT normal\n  labs: bnp, d_dimer, crp, wbc, creatinine, ph\n  vitals: rr, temp\n  Do not treat any of these as excluded. They were not obtained.\n\nCONFLICTS\n  - triage says low urgency but heart reports 'severe dysfunction' at 0.74\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] heart: severe dysfunction DETECTED (confidence 0.74, evidence strong)\n  [E2] hr: 82.0 bpm -- NORMAL\n  [E3] sbp: 128.0 mmHg -- NORMAL\n  [E4] spo2: 96.0 % -- NORMAL\n  [E5] lactate: 1.1 mmol/L -- NORMAL\n  [E6] troponin: 5.0 ng/L -- NORMAL\n  [E7] triage urgency: low (confidence 0.88)\n  [E8] agent disagreement: triage says low urgency but heart reports 'severe dysfunction' at 0.74\n\n\nRETRIEVED EVIDENCE\n[1] Ha YR, Toh HC. Clinically integrated multi-organ point-of-care ultrasound for undifferentiated respiratory difficulty, chest pain, or shock: a critical analytic review. J Intensive Care. 2016;4:54. doi:10.1186/s40560-016-0172-1 (CC BY 4.0): An RV-to-LV end-diastolic diameter ratio greater than 0.9 was reported to indicate critical pulmonary embolism. The absence of sonographic signs of RV overload or dysfunction practically excludes pulmonary embolism as the cause of hemodynamic instability.\n\nCite passages as [1], [2] where you use them."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "Acute Coronary Syndrome",
+            "likelihood": "high",
+            "supporting": [
+              "heart: severe dysfunction DETECTED (confidence 0.74, evidence strong)",
+              "troponin: 5.0 ng/L -- NORMAL"
+            ],
+            "contradicting": [
+              "triage urgency: low (confidence 0.88)"
+            ],
+            "limitations": [
+              "conflicting triage urgency"
+            ],
+            "supporting_ids": [
+              "E1",
+              "E6"
+            ],
+            "contradicting_ids": [
+              "E7"
+            ]
+          }
+        ],
+        "missing_information": [
+          "bnp",
+          "d_dimer",
+          "crp",
+          "wbc",
+          "creatinine",
+          "ph",
+          "rr",
+          "temp"
+        ],
+        "uncertainty": "The conflicting triage urgency and normal vitals make it difficult to determine the exact diagnosis, and further tests are needed to clarify the situation.",
+        "recommended_next_step": "Perform a chest X-ray or an ECG to help determine the cause of the chest discomfort and heart dysfunction."
+      },
+      "validation_errors": null,
+      "revisions": [],
+      "_seconds": 32.959203243255615,
+      "_retrieval": {
+        "passages": 1,
+        "ids": [
+          "C12"
+        ],
+        "grounded": true,
+        "note": "1 sourced passage(s) retrieved"
+      }
+    },
+    "concordant": {
+      "encounter_id": "DEMO-CONCORDANT",
+      "retrieval": {
+        "passages": 4,
+        "grounded": true,
+        "note": "4 sourced passage(s) retrieved"
+      },
+      "case_quality": "GOOD",
+      "escalation": {
+        "escalate": false,
+        "triggers": [],
+        "route": "direct"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "lung: b lines DETECTED (confidence 0.92, evidence strong)",
+          "label": "b lines",
+          "organ": "lung",
+          "detected": true,
+          "confidence": 0.92,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "finding",
+          "text": "lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)",
+          "label": "pleural thickening",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.11,
+          "group": null
+        },
+        {
+          "id": "E3",
+          "kind": "finding",
+          "text": "lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)",
+          "label": "consolidation",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.09,
+          "group": null
+        },
+        {
+          "id": "E4",
+          "kind": "finding",
+          "text": "lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)",
+          "label": "pleural effusion",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.04,
+          "group": null
+        },
+        {
+          "id": "E5",
+          "kind": "vital",
+          "text": "hr: 122.0 bpm -- HIGH",
+          "label": "hr",
+          "flag": "high",
+          "value": 122.0
+        },
+        {
+          "id": "E6",
+          "kind": "vital",
+          "text": "rr: 28.0 /min -- HIGH",
+          "label": "rr",
+          "flag": "high",
+          "value": 28.0
+        },
+        {
+          "id": "E7",
+          "kind": "vital",
+          "text": "sbp: 96.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 96.0
+        },
+        {
+          "id": "E8",
+          "kind": "vital",
+          "text": "spo2: 88.0 % -- LOW",
+          "label": "spo2",
+          "flag": "low",
+          "value": 88.0
+        },
+        {
+          "id": "E9",
+          "kind": "lab",
+          "text": "bnp: 890.0 pg/mL -- HIGH, reference <=100",
+          "label": "bnp",
+          "flag": "high",
+          "value": 890.0
+        },
+        {
+          "id": "E10",
+          "kind": "lab",
+          "text": "lactate: 2.6 mmol/L -- HIGH, reference <=2.0",
+          "label": "lactate",
+          "flag": "high",
+          "value": 2.6
+        },
+        {
+          "id": "E11",
+          "kind": "lab",
+          "text": "troponin: 62.0 ng/L -- HIGH, reference <=14",
+          "label": "troponin",
+          "flag": "high",
+          "value": 62.0
+        },
+        {
+          "id": "E12",
+          "kind": "triage",
+          "text": "triage urgency: high (confidence 0.91)",
+          "label": "high urgency"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-CONCORDANT\n\nCASE QUALITY: GOOD\n\nPATIENT\n  age: 79\n  chief_complaint: orthopnoea\n  sex: M\n\nTRIAGE\n  urgency: high (confidence 0.91)\n\nIMAGING FINDINGS\n  lung: b lines (0.92)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 122.0 bpm  <-- HIGH\n  rr: 28.0 /min  <-- HIGH\n  sbp: 96.0 mmHg\n  spo2: 88.0 %  <-- LOW\n\nLABS\n  bnp: 890.0 pg/mL  <-- HIGH (ref <=100; ventricular wall stress / heart failure)\n  lactate: 2.6 mmol/L  <-- HIGH (ref <=2.0; tissue hypoperfusion)\n  troponin: 62.0 ng/L  <-- HIGH (ref <=14; myocardial injury)\n\nNOT MEASURED -- absent, NOT normal\n  labs: d_dimer, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] lung: b lines DETECTED (confidence 0.92, evidence strong)\n  [E2] lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)\n  [E3] lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)\n  [E4] lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)\n  [E5] hr: 122.0 bpm -- HIGH\n  [E6] rr: 28.0 /min -- HIGH\n  [E7] sbp: 96.0 mmHg -- NORMAL\n  [E8] spo2: 88.0 % -- LOW\n  [E9] bnp: 890.0 pg/mL -- HIGH, reference <=100\n  [E10] lactate: 2.6 mmol/L -- HIGH, reference <=2.0\n  [E11] troponin: 62.0 ng/L -- HIGH, reference <=14\n  [E12] triage urgency: high (confidence 0.91)\n\n\nRETRIEVED EVIDENCE\n[1] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): In the BLUE protocol, the terms used for lung consolidation are pneumonia for anterior consolidation and posterolateral alveolar and/or pleural syndrome (PLAPS) for consolidation and/or pleural effusion in posterolateral lung zones. Anterior consolidation is designated a C-profile, while posterolateral consolidation in a patient showing A-profile anteriorly is designated an A-no V-PLAPS profile; unilateral lung rockets are designated A/B profile, and diffuse bilateral B-lines with loss of lung sliding a B' profile. Four patterns of consolidation were described to diagnose pneumonia: non-translobar consolidation, translobar consolidation, small subpleural consolidation identified by a C-line, and the unilateral lung rocket pattern. A shredded margin or frank hepatisation with sonographic bronchograms denotes underlying lung consolidation.\n[2] Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0): Thoracic ultrasound has been increasingly used in the management of patients who visit the emergency department due to acute dyspnea and respiratory failure. Lung ultrasound is applied to pneumothorax, alveolar-interstitial syndrome, pulmonary consolidation, pleural effusion, and to neonates and pediatrics, with robust evidence and strong recommendations. When a normal lung pattern, characterized by a bat sign, A line, and lung sliding, is observed on lung ultrasound, pneumothorax and interstitial syndrome can be excluded.\n[3] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): In the BLUE protocol the lung line, quad sign and sinusoid sign are described as criteria for diagnosis of pleural effusion, disregarding the echogenicity of the collection. The lung line is a regular line which outlines the effusion, indicating the visceral pleural line, roughly parallel to the pleural line, so that all effusions, anechoic or echoic, can be diagnosed using it; the quad sign refers to the rough quadrilateral appearance of the effusion framed by the pleural line superiorly, the visceral line inferiorly and rib shadows on either side. On M-mode, a sinusoidal pattern is noted due to movement of the lung line towards the motionless pleural line on inspiration and downward movement on expiration; this sign is specific for pleural effusion, however it is absent in very viscous or septate effusions.\n[4] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): The A'-profile is defined by abolished lung sliding at the anterior chest wall with the A-line sign. The presence of air between the parietal and visceral pleura in the case of pneumothorax results in a lack of lung sliding; this is further confirmed using the M-mode tracing, which will display horizontal lines above and below the pleural line, known as the barcode or stratosphere sign. The A-line sign refers to a pattern of exclusive A-lines with a complete absence of B-lines, the loss of B-lines being a result of air accumulating within the pleural space, eliminating the acoustic impedance gradient and thereby hindering the propagation of sound waves.\n\nCite passages as [1], [2] where you use them."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "Pulmonary Edema due to Heart Failure",
+            "likelihood": "high",
+            "supporting": [
+              "lung: b lines DETECTED (confidence 0.92, evidence strong)",
+              "bnp: 890.0 pg/mL -- HIGH, reference <=100",
+              "troponin: 62.0 ng/L -- HIGH, reference <=14",
+              "lactate: 2.6 mmol/L -- HIGH, reference <=2.0"
+            ],
+            "contradicting": [],
+            "limitations": [
+              "lung model has no healthy class; pneumothorax is not modelled"
+            ],
+            "supporting_ids": [
+              "E1",
+              "E9",
+              "E11",
+              "E10"
+            ],
+            "contradicting_ids": []
+          }
+        ],
+        "missing_information": [
+          "d_dimer",
+          "crp",
+          "wbc",
+          "creatinine",
+          "ph"
+        ],
+        "uncertainty": "The absence of a chest X-ray makes it difficult to rule out pneumothorax, which is not modelled in the lung findings.",
+        "recommended_next_step": "Get a chest X-ray to confirm the diagnosis of pulmonary edema and rule out pneumothorax."
+      },
+      "validation_errors": null,
+      "revisions": [
+        {
+          "attempt": 1,
+          "complaints": [
+            "abnormal value(s) not used and not explained: hr (122.0, high), rr (28.0, high), spo2 (88.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment"
+          ],
+          "also_found": [
+            "recommended_next_step claims to 'rule out' -- state what the test would inform, not what it would settle"
+          ]
+        }
+      ],
+      "warnings": [
+        "abnormal value(s) not used and not explained: hr (122.0, high), rr (28.0, high), spo2 (88.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+        "recommended_next_step claims to 'rule out' -- state what the test would inform, not what it would settle"
+      ],
+      "_seconds": 75.8771436214447,
+      "_retrieval": {
+        "passages": 4,
+        "ids": [
+          "L07",
+          "B26",
+          "L08",
+          "L05"
+        ],
+        "grounded": true,
+        "note": "4 sourced passage(s) retrieved"
+      }
+    },
+    "reassuring": {
+      "encounter_id": "DEMO-REASSURING",
+      "retrieval": {
+        "passages": 4,
+        "grounded": true,
+        "note": "4 sourced passage(s) retrieved"
+      },
+      "case_quality": "MODERATE",
+      "escalation": {
+        "escalate": true,
+        "triggers": [
+          "no positive finding, but the models cannot exclude disease"
+        ],
+        "route": "simulation"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.08, evidence limited)",
+          "label": "pleural thickening",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.08,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "finding",
+          "text": "lung: b lines NOT DETECTED -- screened for and not seen (confidence 0.06, evidence limited)",
+          "label": "b lines",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.06,
+          "group": null
+        },
+        {
+          "id": "E3",
+          "kind": "finding",
+          "text": "lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)",
+          "label": "consolidation",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.04,
+          "group": null
+        },
+        {
+          "id": "E4",
+          "kind": "finding",
+          "text": "lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.03, evidence limited)",
+          "label": "pleural effusion",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.03,
+          "group": null
+        },
+        {
+          "id": "E5",
+          "kind": "vital",
+          "text": "hr: 76.0 bpm -- NORMAL",
+          "label": "hr",
+          "flag": "normal",
+          "value": 76.0
+        },
+        {
+          "id": "E6",
+          "kind": "vital",
+          "text": "rr: 16.0 /min -- NORMAL",
+          "label": "rr",
+          "flag": "normal",
+          "value": 16.0
+        },
+        {
+          "id": "E7",
+          "kind": "vital",
+          "text": "sbp: 124.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 124.0
+        },
+        {
+          "id": "E8",
+          "kind": "vital",
+          "text": "spo2: 98.0 % -- NORMAL",
+          "label": "spo2",
+          "flag": "normal",
+          "value": 98.0
+        },
+        {
+          "id": "E9",
+          "kind": "lab",
+          "text": "lactate: 1.0 mmol/L -- NORMAL",
+          "label": "lactate",
+          "flag": "normal",
+          "value": 1.0
+        },
+        {
+          "id": "E10",
+          "kind": "lab",
+          "text": "troponin: 4.0 ng/L -- NORMAL",
+          "label": "troponin",
+          "flag": "normal",
+          "value": 4.0
+        },
+        {
+          "id": "E11",
+          "kind": "triage",
+          "text": "triage urgency: low (confidence 0.86)",
+          "label": "low urgency"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-REASSURING\n\nCASE QUALITY: MODERATE\n  - no positive imaging finding\n\nPATIENT\n  age: 44\n  chief_complaint: mild breathlessness\n  sex: F\n\nTRIAGE\n  urgency: low (confidence 0.86)\n\nIMAGING FINDINGS\n  none detected\n  lung: pleural thickening NOT detected (0.08)  evidence=limited\n  lung: b lines NOT detected (0.06)  evidence=limited\n  lung: consolidation NOT detected (0.04)  evidence=limited\n  lung: pleural effusion NOT detected (0.03)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n\nVITALS\n  hr: 76.0 bpm\n  rr: 16.0 /min\n  sbp: 124.0 mmHg\n  spo2: 98.0 %\n\nLABS\n  lactate: 1.0 mmol/L\n  troponin: 4.0 ng/L\n\nNOT MEASURED -- absent, NOT normal\n  labs: bnp, d_dimer, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.08, evidence limited)\n  [E2] lung: b lines NOT DETECTED -- screened for and not seen (confidence 0.06, evidence limited)\n  [E3] lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)\n  [E4] lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.03, evidence limited)\n  [E5] hr: 76.0 bpm -- NORMAL\n  [E6] rr: 16.0 /min -- NORMAL\n  [E7] sbp: 124.0 mmHg -- NORMAL\n  [E8] spo2: 98.0 % -- NORMAL\n  [E9] lactate: 1.0 mmol/L -- NORMAL\n  [E10] troponin: 4.0 ng/L -- NORMAL\n  [E11] triage urgency: low (confidence 0.86)\n\n\nRETRIEVED EVIDENCE\n[1] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): In the BLUE protocol, the terms used for lung consolidation are pneumonia for anterior consolidation and posterolateral alveolar and/or pleural syndrome (PLAPS) for consolidation and/or pleural effusion in posterolateral lung zones. Anterior consolidation is designated a C-profile, while posterolateral consolidation in a patient showing A-profile anteriorly is designated an A-no V-PLAPS profile; unilateral lung rockets are designated A/B profile, and diffuse bilateral B-lines with loss of lung sliding a B' profile. Four patterns of consolidation were described to diagnose pneumonia: non-translobar consolidation, translobar consolidation, small subpleural consolidation identified by a C-line, and the unilateral lung rocket pattern. A shredded margin or frank hepatisation with sonographic bronchograms denotes underlying lung consolidation.\n[2] Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0): Thoracic ultrasound has been increasingly used in the management of patients who visit the emergency department due to acute dyspnea and respiratory failure. Lung ultrasound is applied to pneumothorax, alveolar-interstitial syndrome, pulmonary consolidation, pleural effusion, and to neonates and pediatrics, with robust evidence and strong recommendations. When a normal lung pattern, characterized by a bat sign, A line, and lung sliding, is observed on lung ultrasound, pneumothorax and interstitial syndrome can be excluded.\n[3] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): In the BLUE protocol the lung line, quad sign and sinusoid sign are described as criteria for diagnosis of pleural effusion, disregarding the echogenicity of the collection. The lung line is a regular line which outlines the effusion, indicating the visceral pleural line, roughly parallel to the pleural line, so that all effusions, anechoic or echoic, can be diagnosed using it; the quad sign refers to the rough quadrilateral appearance of the effusion framed by the pleural line superiorly, the visceral line inferiorly and rib shadows on either side. On M-mode, a sinusoidal pattern is noted due to movement of the lung line towards the motionless pleural line on inspiration and downward movement on expiration; this sign is specific for pleural effusion, however it is absent in very viscous or septate effusions.\n[4] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): One of the principles of lung ultrasound in the critically ill states that life-threatening disorders usually have an extensive projection. On this premise six BLUE-points were defined, much like the standard electrode placement in electrocardiography, allowing a simplified, quick and standardized technique for evaluating a critically ill patient at the bedside; on each side there are two points on the anterior chest wall (upper and lower BLUE point) and one located semi-posteriorly (the posterolateral alveolar and/or pleural syndrome, or PLAPS, point), which allows the detection of consolidation and/or pleural effusion. The BLUE protocol provides lung ultrasound profiles with an algorithmic approach to assist in diagnosis of six common acute conditions causing dyspnea: pneumothorax (A' profile), pneumonia (C profile, AB profile, B' profile and A-no V-PLAPS profile), pulmonary edema (B profile), acute exacerbation of chronic obstructive pulmonary disease or asthma (A-no V-no PLAPS profile), and pulmonary embolism (A-V profile).\n\nCite passages as [1], [2] where you use them."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "Pneumothorax",
+            "likelihood": "moderate",
+            "supporting": [
+              "triage urgency: low (confidence 0.86)"
+            ],
+            "contradicting": [],
+            "limitations": [
+              "lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease",
+              "lung: pneumothorax is not modelled and cannot be excluded"
+            ],
+            "supporting_ids": [
+              "E11"
+            ],
+            "contradicting_ids": []
+          }
+        ],
+        "missing_information": [
+          "bnp",
+          "d_dimer",
+          "crp",
+          "wbc",
+          "creatinine",
+          "ph"
+        ],
+        "uncertainty": "The imaging findings are uncertain due to low confidence levels, making it difficult to rely on them for a diagnosis.",
+        "recommended_next_step": "Perform a chest X-ray or CT scan to further evaluate the possibility of a pneumothorax and obtain more definitive imaging findings."
+      },
+      "validation_errors": null,
+      "revisions": [
+        {
+          "attempt": 1,
+          "complaints": [
+            "differential[0] cites 'lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.08, evidence limited)' as evidence against 'Pneumothorax', but the absence of pleural thickening does not bear on that diagnosis -- a finding the model did not look for, or that is unrelated, is not an argument against it"
+          ],
+          "also_found": [
+            "differential[0] cites 'lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)' as evidence against 'Pneumothorax', but the absence of consolidation does not bear on that diagnosis -- a finding the model did not look for, or that is unrelated, is not an argument against it",
+            "differential[0] cites 'lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.03, evidence limited)' as evidence against 'Pneumothorax', but the absence of pleural effusion does not bear on that diagnosis -- a finding the model did not look for, or that is unrelated, is not an argument against it"
+          ]
+        }
+      ],
+      "_seconds": 65.98035526275635,
+      "_retrieval": {
+        "passages": 4,
+        "ids": [
+          "L07",
+          "B26",
+          "L08",
+          "L10"
+        ],
+        "grounded": true,
+        "note": "4 sourced passage(s) retrieved"
+      }
+    },
+    "not_assessed": {
+      "encounter_id": "DEMO-NOT_ASSESSED",
+      "retrieval": {
+        "passages": 4,
+        "grounded": true,
+        "note": "4 sourced passage(s) retrieved"
+      },
+      "case_quality": "GOOD",
+      "escalation": {
+        "escalate": true,
+        "triggers": [
+          "organ(s) requested but not assessed: heart"
+        ],
+        "route": "simulation"
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "kind": "finding",
+          "text": "lung: b lines DETECTED (confidence 0.78, evidence strong)",
+          "label": "b lines",
+          "organ": "lung",
+          "detected": true,
+          "confidence": 0.78,
+          "group": null
+        },
+        {
+          "id": "E2",
+          "kind": "finding",
+          "text": "lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)",
+          "label": "pleural thickening",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.11,
+          "group": null
+        },
+        {
+          "id": "E3",
+          "kind": "finding",
+          "text": "lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)",
+          "label": "consolidation",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.09,
+          "group": null
+        },
+        {
+          "id": "E4",
+          "kind": "finding",
+          "text": "lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)",
+          "label": "pleural effusion",
+          "organ": "lung",
+          "detected": false,
+          "confidence": 0.04,
+          "group": null
+        },
+        {
+          "id": "E5",
+          "kind": "vital",
+          "text": "hr: 104.0 bpm -- HIGH",
+          "label": "hr",
+          "flag": "high",
+          "value": 104.0
+        },
+        {
+          "id": "E6",
+          "kind": "vital",
+          "text": "rr: 22.0 /min -- HIGH",
+          "label": "rr",
+          "flag": "high",
+          "value": 22.0
+        },
+        {
+          "id": "E7",
+          "kind": "vital",
+          "text": "sbp: 112.0 mmHg -- NORMAL",
+          "label": "sbp",
+          "flag": "normal",
+          "value": 112.0
+        },
+        {
+          "id": "E8",
+          "kind": "vital",
+          "text": "spo2: 93.0 % -- LOW",
+          "label": "spo2",
+          "flag": "low",
+          "value": 93.0
+        },
+        {
+          "id": "E9",
+          "kind": "lab",
+          "text": "lactate: 1.4 mmol/L -- NORMAL",
+          "label": "lactate",
+          "flag": "normal",
+          "value": 1.4
+        },
+        {
+          "id": "E10",
+          "kind": "lab",
+          "text": "troponin: 9.0 ng/L -- NORMAL",
+          "label": "troponin",
+          "flag": "normal",
+          "value": 9.0
+        },
+        {
+          "id": "E11",
+          "kind": "triage",
+          "text": "triage urgency: high (confidence 0.82)",
+          "label": "high urgency"
+        }
+      ],
+      "prompt": {
+        "system": "You are a clinical reasoning assistant supporting an emergency physician.\n\nYou receive a STRUCTURED CLINICAL STATE assembled from a triage model, ultrasound models, vitals\nand laboratory results. You never see images. Reason only over what you are given.\n\nHARD RULES. These are not style preferences.\n\n1. CITE EVIDENCE BY IDENTIFIER. \"supporting\" and \"contradicting\" take identifiers from the\n   AVAILABLE EVIDENCE block and nothing else: [\"E1\", \"E4\"]. Never write prose in those arrays,\n   never invent an identifier, and never cite one that is not listed. If a fact has no\n   identifier you may not use it as evidence -- that is what the list is for. The qualifier\n   travels with the identifier, so do not restate a value's meaning: cite E7 rather than\n   describing the troponin as elevated or normal yourself.\n\n2. Anything under \"NOT MEASURED\" is ABSENT, not normal, and has NO identifier. You cannot cite\n   it, which is deliberate. Put it in missing_information instead.\n\n3. ONE DIAGNOSIS PER ENTRY. Never write \"A or B\" in a diagnosis field. If two conditions are\n   both plausible they are two entries, ranked, each with its own evidence. Merging them is not\n   a differential -- it is a refusal to rank, and ranking is the entire point.\n\n4. FINDING CONFIDENCE IS NOT DIAGNOSTIC CONFIDENCE. \"b lines (0.86)\" means the imaging model is\n   confident that the sign is present. It does NOT mean any diagnosis is 86% likely. A single\n   strong sign with the key laboratory values absent supports \"moderate\" at best, never \"high\".\n   Reserve \"high\" for cases where several independent lines of evidence agree.\n\n5. ACCOUNT FOR EVERY ABNORMAL VALUE. Go through AVAILABLE EVIDENCE line by line. Every item\n   marked HIGH or LOW must appear in the \"supporting\" or \"contradicting\" array of at least one\n   diagnosis, or be named in \"uncertainty\" as not bearing on the assessment. Silence is not\n   permitted: a reader cannot tell an abnormal value you considered and dismissed from one you\n   failed to notice. Citing one identifier when four were available is an incomplete answer,\n   even if the one you cited is right.\n\n6. NOT-DETECTED IS EVIDENCE; NOT-ASSESSED IS NOT. An item marked NOT DETECTED was screened for\n   and not seen, and may be cited in \"contradicting\" -- but only for a diagnosis it actually\n   bears on. An organ never assessed has no identifier and may appear only in\n   missing_information, where it MUST appear. If the state lists an organ as not assessed,\n   naming that scan is usually the most useful next step available, so it belongs in\n   missing_information ahead of any laboratory test.\n\n7. RESPECT THE STATED LIMITS. Each LIMIT line bounds what you may conclude:\n     - \"no healthy class\" means a finding never establishes that the patient is healthy;\n     - a finding that is \"not modelled\" cannot be excluded, whatever else you see.\n   Restate the limits bearing on each diagnosis in that entry's \"limitations\" array.\n\n8. Respect the evidence grade on each finding. \"experimental\" means the number is uncalibrated\n   and is not a probability; treat it as weak support and say so.\n\n9. You are decision support, not a diagnosis. Recommend next steps; do not instruct treatment as\n   if the decision were yours.\n\nFORMAT. missing_information takes ONE test per array element: write [\"troponin\", \"lactate\"],\nnever [\"troponin, lactate\"]. Rank the differential most likely first.\n\nReturn ONLY valid JSON matching this shape, with no prose outside it:\n\n{\n  \"differential\": [\n    {\"diagnosis\": \"a single named condition\",\n     \"likelihood\": \"high|moderate|low\",\n     \"supporting\": [\"E1\", \"E4\"],\n     \"contradicting\": [\"E2\"],\n     \"limitations\": [\"what the models cannot exclude, for this diagnosis\"]}\n  ],\n  \"missing_information\": [\"one test per element, most decisive first\"],\n  \"uncertainty\": \"one sentence on what most limits confidence here\",\n  \"recommended_next_step\": \"the single most useful next action\"\n}",
+        "user": "CLINICAL STATE  DEMO-NOT_ASSESSED\n\nCASE QUALITY: GOOD\n\nPATIENT\n  age: 68\n  chief_complaint: chest pain and breathlessness\n  sex: M\n\nTRIAGE\n  urgency: high (confidence 0.82)\n\nIMAGING FINDINGS\n  lung: b lines (0.78)  evidence=strong\n  lung: pleural thickening NOT detected (0.11)  evidence=limited\n  lung: consolidation NOT detected (0.09)  evidence=limited\n  lung: pleural effusion NOT detected (0.04)  evidence=limited\n  (strong = calibrated with an adequate evidence base; limited = thin support;\n   experimental = UNCALIBRATED, not a probability, not comparable with the rest)\n  LIMIT: lung: model has no healthy class -- a finding is a choice among pathologies and never excludes disease\n  LIMIT: lung: pneumothorax is not modelled and cannot be excluded\n  not assessed: heart\n\nVITALS\n  hr: 104.0 bpm  <-- HIGH\n  rr: 22.0 /min  <-- HIGH\n  sbp: 112.0 mmHg\n  spo2: 93.0 %  <-- LOW\n\nLABS\n  lactate: 1.4 mmol/L\n  troponin: 9.0 ng/L\n\nNOT MEASURED -- absent, NOT normal\n  labs: bnp, d_dimer, crp, wbc, creatinine, ph\n  vitals: temp\n  Do not treat any of these as excluded. They were not obtained.\n\n\nAVAILABLE EVIDENCE -- cite these identifiers and nothing else\n  [E1] lung: b lines DETECTED (confidence 0.78, evidence strong)\n  [E2] lung: pleural thickening NOT DETECTED -- screened for and not seen (confidence 0.11, evidence limited)\n  [E3] lung: consolidation NOT DETECTED -- screened for and not seen (confidence 0.09, evidence limited)\n  [E4] lung: pleural effusion NOT DETECTED -- screened for and not seen (confidence 0.04, evidence limited)\n  [E5] hr: 104.0 bpm -- HIGH\n  [E6] rr: 22.0 /min -- HIGH\n  [E7] sbp: 112.0 mmHg -- NORMAL\n  [E8] spo2: 93.0 % -- LOW\n  [E9] lactate: 1.4 mmol/L -- NORMAL\n  [E10] troponin: 9.0 ng/L -- NORMAL\n  [E11] triage urgency: high (confidence 0.82)\n\n\nRETRIEVED EVIDENCE\n[1] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): In the BLUE protocol, the terms used for lung consolidation are pneumonia for anterior consolidation and posterolateral alveolar and/or pleural syndrome (PLAPS) for consolidation and/or pleural effusion in posterolateral lung zones. Anterior consolidation is designated a C-profile, while posterolateral consolidation in a patient showing A-profile anteriorly is designated an A-no V-PLAPS profile; unilateral lung rockets are designated A/B profile, and diffuse bilateral B-lines with loss of lung sliding a B' profile. Four patterns of consolidation were described to diagnose pneumonia: non-translobar consolidation, translobar consolidation, small subpleural consolidation identified by a C-line, and the unilateral lung rocket pattern. A shredded margin or frank hepatisation with sonographic bronchograms denotes underlying lung consolidation.\n[2] Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0): Thoracic ultrasound has been increasingly used in the management of patients who visit the emergency department due to acute dyspnea and respiratory failure. Lung ultrasound is applied to pneumothorax, alveolar-interstitial syndrome, pulmonary consolidation, pleural effusion, and to neonates and pediatrics, with robust evidence and strong recommendations. When a normal lung pattern, characterized by a bat sign, A line, and lung sliding, is observed on lung ultrasound, pneumothorax and interstitial syndrome can be excluded.\n[3] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): In the BLUE protocol the lung line, quad sign and sinusoid sign are described as criteria for diagnosis of pleural effusion, disregarding the echogenicity of the collection. The lung line is a regular line which outlines the effusion, indicating the visceral pleural line, roughly parallel to the pleural line, so that all effusions, anechoic or echoic, can be diagnosed using it; the quad sign refers to the rough quadrilateral appearance of the effusion framed by the pleural line superiorly, the visceral line inferiorly and rib shadows on either side. On M-mode, a sinusoidal pattern is noted due to movement of the lung line towards the motionless pleural line on inspiration and downward movement on expiration; this sign is specific for pleural effusion, however it is absent in very viscous or septate effusions.\n[4] Murali A, Prakash A, Dixit R, Juneja M, Kumar N. Lung ultrasound for evaluation of dyspnea: a pictorial review. Acute Crit Care. 2022;37(4):502-15. doi:10.4266/acc.2022.00780 (CC BY-NC 4.0): The A'-profile is defined by abolished lung sliding at the anterior chest wall with the A-line sign. The presence of air between the parietal and visceral pleura in the case of pneumothorax results in a lack of lung sliding; this is further confirmed using the M-mode tracing, which will display horizontal lines above and below the pleural line, known as the barcode or stratosphere sign. The A-line sign refers to a pattern of exclusive A-lines with a complete absence of B-lines, the loss of B-lines being a result of air accumulating within the pleural space, eliminating the acoustic impedance gradient and thereby hindering the propagation of sound waves.\n\nCite passages as [1], [2] where you use them."
+      },
+      "differential": {
+        "differential": [
+          {
+            "diagnosis": "pulmonary edema",
+            "likelihood": "moderate",
+            "supporting": [
+              "lung: b lines DETECTED (confidence 0.78, evidence strong)"
+            ],
+            "contradicting": [],
+            "limitations": [
+              "bnp: not measured"
+            ],
+            "supporting_ids": [
+              "E1"
+            ],
+            "contradicting_ids": []
+          },
+          {
+            "diagnosis": "pneumothorax",
+            "likelihood": "low",
+            "supporting": [],
+            "contradicting": [],
+            "limitations": [
+              "lung: pneumothorax is not modelled"
+            ],
+            "supporting_ids": [],
+            "contradicting_ids": []
+          }
+        ],
+        "missing_information": [
+          "bnp, d_dimer, crp, wbc, creatinine, ph"
+        ],
+        "uncertainty": "The high heart rate and respiratory rate suggest fluid in the lungs, but the possibility of pneumothorax cannot be ruled out due to the model's limitations.",
+        "recommended_next_step": "Perform a chest X-ray to confirm the diagnosis and rule out pneumothorax."
+      },
+      "validation_errors": [
+        "organ(s) never assessed and not named in missing_information: heart -- an unperformed scan is missing information, and the list is what determines what gets ordered next"
+      ],
+      "revisions": [
+        {
+          "attempt": 1,
+          "complaints": [
+            "differential[0] 'pulmonary edema' is rated 'high' while bnp was never measured -- the test that would most confirm it is absent, so the evidence supports 'moderate' at best"
+          ],
+          "also_found": [
+            "abnormal value(s) not used and not explained: spo2 (93.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+            "missing_information contains combined entries ['bnp, d_dimer, crp, wbc, creatinine, ph'] -- one test per array element",
+            "recommended_next_step claims to 'rule out' -- state what the test would inform, not what it would settle"
+          ]
+        }
+      ],
+      "warnings": [
+        "abnormal value(s) not used and not explained: spo2 (93.0, low) -- cite each in a differential entry or say in 'uncertainty' why it does not bear on the assessment",
+        "missing_information contains combined entries ['bnp, d_dimer, crp, wbc, creatinine, ph'] -- one test per array element",
+        "recommended_next_step claims to 'rule out' -- state what the test would inform, not what it would settle"
+      ],
+      "differential_withheld": true,
+      "_seconds": 70.31924414634705,
+      "_retrieval": {
+        "passages": 4,
+        "ids": [
+          "L07",
+          "B26",
+          "L08",
+          "L05"
+        ],
+        "grounded": true,
+        "note": "4 sourced passage(s) retrieved"
+      }
+    }
+  }
+}
