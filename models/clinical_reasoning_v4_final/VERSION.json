@@ -1,0 +1,42 @@
+{
+  "version": "clinical-reasoning-v4-final",
+  "label": "final experimental version -- enumerated evidence + deterministic output control",
+  "frozen_at": "2026-08-18T12:04:48+00:00",
+  "git_commit": "71456a3",
+  "prompt_sha256_12": "9b44748d024c",
+  "reasoning_py_sha256_12": "4ae0c2ed708e",
+  "clinical_state_py_sha256_12": "2a7a2bff7a9d",
+  "retrieval_py_sha256_12": "d6f0bab24832",
+  "schema_py_sha256_12": "d28ea6f008bf",
+  "corpus_version": "1.0-all-units-sourced",
+  "corpus_sourced": "30/30",
+  "safety_benchmark": 180,
+  "model": "HuatuoGPT-o1-8B Q4_K_M via llama.cpp, temperature 0, fixed seed",
+  "max_revisions_default": 1,
+  "measured": {
+    "benchmark": "five synthetic scenarios, no clinical ground truth",
+    "errors_no_retrieval": 0,
+    "errors_with_retrieval": 1,
+    "withheld_no_retrieval": "0/5",
+    "withheld_with_retrieval": "1/5",
+    "useful_output_no_retrieval": "5/5",
+    "escalation_identical_across_arms": true,
+    "reproducible": "two identical calls give identical output"
+  },
+  "what_this_establishes": "That the safety and evidence-grounding mechanisms behave as specified on five designed cases. The enumerated-evidence interface eliminated unsupported evidence citations; deterministic output control prevented malformed missing-information fields and kept every abnormal value visible to the clinician.",
+  "what_this_does_not_establish": "Anything about diagnostic accuracy. There is no clinical ground truth in this benchmark, the cases are synthetic, and five cases cannot separate a real effect from a small one. This is not clinical validation.",
+  "retrieval_position": "On the five-case benchmark retrieval did not demonstrate a measurable improvement over the no-retrieval condition, and one additional error occurred in the retrieval condition. Its contribution to reasoning quality remains inconclusive.",
+  "known_limitations": [
+    "The model cites only some abnormal values -- 4 of 7 on `concordant`. Two attempts to change this failed. evidence_considered() ensures all of them still reach the reader, which is a display guarantee, not a improvement in the model's reasoning.",
+    "Overclaiming wording ('rule out') persists on 2 of 5 cases. Python does not reword a clinical recommendation, because there the wording is the claim.",
+    "Corpus unit F20 does not retrieve for its own question; TF-IDF ranks F18 above it.",
+    "Retrieval covers 5/5 cases but four of them return much the same passages: coverage improved, discrimination did not.",
+    "predict_lung and the other per-organ functions live in a notebook, so no test imports them. The suite proves the contract is enforced, not that the ultrasound agent honours it; that link is checked by running the notebook."
+  ],
+  "history": [
+    "v1 free text: 6 errors, 3/5 withheld. Fabricated 'stable vitals', called a normal troponin elevated, quoted corpus sentences as patient findings.",
+    "v2 enumerated evidence: supporting/contradicting take identifiers. 0 errors, 0/5 withheld. Every fault the interface targeted became unreachable rather than caught.",
+    "v3 sharper complaints + 2 revision rounds: no change. The second round was reached and used and the answers came back with the same faults, for 32% more runtime. max_revisions reverted to 1 on that measurement.",
+    "v4 deterministic output control: missing_information normalised in Python, every abnormal value surfaced by evidence_considered. Warnings 7 -> 5."
+  ]
+}
