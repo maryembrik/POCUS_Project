@@ -786,18 +786,22 @@ def _revisable(parsed: dict, state: dict,
 
 
 def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
-           max_revisions: int = 2) -> dict:
+           max_revisions: int = 1) -> dict:
     """Full pass: escalation, prompt, model call, validation, at most `max_revisions` rounds.
 
     `llm_fn(system, user) -> str`. With no model supplied this still returns the escalation
     decision and the prompt, which is what makes the safety layer testable on its own.
 
-    `max_revisions` was 1 while evidence was free text: the first round fixed 3 of 4 complaints
-    and the second fixed 0 of 3, so a second round bought nothing. Enumerated identifiers
-    changed what a complaint asks for -- "cite E4 instead of E9" is a substitution the model
-    can make, where "stop inventing evidence" was not -- so a second round is worth its call
-    again. It is capped rather than unbounded because an 8B model asked repeatedly to correct
-    itself will keep producing corrections indefinitely.
+    `max_revisions` defaults to 1 on measurement rather than preference. Raising it to 2 was
+    tried, on the argument that enumerated identifiers make a complaint actionable in a way
+    free text never was. The second round is genuinely reached and used -- three of five cases
+    ran two -- and the answers came back carrying the same faults, having been told in the
+    second round exactly which identifier to add. Warnings went 7 to 6 in one arm and 7 to 7 in
+    the other, for 32% more runtime.
+
+    2 still works and is covered by `test_two_independent_faults_need_two_revision_rounds`,
+    which shows two independent faults clearing in exactly two rounds. The capability is real;
+    it is not worth its cost with this model. Pass `max_revisions=2` to use it.
     """
     from .clinical_state import build_evidence, render_evidence
 
