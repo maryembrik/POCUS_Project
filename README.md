@@ -130,11 +130,24 @@ letting any sentence containing the word "high" pass as grounded.
 
 ## Results
 
-Per-module results are in `models/`. The pre-retrieval baseline for the reasoning agent is
-frozen in `models/clinical_reasoning_pre_rag/`, with hashes of the prompt and sources so that
-a later comparison against retrieval is against that exact state rather than a re-tuned one.
+Per-module results are in `models/`. Two states of the reasoning agent are frozen with hashes
+of the prompt and sources: `clinical_reasoning_pre_rag/` (before retrieval) and
+`clinical_reasoning_v4_final/` (the final experimental version).
 
-On five synthetic cases the safety layer withheld output on every case containing a grounding
-or reading error, and answered directly on the one case where the evidence agreed and the
-record was complete. The model's clinical reasoning remained limited — see `baseline.md` for
-what that run establishes and, more importantly, what it does not.
+The finding worth reporting is what changed between them. With evidence written as free text
+the model fabricated — "stable vitals" for a patient with none, a normal troponin described as
+elevated, corpus sentences cited as patient findings — and the safety layer correctly refused
+3 of 5 answers. Constraining the interface so that evidence is cited by identifier from an
+enumerated list took unsupported-output errors from 6 to 0 and withholding from 3/5 to 0/5.
+The two remaining format faults were then moved out of the model entirely: a comma-joined list
+is normalised in Python, and every abnormal value reaches the clinician whether or not the
+model cited it.
+
+> On this five-case benchmark retrieval did not demonstrate a measurable improvement over the
+> no-retrieval condition, and one additional error occurred in the retrieval condition. Its
+> contribution to reasoning quality remains inconclusive.
+
+None of this is clinical validation. The benchmark has no ground truth, the cases are
+synthetic, and it measures whether the safety mechanisms behave as specified — not diagnostic
+accuracy. `models/clinical_reasoning_v4_final/VERSION.json` records what the runs establish
+and, separately and at greater length, what they do not.
