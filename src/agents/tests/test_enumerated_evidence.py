@@ -275,3 +275,29 @@ def test_every_abnormal_value_reaches_the_reader_whether_or_not_the_model_cited_
     assert any(not r["used"] for r in rows), "the uncited ones are listed but unmarked"
     # and the omission is still reported rather than hidden by the display guarantee
     assert out.get("warnings"), out
+
+
+@prop(NORMALISATION)
+def test_a_group_prefix_is_dropped_not_glued_to_the_first_test():
+    """Observed on the benchmark. The model wrote "labs: bnp, d_dimer, crp" as one string,
+    and splitting on commas alone produced "labs: bnp" -- a test name that does not exist.
+    The prefix labels the group, not the first test in it."""
+    from src.agents.clinical.reasoning import normalize_missing_information
+    st = _state(labs={})
+    answer = _answer(cite(st, "b_lines"))
+    answer["missing_information"] = ["labs: bnp, d_dimer", "heart: troponin, lactate"]
+    normalize_missing_information(answer, st)
+    assert answer["missing_information"] == ["bnp", "d_dimer", "troponin", "lactate"], \
+        answer["missing_information"]
+
+
+@prop(NORMALISATION)
+def test_a_name_containing_a_colon_is_not_eaten():
+    """Only known group words are stripped. Removing anything before a colon would take a
+    real name with one in it."""
+    from src.agents.clinical.reasoning import normalize_missing_information
+    st = _state(labs={})
+    answer = _answer(cite(st, "b_lines"))
+    answer["missing_information"] = ["CT: chest with contrast, d_dimer"]
+    normalize_missing_information(answer, st)
+    assert answer["missing_information"] == ["CT: chest with contrast", "d_dimer"]

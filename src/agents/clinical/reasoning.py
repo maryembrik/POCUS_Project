@@ -678,9 +678,25 @@ def check_unassessed_reported(out: dict, state: dict) -> list[str]:
     return []
 
 
+_GROUP_PREFIX = re.compile(r"^(labs?|vitals?|imaging|bloods?|tests?|heart|lung|"
+                           r"gallbladder|vascular|fast)\s*:\s*", re.I)
+
+
 def _split_joined(entry: str) -> list[str]:
-    parts = re.split(r",| and ", entry)
-    return [p.strip() for p in parts if p.strip()]
+    """Split a comma-joined list, dropping a group prefix from the first element.
+
+    The prefix matters. Observed on the benchmark: the model wrote
+    "labs: bnp, d_dimer, crp" as one string, and splitting on commas alone left "labs: bnp"
+    as an element -- a test name that does not exist. The prefix labels the group, not the
+    first test in it.
+
+    Only known group words are stripped. Removing anything before a colon would eat a real
+    name that happens to contain one.
+    """
+    parts = [p.strip() for p in re.split(r",| and ", entry) if p.strip()]
+    if parts:
+        parts[0] = _GROUP_PREFIX.sub("", parts[0]).strip() or parts[0]
+    return [p for p in parts if p]
 
 
 def check_atomicity(out: dict, state: dict) -> list[str]:

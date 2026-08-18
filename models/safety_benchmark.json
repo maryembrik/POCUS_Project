@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-18T11:28:51+00:00",
-  "total_tests": 178,
-  "total_passed": 178,
+  "generated_at": "2026-08-18T11:57:31+00:00",
+  "total_tests": 180,
+  "total_passed": 180,
   "by_property": {
     "Absent is not normal": {
       "tests": 17,
@@ -28,8 +28,8 @@
       "passed": 9
     },
     "Deterministic output control": {
-      "tests": 5,
-      "passed": 5
+      "tests": 7,
+      "passed": 7
     },
     "Enumerated evidence": {
       "tests": 8,

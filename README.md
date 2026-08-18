@@ -67,7 +67,7 @@ src/agents/
     retrieval.py           TF-IDF retrieval with a relevance floor and citation checking
     corpus/                30 knowledge units, clinical knowledge only
     run_case.py            five benchmark scenarios, runnable end to end
-  tests/                 178 tests, grouped by the safety property each exercises
+  tests/                 180 tests, grouped by the safety property each exercises
 
 src/data_prep/           per-source manifest builders
 notebooks/               training and inference notebooks, one per organ
@@ -80,7 +80,7 @@ _docs/report/latex/      internship report
 ## Running it
 
 ```bash
-python -m src.agents.tests.run_benchmark          # 178 safety tests, no model needed
+python -m src.agents.tests.run_benchmark          # 180 safety tests, no model needed
 python -m src.agents.clinical.run_case --dry-run  # state + escalation, no model
 python -m src.agents.clinical.run_case --scenario conflict --n-gpu-layers -1
 ```
@@ -104,8 +104,8 @@ minutes. The same workload on CPU takes roughly 23 minutes **per case**.
 | Conflict detection | 9 |
 | Enumerated evidence | 8 |
 | Evidence coverage | 8 |
+| Deterministic output control | 7 |
 | Case-quality grading | 6 |
-| Deterministic output control | 5 |
 | Evidence relationships | 5 |
 | Failure severity | 5 |
 | LLM failure containment | 5 |
