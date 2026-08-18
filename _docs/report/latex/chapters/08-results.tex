@@ -43,24 +43,33 @@ the baseline appropriate to its own task.
     \midrule
     Triage & 3-tier urgency, tabular & macro F1 0.666 & 0.333 (chance) & 16\,180 enc. \\
     Lung & 4 findings, multi-label & macro AUROC 0.788 & 0.500 (chance) & 165 \\
-    Cardiac & segmentation $\rightarrow$ EF & Dice 0.93 / 0.83 / 0.89 & --- & 100 patients \\
-    Gallbladder & 5 pathology classes & bal.\ acc.\ 63.1\% & 20.0\% (chance) & 199 \\
+    Cardiac & segmentation $\rightarrow$ EF band & bal.\ acc.\ 63.4\% & 33.3\% (chance) &
+      100 patients \\
+    Gallbladder & 5 pathology classes & bal.\ acc.\ 59.7\% & 20.0\% (chance) & 199 \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
 Read that way, the modules are more alike than their headline figures suggest. The gallbladder
-classifier reaches roughly three times its chance level on a five-class problem; the triage
-model twice its chance level on a three-class one; the lung classifier sits well above the
-uninformative 0.5 on every finding it models. None of them is close to the accuracy a
+classifier reaches roughly three times its chance level on a five-class problem; the cardiac
+and triage models roughly twice theirs on three-class ones; the lung classifier sits well above
+the uninformative 0.5 on every finding it models. None of them is close to the accuracy a
 deployed clinical tool would require, and all of them are clearly doing something other than
 guessing.
 
-The cardiac module has no chance-level baseline because segmentation is not a classification
-task. Its derived ejection fraction carries a mean absolute error of 7.1 percentage points,
-which is the figure a clinician would actually act on, and
-Section~\ref{subsec:cardiac-results} reports what that error means against the bands used to
-call function normal, reduced or severe.
+The cardiac row needs a note, because the module produces two things. Its segmentation is
+strong and close to the published benchmark --- Dice 0.928, 0.837 and 0.875 for left ventricle,
+myocardium and left atrium against nnU-Net's 0.93, 0.86 and 0.89 --- while the clinical finding
+derived from it, an ejection-fraction band, is the weaker figure quoted in the table. The
+segmentation is not the agent's output; the band is, and it is the band a clinician would act
+on. Reporting the stronger number as the module's result would overstate what the agent
+delivers.
+
+The same caution applies to plain accuracy, and it is the reason balanced accuracy appears in
+the table for three of the four rows. On the cardiac cohort, 66 of 100 patients fall in one EF
+band, so predicting that band for everyone scores 66\% while discriminating nothing --- higher
+than the model's 65\%. Balanced accuracy of 63.4\% against a 33.3\% chance level is the honest
+statement, and the same reasoning governs the triage and gallbladder figures.
 
 Two observations survive the comparison. The first is that case counts are small everywhere
 except triage, and Section~\ref{subsec:results-limitations} states what that forbids. The
@@ -328,7 +337,7 @@ that link is currently verified by running the notebook rather than by the test 
 \label{subsec:results-discussion}
 
 None of the four modules is accurate enough to be relied upon alone, and the gallbladder
-classifier at 63.1\% balanced accuracy on five classes is the clearest example: as a
+classifier at 59.7\% balanced accuracy on five classes is the clearest example: as a
 standalone diagnostic it would be unusable. Read as one input among several, weighted by a
 calibrated confidence, and unable to assert that a patient is healthy because it has no
 healthy class, it is a different proposition --- not because the number is better than it

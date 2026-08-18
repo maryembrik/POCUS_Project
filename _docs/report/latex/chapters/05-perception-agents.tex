@@ -11,288 +11,823 @@
 
 \subsection{General Architecture}
 \label{subsec:perception-arch}
-\rmq{The design shared by all four modules, explained once here so the module sections need
-only report what differs: grouped cross-validation by case, calibrated confidence fitted
-out-of-fold, an explicit declaration of scope, and a common output format. State the
-reporting convention again in one sentence --- built, measured, concluded --- since this is
-the chapter where it does the most work.}
+
+Four modules are described in this chapter: one over structured data and three over images.
+They differ in task, model family and evaluation metric, but share four design decisions that
+are stated once here so that each module section need only report what it does differently.
+
+\paragraph{Grouped cross-validation by case.} Every split is made at the level of the patient
+or the case, never the image or the clip. Three of the four datasets provide frame-level labels
+only, so case identity had to be reconstructed before any model was trained. Splitting on
+frames instead would place different views of the same patient on both sides of the split, and
+every reported figure would measure memorisation as much as generalisation.
+
+\paragraph{Calibrated confidence fitted out of fold.} Each module emits a probability, and each
+probability is calibrated by a method chosen to suit the shape of its miscalibration. The
+calibrator is always fitted on data the model did not train on and never on the test set. A
+module whose calibrator is missing reports \texttt{confidence\_calibrated: false} rather than
+emitting a raw score that looks like a probability.
+
+\paragraph{An explicit declaration of scope.} Each module states what it cannot do: which
+findings it does not model, whether it has a healthy class, and the domain on which it was
+trained. These declarations are part of the output, not documentation, and they reach the
+reasoning layer of Chapter~\ref{sec:reasoning} where they bound what may be concluded.
+
+\paragraph{A common output format.} All four write through the schema of
+Section~\ref{subsec:output-contract}, which is what allows a segmentation network, two
+classifiers and a tree ensemble to be consumed by a single reasoning layer.
+
+The reporting convention of Section~\ref{subsec:methodology} does most of its work in this
+chapter: each module is presented as it was built, measured and concluded, and every
+configuration that was tested and rejected is reported inside the module that prompted it
+rather than omitted.
 
 % =========================================================================================
 \subsection{Triage Agent}
 \label{subsec:triage-agent}
 
 \subsubsection{Objective}
-\rmq{Estimate an urgency tier from structured patient data alone, calibrated well enough
-that its confidence is comparable with an imaging finding's. State what the agent is NOT
-for: it does not diagnose, and it never sees an image.}
+
+The Triage Agent estimates an urgency tier from structured patient data alone: vital signs,
+age, sex, arrival mode and presenting complaint. Its output is a tier with a calibrated
+confidence, and the calibration is what makes that confidence usable alongside an imaging
+finding's.
+
+What it is not for matters as much. It does not diagnose, it proposes no differential, and it
+never sees an image. It answers one question --- how urgently does this patient need to be
+seen --- and the decision that follows from that answer is taken elsewhere.
 
 \subsubsection{Dataset}
-\rmq{The pooled emergency dataset: sources, visit counts, the tier definition (low / medium
-/ high) and why three tiers rather than the five-level scales used in hospital triage --- the
-reasoning layer consumes the tier to decide escalation, not to assign a waiting time. Refer
-back to Chapter~\ref{sec:data} for provenance rather than repeating it.}
+
+The agent is trained on the pooled emergency dataset described in Chapter~\ref{sec:data},
+combining three independent sources: NHAMCS, an Iranian emergency department series, and
+MC-MED. Provenance and licensing are reported there and not repeated here.
+
+The target is a three-tier urgency label --- low, medium, high --- rather than the five-level
+scales used in hospital triage. The reason is architectural. The reasoning layer consumes the
+tier to decide whether to escalate, not to assign a waiting time, and a three-way decision is
+what that consumer needs. The five-level formulation was also trained, and
+Section~\ref{subsec:triage-results} reports why it was not retained.
 
 \subsubsection{Preprocessing}
-\rmq{Sentinel values are the point here. Vitals recorded as 0 mean "not measured", not a
-physiological zero, and were converted to genuine missing values so the model treats them as
-absent rather than as an extreme reading. Note that gradient-boosted trees handle missing
-values natively, which is part of why the family was chosen.}
+
+The most consequential preprocessing step concerns sentinel values. Vital signs recorded as
+zero in these datasets mean ``not measured'', not a physiological zero: a systolic blood
+pressure of 0 in a discharged patient is a missing record, not a finding. Left as numbers they
+would be read as extreme readings, and a model would learn that the most abnormal-looking
+patients are the ones nobody measured.
+
+Every such sentinel was converted to a genuine missing value. Gradient-boosted trees handle
+missing values natively, learning a default direction at each split rather than requiring
+imputation, which is part of why that model family was chosen: the alternative --- imputing a
+plausible value --- would fabricate a measurement that was never taken, which is the same error
+this project refuses elsewhere.
 
 \subsubsection{Feature Engineering}
-\rmq{Two things to report, in this order.
 
-First, the clinically motivated composites --- shock index, a partial qSOFA, and the
-red-flag thresholds --- with the reasoning that these encode how a clinician actually reads
-a set of vitals, rather than leaving the model to rediscover it.
+Two groups of features were added, encoding how a clinician reads a set of vitals rather than
+leaving the model to rediscover those relationships from limited data. The shock index (heart
+rate divided by systolic pressure) captures a relationship between two vitals that neither
+carries alone. A partial qSOFA score was computed from the components available in these
+datasets. Red-flag threshold indicators mark values that cross the bounds a triage nurse is
+trained to react to.
 
-Second, and more valuable, the features that were REMOVED and why. Disposition-related
-fields produced a markedly higher accuracy that reflected the outcome leaking into the
-input rather than clinical signal. Give both numbers, the inflated one and the honest one.
-Also report the coarse reason-for-visit grouping that was tested and rejected because it
-lost accuracy: collapsing hundreds of codes into a few categories discards real signal.}
+More valuable than what was added is what was removed. Disposition-related fields --- whether
+the patient was admitted, transferred or discharged --- were present in the source data and
+produced a markedly higher accuracy when included. That accuracy was not clinical signal. The
+disposition is decided after triage and partly because of it, so including it lets the outcome
+leak into the input and the model learn to read the answer rather than predict it. Every figure
+reported in this chapter is from the model without those fields.
+
+A coarse grouping of the reason-for-visit codes was also tested, on the hypothesis that
+collapsing hundreds of codes into a few clinical categories would generalise better across
+sources. It lost accuracy and was rejected: the fine-grained codes carry real signal that the
+grouping discards.
 
 \subsubsection{Model Selection}
-\rmq{The comparison against logistic regression, random forest, a small MLP and CatBoost on
-identical data, and the result that none beat gradient-boosted trees. Make the argument
-explicitly: this establishes that the accuracy ceiling is a property of the data, not a
-limitation of the architecture, which is what licenses the interpretation in
-Section~\ref{subsec:triage-error}.}
+
+Gradient-boosted trees were compared against logistic regression, a random forest, a small
+multilayer perceptron and CatBoost on identical features and identical splits. None beat the
+gradient-boosted model.
+
+That result licenses an interpretation that would otherwise be unavailable. When five model
+families of different inductive biases converge on a similar ceiling, the ceiling is a property
+of the data rather than a limitation of the chosen architecture. Section~\ref{subsec:triage-error}
+reads the errors on that basis: they are treated as reflecting genuine ambiguity in the
+labelling of urgency rather than as evidence that a better model was available and not found.
 
 \subsubsection{Training}
-\rmq{The temporal split (train on the earlier year, test on the later), the class weighting,
-and the additional weight on the most urgent classes. Report that a more aggressive weight
-was tested and rejected because it cost substantial accuracy for negligible safety gain ---
-the sweet spot was found by measurement, not by assumption.}
+
+Training used a temporal split: the model fits the earlier year and is tested on the later one.
+This is stricter than a random split and matches how the model would actually be used, on
+patients arriving after those it learned from.
+
+Class weighting compensates for the imbalance between tiers, with additional weight on the most
+urgent classes so that under-triage is penalised more heavily than over-triage. A more
+aggressive weighting was tested on the reasoning that safety should dominate: it cost
+substantial overall accuracy for negligible improvement in dangerous errors, and was rejected.
+The retained weighting was found by measurement across a sweep rather than assumed.
 
 \subsubsection{Results}
 \label{subsec:triage-results}
-\rmq{Accuracy and macro F1 against the majority-class baseline, the confusion matrix, and
-per-source performance. A single pooled figure hides whether the model transfers between
-sources, so report the breakdown.
 
-Include the context that makes the number interpretable: published inter-rater agreement
-between human triage nurses on the same scale. A model that matches the agreement level of
-trained clinicians is in a different position from one that simply scores low, and the
-reader cannot know which without that reference.}
+On 16\,180 held-out encounters the three-tier model reaches an accuracy of 0.680 and a macro
+F1 of 0.666, against a chance level of 0.333 for three classes. Macro F1 is the honest headline
+because it weights the three tiers equally; plain accuracy is inflated by the largest tier.
+
+Per-tier performance is uneven in a way a pooled figure conceals. The high-urgency tier is
+recognised best (F1 0.784 on 6\,465 encounters), the medium tier next (0.620 on 6\,263), and
+the low tier worst (0.594 on 3\,452). The model is most reliable exactly where the consequences
+of error are greatest, which is the desirable direction, though it should not be over-read: the
+high tier is also the best-represented.
+
+Performance also varies substantially by source:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Triage accuracy by source. A single pooled figure conceals this spread.}
+  \label{tab:triage-per-source}
+  \begin{tabular}{@{}lc@{}}
+    \toprule
+    Source & Accuracy \\
+    \midrule
+    Iranian ED series & 0.789 \\
+    MC-MED & 0.652 \\
+    NHAMCS & 0.617 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+A spread of 17 percentage points across sources is the most important number in this section.
+It says that the pooled figure is an average over populations the model handles differently,
+and it is the closest thing to external validation any module in this project has.
+
+The five-level formulation, trained on the same data, reached an exact-match accuracy of 0.547
+with a macro F1 of 0.394 --- substantially worse, and worse in a specific way: the two smallest
+classes (immediate, $n=139$; non-urgent, $n=307$) were recognised at F1 0.170 each, barely
+above chance. The three-tier target was retained because it is what the reasoning layer
+consumes and because the finer target could not be learned reliably from this data.
+
+Context makes these numbers interpretable. Published agreement between trained triage nurses
+assigning the same scale to the same patients is itself imperfect, and a model that approaches
+the level at which human raters agree with each other sits in a different position from one
+that simply scores low. The comparison bounds what can be claimed rather than excusing the
+result: the ceiling here is substantially set by the consistency of the labels.
 
 \subsubsection{Error Analysis}
 \label{subsec:triage-error}
-\rmq{Not all errors cost the same. Report the dangerous-error rate --- high-urgency cases
-predicted low --- separately from overall error, and introduce accuracy-within-one-level as
-the metric appropriate to an ordinal target. Then the safety threshold: a "low" prediction
-is forbidden when the probability of "high" exceeds a fixed bound. Report the threshold
-sweep and what it bought: roughly half the dangerous errors for almost no overall accuracy.}
+
+Not all errors cost the same. Predicting high for a low-urgency patient wastes resources;
+predicting low for a high-urgency patient can cost a life. Overall accuracy weights these
+identically, so it is the wrong metric to optimise on its own.
+
+For an ordinal target, accuracy-within-one-level is the appropriate companion metric. On the
+five-level formulation the model was within one acuity level on 93.4\% of encounters and off by
+two or more on 6.6\%, and among the 1\,734 genuinely high-acuity cases it was within one level
+on 85.6\%, leaving 14.4\% dangerously under-triaged. That figure --- not the headline accuracy
+--- is what a clinical reader should be shown.
+
+A safety threshold addresses it directly: a prediction of ``low'' is forbidden when the model's
+probability for ``high'' exceeds a fixed bound, in which case the prediction is raised. Sweeping
+that bound gives the trade-off in Table~\ref{tab:triage-threshold}.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Safety threshold sweep. A threshold of 1.00 means no override.}
+  \label{tab:triage-threshold}
+  \begin{tabular}{@{}ccc@{}}
+    \toprule
+    Threshold & Dangerous miss rate & Overall accuracy \\
+    \midrule
+    1.00 (none) & 3.5\% & 0.6824 \\
+    0.30 & 2.6\% & 0.6814 \\
+    \textbf{0.20 (retained)} & \textbf{1.5\%} & \textbf{0.6802} \\
+    0.15 & 0.1\% & 0.6436 \\
+    0.10 & 0.0\% & 0.6308 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The retained threshold of 0.20 removes more than half the dangerous misses --- 3.5\% to 1.5\%
+--- at a cost of 0.2 percentage points of overall accuracy. Below 0.20 the trade turns sharply:
+0.15 nearly eliminates dangerous misses but costs almost four points of accuracy, and by 0.10
+the model is overriding so often that it has stopped discriminating. The knee of that curve was
+found by measurement, and 0.20 sits at it.
 
 \subsubsection{Calibration}
-\rmq{Method, the data it was fitted on (a held-out slice of training, never the test set),
-and ECE before and after. State plainly that accuracy is essentially unchanged: calibration
-does not make a model more accurate, it makes its stated confidence mean something.}
+
+Confidence is calibrated by Platt scaling fitted on a held-out slice of the training data,
+never on the test set. Expected calibration error falls from 0.044 to 0.036.
+
+That is a real improvement and a small one, because the model was already reasonably
+calibrated. It is worth stating plainly what calibration did and did not do: accuracy is
+essentially unchanged. Calibration does not make a model more accurate; it makes its stated
+confidence mean something, which is what allows the reasoning layer to weigh a triage tier
+against an imaging finding on a comparable scale.
 
 \subsubsection{Final Decision}
-\rmq{The configuration retained, and the limitations declared to the reasoning layer.}
+
+The retained configuration is a gradient-boosted tree ensemble over the three-tier target,
+trained on a temporal split with moderate class weighting, Platt-calibrated, and guarded by a
+safety threshold of 0.20 on the high-urgency probability.
+
+The limitations declared to the reasoning layer are that the model sees no imaging, that its
+accuracy varies by source from 0.617 to 0.789, and that it estimates urgency rather than
+diagnosis.
 
 % =========================================================================================
 \subsection{Ultrasound Agent: Organ Routing}
 \label{subsec:ultrasound-agent}
-\rmq{How an examination is dispatched to the correct module, and how an unsupported organ
-returns an explicit not-supported status in the ordinary output format rather than being
-omitted or answered with a low-confidence guess. Short section --- the substance is in the
-module sections that follow.}
+
+The Ultrasound Agent presents one entry point. A study arrives with an organ and the
+appropriate inputs --- two frames for cardiac, one still for gallbladder, a list of frames for
+lung --- and is dispatched to the module that handles it.
+
+An organ with no implemented module is not omitted and is not answered with a low-confidence
+guess. It returns \texttt{status: "not\_supported"} in the ordinary output format, with an
+empty finding list and a scope note. Vascular and FAST are in this position.
+
+The consequence is that the reasoning layer never branches on whether a key exists. An
+unsupported organ and an assessed one differ in the value of a field, not in the shape of the
+object, and the distinction between ``examined and negative'' and ``never examined'' is carried
+explicitly rather than inferred from an absence. Section~\ref{subsec:output-contract} describes
+the contract this relies on.
 
 % =========================================================================================
 \subsection{Lung Module}
 \label{subsec:lung-module}
 
 \subsubsection{Objective}
-\rmq{Detect four findings --- B-lines, consolidation, pleural effusion, pleural thickening
---- from a lung ultrasound clip. Emphasise that this is deliberately not a disease
-classifier: it reports findings, and the inference to pneumonia or oedema belongs to the
-reasoning layer.}
+
+The lung module detects four findings in a lung ultrasound clip: B-lines, consolidation,
+pleural effusion and pleural thickening.
+
+It is deliberately not a disease classifier. It reports what is visible in the images, and the
+inference from B-lines to pulmonary oedema, or from consolidation to pneumonia, belongs to the
+reasoning layer, which has access to the vitals, laboratory results and history that such an
+inference requires. A module that reported ``pneumonia'' would be making a clinical judgement
+from imaging alone.
 
 \subsubsection{Dataset and the Multi-Label Formulation}
-\rmq{Why multi-label rather than single-label: a clip can show B-lines and consolidation at
-once, so the model emits four independent probabilities rather than one distribution. This
-is the first structural difference from the cardiac module and worth stating explicitly.}
+
+The four findings co-occur: a clip can show B-lines and a consolidation at the same time, and
+frequently does. The task is therefore multi-label --- four independent probabilities --- rather
+than single-label with one distribution over four mutually exclusive classes.
+
+This is the first structural difference from the cardiac and gallbladder modules and it
+propagates. It is the reason the shared schema carries a \emph{list} of findings rather than
+one, and the reason the calibration section below fits four separate calibrators.
 
 \subsubsection{Preprocessing and Clip Handling}
-\rmq{Eight evenly spaced frames per clip rather than every frame, since neighbouring frames
-are near-duplicates; frames decoded once and cached; per-frame inference aggregated to a
-clip probability by the median, so one blurred frame cannot dominate. Justify the median
-choice: frames from a clip are not independent evidence.}
+
+Eight evenly spaced frames are taken from each clip rather than every frame. Neighbouring frames
+in an ultrasound clip are near-duplicates, so decoding all of them multiplies computation
+without adding information. Frames are decoded once and cached.
+
+Inference runs per frame and the frame probabilities are aggregated to a clip probability by
+the \emph{median}. The choice matters and is not arbitrary. Frames from one clip are not
+independent evidence about the patient; they are repeated looks at the same anatomy. The mean
+would let one blurred or off-plane frame with an extreme probability drag the clip result, while
+the median reports what the majority of the clip shows.
 
 \subsubsection{Partially Labelled External Data}
-\rmq{The extra images positive for B-lines only, with no negatives and no labels for the
-other three findings. Report the solution --- a per-sample mask restricting the loss to the
-column that is actually known --- and the discipline around it: these samples entered the
-training set only, never validation.}
+
+Additional images were available that are labelled positive for B-lines only. They carry no
+negatives and no labels at all for the other three findings. Treating the missing labels as
+negatives would teach the model that these images show no consolidation, no effusion and no
+thickening, none of which is known.
+
+The solution is a per-sample mask applied to the loss, restricting each sample's gradient to
+the columns whose labels are actually known. A B-lines-only image contributes to the B-lines
+output and to nothing else.
+
+The discipline around this matters as much as the mechanism: these samples entered the
+\emph{training} set only. They never appear in validation, so no reported figure is computed
+over data with partially invented labels.
 
 \subsubsection{Model Selection and the Frozen-Backbone Discovery}
-\rmq{The single most valuable diagnostic in the project. An earlier configuration had the
-entire backbone frozen, leaving only the classifier head trainable, and since ultrasound
-speckle resembles nothing in ImageNet the frozen features could not adapt. Report the
-parameter counts before and after, and the measured effect of unfreezing the last blocks
-with a low learning rate --- the largest single gain recorded in this project.}
+
+The single most valuable diagnostic in this project came from a configuration that was not
+working. An earlier setup froze the entire EfficientNet-B0 backbone and trained only the
+classifier head, on the standard reasoning that a small dataset cannot support fine-tuning a
+full network.
+
+That reasoning fails for ultrasound. Frozen ImageNet features encode edges, textures and object
+parts learned from natural photographs, and ultrasound speckle resembles none of them. A frozen
+backbone cannot adapt its representation, so the trainable head was being asked to separate
+findings using features that did not describe them. Unfreezing the last blocks with a low
+learning rate produced the largest single gain recorded anywhere in this project.
+
+The general lesson is worth more than the specific gain: transfer learning assumes the source
+and target domains share low-level structure, and that assumption should be checked rather than
+inherited.
 
 \subsubsection{Training}
-\rmq{Mixed precision, the cosine learning-rate schedule, early stopping on validation AUROC,
-and the epoch budget. Keep it brief; the interesting decisions are elsewhere.}
+
+Training used mixed precision, a cosine learning-rate schedule, and early stopping on validation
+AUROC with a patience of three epochs against a budget of fifteen. Most folds stopped early. The
+schedule is unremarkable and is reported for reproducibility rather than because anything was
+learned from it.
 
 \subsubsection{Results}
 \label{subsec:lung-results}
-\rmq{Per-finding and macro AUROC at CASE level, with the clip and case counts behind each
-figure. Report the before/after of the leakage fix explicitly: the earlier, higher numbers
-were inflated by patient overlap between folds, and the honest figures are lower. Give both.
-State which findings have too few positive cases to support a reliable threshold; those are
-marked unreliable and the mark is carried through to the reasoning layer.}
+
+Evaluation is 3-fold \texttt{GroupKFold} by case over 187 clips from 165 independent cases, with
+predictions pooled out of fold and thresholds tuned on the folds not being evaluated.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Lung findings, pooled out-of-fold over 187 clips from 165 cases. ``pos'' is the
+    number of positive clips available for that finding.}
+  \label{tab:lung-results}
+  \begin{tabular}{@{}lccccc@{}}
+    \toprule
+    Finding & AUROC & AP & Sensitivity & ECE & pos \\
+    \midrule
+    B-lines & 0.830 & 0.695 & 0.841 & 0.169 & 63 \\
+    Consolidation & 0.832 & 0.726 & 0.600 & 0.146 & 60 \\
+    Pleural effusion & 0.718 & 0.212 & 0.750 & 0.158 & 24 \\
+    Pleural thickening & 0.773 & 0.453 & 0.652 & 0.195 & 46 \\
+    \midrule
+    \textbf{Macro} & \textbf{0.788} & & & & \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+An earlier version of this evaluation reported AUROC between 0.745 and 0.808 and looked
+comparable. It was inflated twice over: it split by clip rather than by case, so clips from the
+same patient appeared on both sides of the split, and it tuned decision thresholds on the same
+data it evaluated them on. Both inflations were removed and the figures above are the
+defensible ones. They are reported here rather than the more flattering earlier numbers, and
+the earlier numbers are reported alongside so that the difference is visible.
+
+Pleural effusion is marked unreliable. Its 24 positive clips are too few to support a stable
+threshold, and its average precision of 0.212 --- against an AUROC of 0.718 --- shows the
+instability directly: the ranking is better than chance while the operating point is poor. That
+mark is carried through the output contract to the reasoning layer, which discounts the finding
+rather than weighing it like the others.
+
+Pneumothorax is not modelled at all. The dataset contains zero positive cases, so no threshold
+could be set and no confidence would mean anything. This absence is declared as a scope
+limitation, and it is why an all-negative lung scan escalates in
+Section~\ref{subsec:reasoning-escalation} rather than reading as reassurance.
 
 \subsubsection{Error Analysis}
-\rmq{Which findings the model confuses and whether the confusions are clinically adjacent.
-Relate the weakest findings to their positive-case counts rather than treating them as
-unexplained.}
+
+The two findings the model handles best, B-lines and consolidation, are also the two with the
+most positive cases (63 and 60). The two it handles worst, pleural thickening and pleural
+effusion, have 46 and 24. The ordering of performance follows the ordering of positive-case
+counts exactly, which is the most parsimonious explanation available and does not require
+appeal to intrinsic difficulty.
+
+The clinically relevant confusions are between findings that co-occur: effusion and
+consolidation appear together in the same clinical presentations, and a clip showing both gives
+the model correlated evidence for each. Because the formulation is multi-label the model is not
+forced to choose between them, which is the correct behaviour, but it also means the four
+outputs are not independent and per-finding figures should not be multiplied together as if
+they were.
 
 \subsubsection{Calibration}
-\rmq{Per-finding Platt scaling --- one calibrator per finding, since the four are
-independent --- fitted out-of-fold, with ECE per finding before and after. Explain why
-thresholds were tuned on the other folds and applied to the held-out one, never tuned and
-evaluated on the same data.}
+
+Each finding receives its own Platt-scaled calibrator, fitted out of fold. One calibrator for
+all four would be wrong: the four heads are miscalibrated to different degrees, as the ECE
+column of Table~\ref{tab:lung-results} shows, ranging from 0.146 to 0.195.
+
+Decision thresholds are tuned on the folds not being evaluated and applied to the held-out one.
+Tuning and evaluating a threshold on the same data reports the best case rather than the
+expected case, and was one of the two inflations removed from the earlier evaluation.
+
+One limitation of the calibration is stated rather than hidden: it is fitted and scored on the
+same out-of-fold predictions, so the reported ECE is optimistic.
 
 \subsubsection{Final Decision}
-\rmq{The retained configuration, the per-finding thresholds, and the declared limitations.}
+
+The retained configuration is EfficientNet-B0 with the last blocks unfrozen, multi-label over
+four findings, median aggregation across eight frames per clip, per-finding Platt calibration
+and per-finding thresholds tuned out of fold.
+
+The declared limitations are that pneumothorax is not modelled and cannot be excluded, that
+pleural effusion is unreliable, that the module has no healthy class so an empty finding list
+never means a normal study, and that the data are curated public clips rather than bedside
+acquisitions.
 
 % =========================================================================================
 \subsection{Cardiac Module}
 \label{subsec:cardiac-module}
 
 \subsubsection{Objective}
-\rmq{Segment the left ventricle, myocardium and left atrium, and derive an ejection
-fraction from the segmentation. Note the difference in task type from every other module:
-this is the only pixel-level model in the system.}
+
+The cardiac module segments the left ventricle, myocardium and left atrium in an
+echocardiographic view, and derives an ejection fraction from the segmentation at end-diastole
+and end-systole. The finding it reports is an EF band --- normal, reduced or severe --- with a
+calibrated confidence.
+
+It is the only pixel-level model in the system. Every other module classifies; this one labels
+each pixel and computes a clinical quantity from the result, which makes its error analysis
+different in kind from the others.
 
 \subsubsection{Dataset}
-\rmq{CAMUS, with its explicit patient structure, and the external dataset used for
-validation. State the benchmark from Section~\ref{subsec:sota-existing} that the in-domain
-results are read against.}
+
+Training uses CAMUS, which provides explicit patient structure and expert annotations, split by
+patient. An additional external collection is used for validation only and never for training.
+Provenance is in Chapter~\ref{sec:data}.
+
+In-domain results are read against the published nnU-Net figures on CAMUS discussed in
+Section~\ref{subsec:sota-existing}: Dice of 0.93 for the left ventricle, 0.86 for the myocardium
+and 0.89 for the left atrium.
 
 \subsubsection{Model and Loss}
-\rmq{U-Net with an EfficientNet-B0 encoder, and the composite loss. Explain why
-cross-entropy alone is insufficient: the structures occupy a small fraction of the image, so
-a model can score acceptably by predicting background everywhere. Soft Dice rewards overlap
-directly and counteracts that imbalance. Also cover ignore\_index for partially labelled
-masks.}
+
+The architecture is a U-Net with an EfficientNet-B0 encoder, 6.25 million parameters.
+
+The loss combines cross-entropy with soft Dice, and the combination is necessary rather than
+conventional. The structures of interest occupy a small fraction of the image, so a model
+minimising cross-entropy alone can achieve a low loss by predicting background almost
+everywhere: the pixel-wise objective is dominated by the majority class. Soft Dice measures
+overlap between the predicted and true regions directly, and is insensitive to the size of the
+background, so it rewards exactly what cross-entropy neglects.
+
+Partially labelled masks are handled with an ignore index, so pixels whose true class is
+unknown contribute no gradient rather than being treated as background.
 
 \subsubsection{Training}
-\rmq{Early stopping on validation Dice with the best checkpoint retained rather than the
-last, and the schedule.}
+
+Early stopping monitors validation Dice, and the \emph{best} checkpoint is retained rather than
+the last. The distinction matters when validation performance is non-monotone: keeping the last
+checkpoint would report a model that had already begun to overfit.
 
 \subsubsection{In-Domain Results}
 \label{subsec:cardiac-results}
-\rmq{Per-structure Dice on held-out CAMUS patients, against the leaderboard figures in
-Tab.~\ref{tab:camus}. Report the left atrium honestly --- it is the weakest structure here
-as it is in the published results.}
+
+On held-out CAMUS patients the module reaches Dice of 0.928 for the left ventricle, 0.837 for
+the myocardium and 0.875 for the left atrium, against the benchmark figures of 0.93, 0.86 and
+0.89.
+
+The left ventricle is essentially at benchmark. The myocardium and left atrium sit slightly
+below. The left atrium is the weakest structure here, as it is in the published results ---
+it has less consistent boundary contrast than the ventricle and its extent depends on the
+imaging plane --- and reporting it as the weakest rather than averaging the three into one
+number is what makes the comparison meaningful.
 
 \subsubsection{External Validation and the Generalisation Gap}
-\rmq{The drop on the external dataset, stated plainly with both numbers. Then the
-investigation, in the order it happened:
+
+On the external collection, left-ventricle Dice falls from 0.928 to 0.534. The drop is large
+and is reported with both numbers rather than as a percentage.
+
+The investigation proceeded in three steps, and the order is worth preserving because the
+second step overturned the first.
 
 \begin{enumerate}
-  \item a hypothesis that the gap was a labelling-convention mismatch, formed from a handful
-        of images;
-  \item connected-component analysis over the full dataset, which DISPROVED it --- report
-        the reversal, it is evidence of method rather than an embarrassment;
-  \item what the remaining explanation is, and what it is not.
+  \item \textbf{A hypothesis formed from a handful of images.} Inspecting a small number of
+        external cases suggested a labelling-convention mismatch: the external masks appeared
+        to include or exclude structures at the boundary differently from CAMUS, which would
+        depress Dice without the model having failed to find the ventricle.
+  \item \textbf{Connected-component analysis over the full dataset, which disproved it.}
+        Measuring mask fragmentation across every external case gave 2.4\% --- the predictions
+        are coherent single regions, not scattered fragments, and the geometry does not show
+        the systematic boundary offset the hypothesis predicted. The hypothesis was formed from
+        a sample too small to support it and was abandoned.
+  \item \textbf{What remains.} The gap is a genuine domain shift: different acquisition
+        equipment, different operators, different imaging conventions. What it is \emph{not} is
+        a labelling artefact, and it is not the model failing to localise the ventricle at all.
 \end{enumerate}
 
-This is the strongest passage available in the chapter. Do not compress it.}
+The reversal is reported as method rather than concealed as an embarrassment. A conclusion
+drawn from a handful of images and overturned by measurement over the full dataset is the same
+error, in miniature, that the gallbladder module also produced
+(Section~\ref{subsec:gallbladder-module}), and the recurrence is why it is stated twice.
 
 \subsubsection{Ejection Fraction}
-\rmq{The initial bias in the derived EF, the geometric explanation --- area and volume do
-not scale together --- the correction applied, and the agreement between the bias predicted
-from the geometry and the bias actually observed. That agreement is the result: a correction
-derived from theory and confirmed by measurement is worth more than a tuned constant. Report
-MAE before and after, the correlation, balanced accuracy against the three-class chance
-level, and the severe/normal confusion count.}
+
+Ejection fraction derived directly from segmented \emph{areas} carried a systematic bias: mean
+absolute error of 12.2 percentage points against the reference values, with a correlation of
+0.788.
+
+The explanation is geometric rather than statistical. Ejection fraction is defined over
+volumes, and area does not scale with volume: for a roughly ellipsoidal chamber, volume grows
+as area to the power of $3/2$. Computing a fractional change from areas therefore understates
+the fractional change in volume, systematically and predictably.
+
+Applying the correction $\mathrm{EF} = \bigl(1 - r^{3/2}\bigr) \times 100$, where $r$ is the
+ratio of end-systolic to end-diastolic area, reduced the mean absolute error from 12.2 to 6.9
+percentage points --- a bias of 5.3 points removed --- and raised the correlation slightly to
+0.795.
+
+The result here is not the improved number. It is the agreement between the bias predicted from
+the geometry and the bias actually observed. A correction derived from theory and then confirmed
+by measurement is worth considerably more than a constant tuned until the error dropped, because
+it will continue to hold on data this project has not seen.
+
+On the three-band classification the module reaches a balanced accuracy of 63.4\% against a
+chance level of 33.3\%. Plain accuracy is 65.0\% against a majority baseline of 66.0\%, and the
+comparison shows why plain accuracy is the wrong headline: 66 of 100 patients fall in one band,
+so predicting that band for everyone scores higher than the model while discriminating nothing.
+
+Per-band recall is 0.727 for severe ($n=11$), 0.697 for reduced ($n=66$) and 0.478 for normal
+($n=23$). The clinically important figure is the last line of the confusion matrix: \textbf{zero
+of 100 cases confused a severe ventricle with a normal one}. The dangerous error --- reading a
+failing heart as healthy --- did not occur in this cohort, though with 11 severe cases that is
+a bound rather than a guarantee.
 
 \subsubsection{Rejected Adaptations}
-\rmq{Six strategies were tried to close the external gap and four were rejected. Report each
-as hypothesis, measurement, decision --- particularly fine-tuning, which improved the
-external number substantially while degrading CAMUS performance to an unacceptable degree.
-The conclusion follows: the non-fine-tuned model was retained, and its domain limitation is
-declared to the reasoning layer rather than hidden.}
+
+Six strategies were tried against the external gap and four were rejected.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Adaptations tested against the cardiac generalisation gap.}
+  \label{tab:cardiac-rejected}
+  \begin{tabularx}{\textwidth}{@{}lXl@{}}
+    \toprule
+    Strategy & Hypothesis and outcome & Decision \\
+    \midrule
+    Augmentation upgrade & Stronger augmentation would cover the domain shift; the measured
+      difference was within run-to-run variation & rejected \\
+    External integration (2 ways) & Adding external data to training would bridge the gap; both
+      integrations degraded in-domain performance without closing it & rejected \\
+    Fine-tuning (2 ways) & Fine-tuning on the external set would adapt the representation; it
+      improved the external number substantially while degrading CAMUS performance to an
+      unacceptable degree & rejected \\
+    Volume correction & Area-derived EF is biased by a predictable geometric factor; MAE
+      12.2\,pp $\rightarrow$ 6.9\,pp & \textbf{retained} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Fine-tuning is the instructive rejection. It worked, in the narrow sense that the external
+number improved substantially. It was rejected because the improvement was purchased with
+in-domain performance, and the in-domain distribution is the one the module is declared to
+serve. A model that performs moderately everywhere and well nowhere is not obviously preferable
+to one that performs well within a stated domain and declares that domain honestly.
+
+The non-fine-tuned model was retained and its domain limitation is declared to the reasoning
+layer rather than hidden by an averaged figure.
 
 \subsubsection{Calibration}
-\rmq{Isotonic regression on the EF-derived severity classification, ECE before and after,
-and the confidence ceiling that follows from it.}
+
+Confidence is the fraction of eight fixed test-time augmentations that agree on the reported
+band --- fixed rather than random, so the same clip always yields the same number --- and that
+agreement fraction is calibrated by isotonic regression.
+
+Isotonic regression suits this case because an agreement fraction is not a softmax output and
+its distortion is not of a form a single temperature parameter can correct; a non-parametric
+monotone fit can. Expected calibration error falls from 0.314 to 0.060, by far the largest
+calibration correction of any module, which reflects how poorly a raw agreement fraction
+behaves as a probability.
+
+The isotonic fit also implies a confidence ceiling: the calibrator maps even unanimous
+agreement to a value below 1.0, and that ceiling is declared in the output so that no
+downstream component treats the module as certain.
 
 \subsubsection{Final Decision}
-\rmq{The retained model and the scope it declares --- specifically that it is
-domain-limited, and what that forbids the reasoning layer from concluding.}
+
+The retained model is the CAMUS-trained EfficientNet-B0 U-Net without fine-tuning, with
+volume-corrected ejection fraction reported as a three-band finding and isotonic-calibrated
+confidence.
+
+The declared scope is explicit: CAMUS-like four-chamber views, ejection fraction as an area
+proxy rather than a volumetric measurement, and a documented drop on out-of-domain
+acquisitions. What this forbids the reasoning layer from concluding is that the module's
+confidence is meaningful on an image unlike its training domain --- and because the module
+cannot tell whether a given image is in domain, that judgement is left to the clinician, with
+the limitation stated in every report.
 
 % =========================================================================================
 \subsection{Gallbladder Module}
 \label{subsec:gallbladder-module}
 
 \subsubsection{Objective}
-\rmq{Single-label classification of gallbladder pathology at case level.}
+
+Single-label classification of gallbladder pathology at case level, over five reported classes:
+cholelithiasis, acute cholecystitis, polyps and adenomyomatosis, carcinoma, and wall thickening.
 
 \subsubsection{Dataset and the Mislabelled Class}
-\rmq{The per-case inspection that found a class whose label did not match its images, and
-the methodological lesson: the class had first been judged from a handful of frames, and
-frames from one case are not a sample of a class. Sampling one frame per case across all
-cases reversed the conclusion. State this as a rule, because it generalises.}
+
+The dataset comprises 4\,826 frames from 199 cases, organised as nine folders by pathology.
+
+A per-case inspection found that one folder's contents did not match its label. The
+methodological history of that finding is more valuable than the finding itself. The class had
+first been judged from a handful of frames drawn from a small number of cases, and looked
+consistent. Sampling one frame per case across all cases in the folder reversed the conclusion
+immediately.
+
+The rule this establishes generalises well beyond this dataset: \textbf{frames from one case are
+not a sample of a class}. A handful of frames from two cases shows what those two cases look
+like, and any impression formed from them describes the cases rather than the category. The same
+error appeared independently in the cardiac module, where a hypothesis formed from a few images
+was overturned by measurement over the full dataset.
+
+The affected folder was excluded, reducing the taxonomy from nine classes to eight for training.
 
 \subsubsection{Taxonomy Selection}
-\rmq{The best piece of experimental economy in the project. Rather than training a model per
-candidate taxonomy, the measured confusion matrix from the fine-grained model was collapsed
-arithmetically to estimate the accuracy each candidate would achieve. Report the predicted
-figure for the chosen taxonomy, then the measured figure after training. Their agreement is
-itself a result, and it is what justified spending GPU time on one configuration instead of
-several.}
+
+Several groupings of the eight training classes into a reported taxonomy were plausible. Training
+a model per candidate would have cost GPU time proportional to the number of candidates.
+
+Instead, the confusion matrix already measured from the fine-grained model was collapsed
+arithmetically according to each candidate grouping, estimating the accuracy each would achieve
+without training anything. The candidate that this predicted would perform best was the one
+taken forward, and it predicted 63.0\% balanced accuracy for collapsing the fine-grained model's
+predictions.
+
+The measured result after training the chosen configuration was 59.7\%. The agreement between a
+prediction made from an existing confusion matrix and a figure measured after training is itself
+a result: it justifies having spent GPU time on one configuration rather than several, and the
+three-point shortfall marks the limit of the approximation rather than invalidating it.
 
 \subsubsection{Training}
-\rmq{Training on the fine-grained labels with class weights computed per fold from the
-training portion only. Explain the marginalisation: group probabilities are SUMMED, not
-obtained by mapping the argmax, because summing preserves the model's uncertainty across
-members of a group.}
+
+The model trains on the eight fine-grained labels and reports five, with class weights computed
+per fold from the training portion only --- computing them over the whole dataset would leak the
+test distribution into training.
+
+The marginalisation from eight classes to five sums group probabilities rather than mapping the
+argmax. The distinction is not cosmetic. A case whose probability mass is split across
+cholecystitis, gangrenous cholecystitis and perforation --- three members of one reported group
+--- has a high total probability of acute inflammation and no single dominant fine-grained class.
+Mapping the argmax reports whichever member happens to be largest, discarding the agreement
+between them; summing reports what the model actually believes about the group. Measured
+directly, summing scored 63.0\% against 57.2\% for training on the merged labels.
 
 \subsubsection{Results}
 \label{subsec:gallbladder-results}
-\rmq{Balanced accuracy against the chance level for the number of classes, per-class recall,
-and the case count. Report the first, much lower result before the taxonomy correction as
-well --- the improvement is only meaningful with the starting point visible.}
+
+Evaluation is 5-fold \texttt{GroupKFold} by case, case-level predictions, over 199 cases with
+frames capped at 25 per case so that longer studies do not dominate.
+
+Balanced accuracy on the five reported classes is 59.7\% against a chance level of 20.0\%; plain
+accuracy is 61.3\%. Per-class recall is given in Table~\ref{tab:gb-results}.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Gallbladder per-class recall, case level, with the one-standard-error bound at each
+    class's case count.}
+  \label{tab:gb-results}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    Class & Cases & Recall \\
+    \midrule
+    Acute cholecystitis (any severity) & 66 & 0.70 $\pm$ 0.06 \\
+    Carcinoma & 27 & 0.67 $\pm$ 0.10 \\
+    Polyps / adenomyomatosis & 49 & 0.59 $\pm$ 0.07 \\
+    Wall thickening & 25 & 0.56 $\pm$ 0.10 \\
+    Cholelithiasis & 32 & 0.47 $\pm$ 0.09 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The progression that produced this figure is worth reporting in full, because the improvement is
+only interpretable against its starting point:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Balanced accuracy on the same 199 cases and the same reporting taxonomy.}
+  \label{tab:gb-progression}
+  \begin{tabular}{@{}lc@{}}
+    \toprule
+    Configuration & Balanced accuracy \\
+    \midrule
+    Original 9-class taxonomy, mislabelled folder included & 37.5\% \\
+    Trained directly on the 5 merged classes & 57.2\% \\
+    Collapsing the 9-class model's predictions & 63.0\% \\
+    Retained: 8-class training, summed output, class-weighted & 59.7\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Grouping the five reported classes further into three clinical categories gives 63.6\% balanced
+accuracy against a majority baseline of 50.8\%. That grouping is supported by the imaging only
+weakly: 18\% of the fine-grained model's confusions stay inside their group, meaning most errors
+cross group boundaries and the categories are not capturing a distinction the model can see.
+The five-class output was retained on that basis.
 
 \subsubsection{Rejected Alternatives}
-\rmq{Two to report: training directly on merged labels, which was worse than merging
-probabilities from fine-grained training; and USCL initialisation, which underperformed
-ImageNet despite the published gain discussed in Section~\ref{subsec:sota-existing}. Give
-the numbers for both.}
+
+Two alternatives were tested and rejected, both with the numbers that decided them.
+
+\textbf{Training directly on merged labels} scored 57.2\% balanced accuracy against 63.0\% for
+training fine-grained and merging probabilities afterwards. Collapsing the labels before
+training discards the distinction between group members, and with it the model's ability to
+accumulate evidence across them.
+
+\textbf{USCL initialisation} was tested on the strength of the published gain discussed in
+Section~\ref{subsec:sota-existing}: ultrasound-specific self-supervised pretraining should
+transfer better to ultrasound than ImageNet weights. On a fold-0 bake-off it reached 29.8\%
+balanced accuracy against 46.6\% for the ImageNet-initialised EfficientNet-B0 --- not a marginal
+difference. The published result was not reproduced here, and the ImageNet initialisation was
+retained.
 
 \subsubsection{Calibration}
-\rmq{Temperature scaling, the fitted temperature, and ECE before and after.}
+
+Temperature scaling, with a fitted temperature of $T = 0.87$. Expected calibration error moves
+from 0.025 to 0.024.
+
+The temperature below 1.0 indicates the model was mildly \emph{under}-confident rather than
+over-confident, which is unusual and worth noting: the class-weighted loss, which penalises
+errors on rare classes more heavily, appears to have flattened the output distribution slightly.
+The correction is small because there was little to correct.
 
 \subsubsection{Final Decision}
-\rmq{The retained configuration and its declared limitations --- in particular whether the
-module has a healthy class, since a module without one can never exclude disease.}
+
+The retained configuration is EfficientNet-B0 trained on eight fine-grained classes with
+per-fold class weights, reporting five classes by summing group probabilities, temperature
+calibrated at $T = 0.87$.
+
+The declared limitation that matters most is the absence of a healthy class. The dataset
+contains no normal gallbladders, so every prediction is a choice among pathologies and none of
+them means ``no disease''. The module therefore cannot exclude anything, and the reasoning layer
+is told so explicitly: a gallbladder report is evidence about \emph{which} pathology, never
+evidence that there is none. The remaining declared limitations are the 199-case sample, the
+burned-in annotation markers present in 15--50\% of frames, and the teaching-atlas provenance.
 
 % =========================================================================================
 \subsection{Explainability Across the Imaging Modules}
 \label{subsec:explainability}
-\rmq{Grad-CAM applies to all three imaging modules and is therefore treated once, here.
 
-The important methodological point: the maps were MEASURED, not inspected by eye. Report
-centroid spread, area above half-maximum and normalised entropy against reference values for
-uniform and concentrated attention, and the explicit test for centre bias --- a heatmap that
-always points at the middle of the image regardless of content is not an explanation. State
-what these statistics support (attention is concentrated) and what they cannot support (that
-the attention is anatomically correct).}
+Grad-CAM applies to all three imaging modules and is therefore treated once here rather than
+three times.
+
+The methodological point is that the maps were \emph{measured} rather than inspected by eye.
+Looking at a dozen heatmaps and finding them plausible is not evidence; it is an invitation to
+confirmation bias, since a viewer who knows where the pathology is will see the map pointing at
+it. Three statistics were computed over the full sets instead:
+
+\begin{itemize}
+  \item \textbf{centroid spread} --- how much the centre of attention moves between images. A
+        map that always points at the same place is responding to position rather than content;
+  \item \textbf{area above half-maximum} --- what fraction of the image carries at least half
+        the peak activation, which separates concentrated attention from diffuse;
+  \item \textbf{normalised entropy} --- the dispersion of the attention distribution, referenced
+        against the values for uniform attention (entropy 1.0) and for a single concentrated
+        region.
+\end{itemize}
+
+An explicit test for centre bias accompanies them, because a heatmap that points at the middle
+of every image regardless of content is not an explanation --- and ultrasound images place the
+region of interest near the centre often enough that centre bias would look like success.
+
+What these statistics support is that attention is concentrated and content-dependent rather
+than uniform or positional. What they cannot support is that the attention falls on the
+anatomically correct structure, which would require expert annotation of the relevant structure
+in each image, and this project has none. The gallbladder module in particular showed a
+pronounced central prior consistent with either a genuine anatomical focus or an acquisition
+convention, and nothing measured here separates the two.
+
+Grad-CAM is therefore reported as a plausibility check that the models are not obviously
+responding to the wrong thing, and explicitly not as evidence of clinical validity.
+Section~\ref{subsec:results-explainability} states the same boundary at system level.
 
 % =========================================================================================
 \subsection{Perception Agent Output Contract}
 \label{subsec:output-contract}
-\rmq{The shared schema and its validation rules, each with its reason: findings are always a
-list because lung is multi-label; a status of "ok" with no findings is rejected; a stated
-confidence exceeding the declared ceiling is rejected. Show the schema and one worked
-example from each module.
 
-This section is the hinge between Chapters~\ref{sec:perception} and~\ref{sec:reasoning}, and
-it is what makes four heterogeneous models --- a segmentation network, two classifiers and a
-tree ensemble --- usable by a single reasoning layer.}
+Every module writes through one schema. This section is the hinge between
+Chapters~\ref{sec:perception} and~\ref{sec:reasoning}: it is what makes a segmentation network,
+two classifiers and a tree ensemble usable by a single reasoning layer without that layer
+knowing which produced what.
+
+A report carries the organ, a status, a list of detected findings each with a calibrated
+confidence, a list of findings screened for and \emph{not} detected, and a reliability block
+declaring the module's scope.
+
+Four validation rules are enforced, each for a reason established by a failure:
+
+\begin{itemize}
+  \item \textbf{Findings are always a list.} Lung is multi-label and a single-finding field
+        could not represent a clip showing B-lines and consolidation together. Making the list
+        universal means the reasoning layer never special-cases by organ.
+
+  \item \textbf{A status of ``ok'' with nothing recorded is rejected.} A report claiming an
+        assessment took place while recording neither a detected nor a screened-negative finding
+        asserts nothing and would be indistinguishable downstream from an organ never examined.
+
+  \item \textbf{A confidence above the declared ceiling is rejected.} The cardiac calibrator maps
+        even unanimous test-time agreement to a value below 1.0; a report exceeding that ceiling
+        indicates the calibration was not applied.
+
+  \item \textbf{A label cannot appear in both the detected and not-detected lists.} The two
+        lists make contradictory claims about the same finding, and silently preferring one
+        would decide a contradiction the module should not have produced.
+\end{itemize}
+
+The distinction the contract exists to preserve is between three states, not two: a finding
+detected, a finding screened for and not seen, and a finding never assessed. The first two are
+observations; the third is a gap in the record. A module that screened four findings and saw
+none reports an empty \texttt{findings} list beside a populated \texttt{not\_detected} list ---
+an informative negative result --- while an organ never examined is absent from the report
+entirely.
+
+Collapsing that distinction was a real defect rather than a hypothetical one. The lung module
+once represented ``nothing above threshold'' with a placeholder entry in the findings list.
+Everything in that list is marked as detected downstream, so the \emph{absence} of findings was
+read as a positive finding: it suppressed the escalation trigger that fires when no finding is
+detected, and counted as weak supporting evidence in the case-quality grade. An all-negative
+scan escalated less readily than a positive one, which is backwards, and on exactly the scans
+where an unmodelled pathology such as pneumothorax is most likely to be the explanation. The
+correction is the \texttt{not\_detected} list described above, and it was verified end to end.
