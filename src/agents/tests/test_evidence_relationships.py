@@ -168,6 +168,66 @@ def test_a_misread_value_can_no_longer_be_expressed_at_all():
     assert "high troponin" not in cited.lower()
 
 
+def _two_fault_answer(evidence_ids, *, joined: bool, overclaim: bool) -> str:
+    """An otherwise sound answer carrying two INDEPENDENT untidy faults.
+
+    Independent on purpose: a comma-joined missing_information and an overclaiming next step
+    have nothing to do with each other, so fixing one cannot fix the other and the number of
+    rounds required is exactly two.
+    """
+    return json.dumps({
+        "differential": [{"diagnosis": "Pulmonary oedema", "likelihood": "moderate",
+                          "supporting": list(evidence_ids), "contradicting": [],
+                          "limitations": []}],
+        "missing_information": ["troponin, lactate"] if joined else ["troponin", "lactate"],
+        "uncertainty": "u",
+        "recommended_next_step": (
+            "obtain a troponin to rule out myocardial infarction" if overclaim
+            else "obtain a troponin as additional information relevant to assessing "
+                 "myocardial injury")})
+
+
+@prop(SEVERITY)
+def test_two_independent_faults_need_two_revision_rounds():
+    """The case that justifies max_revisions=2.
+
+    One complaint is sent per round, so two independent faults cannot clear in one round
+    however cooperative the model is. This was worth testing rather than assuming: the reason
+    for raising the cap was that identifier-era complaints are actionable, and an untested
+    architecture claim is not one worth making in a report.
+    """
+    st = _lung_state()
+    ev = cite(st, "b lines", "hr", "rr", "spo2")
+    backend = ScriptedBackend(
+        _two_fault_answer(ev, joined=True, overclaim=True),      # both faults
+        _two_fault_answer(ev, joined=False, overclaim=True),     # one fixed
+        _two_fault_answer(ev, joined=False, overclaim=False))    # both fixed
+    res = reason(st, llm_fn=backend, max_revisions=2)
+
+    assert len(backend.calls) == 3, "one initial call and two revision rounds"
+    assert len(res["revisions"]) == 2
+    assert all(len(r["complaints"]) == 1 for r in res["revisions"]), res["revisions"]
+    assert res.get("differential_withheld") is not True
+    assert not (res.get("warnings") or []), res.get("warnings")
+
+
+@prop(SEVERITY)
+def test_one_round_is_not_enough_for_two_faults():
+    """The other half of the same measurement: with the old cap the second fault survives and
+    is delivered as a warning. The answer is still shown -- these are untidy faults -- but the
+    report would carry a complaint the model was never given the chance to fix."""
+    st = _lung_state()
+    ev = cite(st, "b lines", "hr", "rr", "spo2")
+    backend = ScriptedBackend(
+        _two_fault_answer(ev, joined=True, overclaim=True),
+        _two_fault_answer(ev, joined=False, overclaim=True))
+    res = reason(st, llm_fn=backend, max_revisions=1)
+
+    assert len(backend.calls) == 2
+    assert res.get("differential_withheld") is not True
+    assert res["warnings"], "the unfixed fault must still be reported"
+
+
 @prop(SEVERITY)
 def test_a_revision_request_carries_one_complaint_not_all_of_them():
     """Measured on a real case: one complaint was fixed, three were fixed in no respect at

@@ -394,26 +394,50 @@ def check_evidence_coverage(out: dict, state: dict) -> list[str]:
     while SpO2 had in fact been measured. Scanning the whole object let a factual
     contradiction count as evidence of use.
     """
+    from .clinical_state import build_evidence
+
     considered = json.dumps({k: v for k, v in out.items()
                              if k != "missing_information"}).lower()
-    errs: list[str] = []
+
+    # Which identifiers the answer actually cited. Present once resolve_evidence has run;
+    # absent when a validator is called directly on a free-text answer, which the substring
+    # fallback below still handles.
+    cited_ids: set[str] = set()
+    for d in out.get("differential", []) or []:
+        for field in ("supporting_ids", "contradicting_ids"):
+            for c in d.get(field, []) or []:
+                cited_ids.add(str(c).strip())
+
+    uncertainty = _norm(out.get("uncertainty", ""))
     unused: list[str] = []
 
-    for name, v in (state.get("vitals") or {}).items():
-        if v.get("flag") not in ("high", "low"):
+    for e in build_evidence(state):
+        if e.get("flag") not in ("high", "low"):
             continue
-        aliases = VITAL_ALIASES.get(name, (name,))
-        value = f"{v.get('value')}".rstrip("0").rstrip(".")
-        if any(a in considered for a in aliases) or (value and value in considered):
+        if e["id"] in cited_ids:
             continue
-        unused.append(f"{name} ({v.get('value')}, {v.get('flag')})")
+        # Named in `uncertainty` counts: an abnormal value may legitimately not bear on the
+        # assessment, but that has to be said rather than left silent.
+        aliases = VITAL_ALIASES.get(e["label"], (e["label"],))
+        if any(_norm(a) in uncertainty for a in aliases):
+            continue
+        # Free-text fallback, for answers that never went through resolve_evidence.
+        value = f"{e.get('value')}".rstrip("0").rstrip(".")
+        if not cited_ids and (any(_norm(a) in considered for a in aliases)
+                              or (value and value in considered)):
+            continue
+        unused.append(f"{e['id']} ({e['text']})")
 
     if unused:
-        errs.append(
-            f"abnormal value(s) not used and not explained: {', '.join(unused)} -- cite each "
-            f"in a differential entry or say in 'uncertainty' why it does not bear on the "
-            f"assessment")
-    return errs
+        # The complaint names the identifier, which is the difference between an instruction
+        # the model can act on and one it cannot. "Account for every abnormal value" survived
+        # a revision round untouched on three of five benchmark cases; "add E5 to supporting"
+        # is a substitution.
+        errs = [f"abnormal value(s) cited nowhere: {'; '.join(unused)} -- add each identifier "
+                f"to 'supporting' or 'contradicting' of the entry it bears on, or name it in "
+                f"'uncertainty' and say why it does not"]
+        return errs
+    return []
 
 
 def check_missing_information_accuracy(out: dict, state: dict) -> list[str]:
@@ -572,16 +596,27 @@ def check_evidence_relationships(out: dict, state: dict) -> list[str]:
 
 # Phrases that assert more than decision support can. "to rule out X" claims a test will
 # settle the question; the system proposes investigations, it does not adjudicate them.
-_OVERCLAIM = ("rule out", "rules out", "ruled out", "confirm the diagnosis", "confirms the",
-              "definitively", "exclude the possibility")
+_OVERCLAIM = ("rule out", "rules out", "ruled out", "ruling out",
+              "confirm the diagnosis", "confirms the", "definitively",
+              "exclude", "excludes", "excluded", "excluding")
+
+# Negated forms say the opposite and are the wording this project insists on elsewhere: a
+# model that cannot exclude something must be able to write that it cannot. Checked before
+# the list above, or "cannot exclude pneumothorax" would be flagged for containing "exclude".
+_ALLOWED = ("cannot exclude", "can not exclude", "does not exclude", "do not exclude",
+            "not excluded", "cannot be excluded", "without excluding", "never excludes")
 
 
 def check_recommendation_wording(out: dict, state: dict) -> list[str]:
     text = _norm(out.get("recommended_next_step", ""))
+    for ok in _ALLOWED:
+        text = text.replace(ok, " ")
     hits = [p for p in _OVERCLAIM if p in text]
     if hits:
-        return [f"recommended_next_step claims to {hits[0]!r} -- state what the test would "
-                f"inform, not what it would settle"]
+        return [f"recommended_next_step claims to {hits[0]!r}, which asserts more than "
+                f"decision support can. Say what the test would inform, not what it would "
+                f"settle: write 'obtain X as additional information relevant to assessing Y' "
+                f"rather than 'obtain X to {hits[0]} Y'"]
     return []
 
 
@@ -643,14 +678,27 @@ def check_unassessed_reported(out: dict, state: dict) -> list[str]:
     return []
 
 
+def _split_joined(entry: str) -> list[str]:
+    parts = re.split(r",| and ", entry)
+    return [p.strip() for p in parts if p.strip()]
+
+
 def check_atomicity(out: dict, state: dict) -> list[str]:
     """One test per element. A comma-joined string is a list of one to everything downstream."""
-    bad = [i for i in (out.get("missing_information") or [])
-           if isinstance(i, str) and ("," in i or " and " in i.lower())]
-    if bad:
-        return [f"missing_information contains combined entries {bad!r} -- one test per "
-                f"array element"]
-    return []
+    items = out.get("missing_information") or []
+    bad = [i for i in items if isinstance(i, str) and ("," in i or " and " in i.lower())]
+    if not bad:
+        return []
+
+    # Show the corrected array rather than restating the rule. The rule alone survived a
+    # revision round unchanged; a model asked to reproduce a literal list has something to
+    # copy. Python does not apply the split itself -- rewriting the model's answer is what
+    # this pipeline does not do -- but it can say exactly what the answer should have been.
+    fixed: list[str] = []
+    for i in items:
+        fixed.extend(_split_joined(i) if isinstance(i, str) else [i])
+    return [f"missing_information contains combined entries {bad!r} -- one test per array "
+            f"element. Write it as {json.dumps(fixed)}"]
 
 
 REVISION_PROMPT = """Your previous answer was rejected by the evidence checker.

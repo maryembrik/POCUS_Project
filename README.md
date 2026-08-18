@@ -67,7 +67,7 @@ src/agents/
     retrieval.py           TF-IDF retrieval with a relevance floor and citation checking
     corpus/                30 knowledge units, clinical knowledge only
     run_case.py            five benchmark scenarios, runnable end to end
-  tests/                 171 tests, grouped by the safety property each exercises
+  tests/                 173 tests, grouped by the safety property each exercises
 
 src/data_prep/           per-source manifest builders
 notebooks/               training and inference notebooks, one per organ
@@ -80,7 +80,7 @@ _docs/report/latex/      internship report
 ## Running it
 
 ```bash
-python -m src.agents.tests.run_benchmark          # 171 safety tests, no model needed
+python -m src.agents.tests.run_benchmark          # 173 safety tests, no model needed
 python -m src.agents.clinical.run_case --dry-run  # state + escalation, no model
 python -m src.agents.clinical.run_case --scenario conflict --n-gpu-layers -1
 ```
@@ -106,12 +106,12 @@ minutes. The same workload on CPU takes roughly 23 minutes **per case**.
 | Evidence coverage | 8 |
 | Case-quality grading | 6 |
 | Evidence relationships | 5 |
+| Failure severity | 5 |
 | LLM failure containment | 5 |
 | Model-scope propagation | 5 |
 | Reference-range detection | 5 |
 | Unassessed-organ reporting | 5 |
 | Advice scope | 4 |
-| Failure severity | 3 |
 | Value-reading consistency | 3 |
 
 Every check was written against a failure the system actually produced. Among them: a normal

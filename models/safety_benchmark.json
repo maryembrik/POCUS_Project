@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-17T10:45:18+00:00",
-  "total_tests": 171,
-  "total_passed": 171,
+  "generated_at": "2026-08-18T10:37:09+00:00",
+  "total_tests": 173,
+  "total_passed": 173,
   "by_property": {
     "Absent is not normal": {
       "tests": 17,
@@ -44,8 +44,8 @@
       "passed": 5
     },
     "Failure severity": {
-      "tests": 3,
-      "passed": 3
+      "tests": 5,
+      "passed": 5
     },
     "Hallucination rejection": {
       "tests": 25,
