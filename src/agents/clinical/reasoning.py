@@ -763,6 +763,56 @@ def resolve_evidence(out: dict, evidence: list[dict]) -> dict:
     return out
 
 
+def normalize_missing_information(out: dict, state: dict) -> list[str]:
+    """Split comma-joined entries and drop anything that was in fact measured.
+
+    Python rewriting the model's answer is what this pipeline does not do -- a likelihood
+    edited in post would reach a clinician as the model's judgement when it is not. That rule
+    is about clinical judgement, and this is not clinical judgement. Splitting
+    ["troponin, bnp"] into ["troponin", "bnp"] changes no claim; it parses a list the model
+    formatted wrongly. The same reasoning does NOT extend to the wording of a recommendation,
+    which is why "rule out" is still sent back for revision rather than reworded here.
+
+    Returns a list of the changes made, for `result["normalizations"]`. Silent correction
+    would hide how often the model needs correcting, which is the thing worth reporting.
+    """
+    items = out.get("missing_information")
+    if not isinstance(items, list):
+        return []
+
+    absent = {_norm(x) for x in state["missing"]["labs"]}
+    for v in state["missing"]["vitals"]:
+        absent |= {_norm(a) for a in _expand(v)}
+    for organ in state["imaging"].get("organs_not_assessed", []):
+        absent.add(_norm(organ))
+
+    notes: list[str] = []
+    flat: list[str] = []
+    for item in items:
+        if not isinstance(item, str):
+            flat.append(item)
+            continue
+        parts = _split_joined(item)
+        if len(parts) > 1:
+            notes.append(f"split {item!r} into {parts}")
+        flat.extend(parts)
+
+    # Deduplicate while keeping order; a split can produce the same test twice.
+    seen: set[str] = set()
+    kept: list[str] = []
+    for item in flat:
+        key = _norm(item) if isinstance(item, str) else repr(item)
+        if key in seen:
+            notes.append(f"dropped duplicate {item!r}")
+            continue
+        seen.add(key)
+        kept.append(item)
+
+    if notes:
+        out["missing_information"] = kept
+    return notes
+
+
 def build_revision_prompt(previous: str, complaints: list[str]) -> str:
     bullets = "\n".join(f"  - {c}" for c in complaints)
     return (REVISION_PROMPT.format(complaints=bullets)
@@ -803,7 +853,7 @@ def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
     which shows two independent faults clearing in exactly two rounds. The capability is real;
     it is not worth its cost with this model. Pass `max_revisions=2` to use it.
     """
-    from .clinical_state import build_evidence, render_evidence
+    from .clinical_state import build_evidence, evidence_considered
 
     esc = escalation_decision(state)
     evidence = build_evidence(state)
@@ -877,6 +927,13 @@ def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
         # existing validator reads what it always read.
         resolve_evidence(parsed, evidence)
 
+        # Formatting, not judgement: a comma-joined list is corrected here rather than sent
+        # back for a round the model spent three times without fixing it. What was changed is
+        # recorded, because a silent correction hides how often correction is needed.
+        notes = normalize_missing_information(parsed, state)
+        if notes:
+            result["normalizations"] = (result.get("normalizations") or []) + notes
+
         # Backstop rather than the primary guard now. With citations restricted to identifiers
         # this can no longer fail through the evidence arrays -- an absent test has no
         # identifier, so "cites something NOT MEASURED" is unreachable by construction. It is
@@ -916,6 +973,7 @@ def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
         if not soft:
             result["differential"] = parsed
             result["validation_errors"] = None
+            result["evidence_considered"] = evidence_considered(state, parsed)
             result["revisions"] = revisions
             return result
 
@@ -924,6 +982,7 @@ def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
             # the answer -- a likelihood edited in post would be read as the model's judgement
             # when it is not.
             result["differential"] = parsed
+            result["evidence_considered"] = evidence_considered(state, parsed)
             result["revisions"] = revisions
             if unsound:
                 result["validation_errors"] = unsound

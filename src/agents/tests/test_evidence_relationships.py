@@ -115,7 +115,10 @@ def test_an_untidy_answer_is_delivered_with_a_warning():
     st = _lung_state()
     out = _entry("Pulmonary Edema", likelihood="moderate")
     out["differential"][0]["supporting"] = cite(st, "b lines", "hr", "rr", "spo2")
-    out["missing_information"] = ["troponin, lactate"]          # untidy only
+    # An overclaiming recommendation, which is untidy only. A comma-joined
+    # missing_information used to serve here and no longer can: it is normalised in Python
+    # before the validators run, so it never reaches this tier.
+    out["recommended_next_step"] = "obtain a troponin to rule out myocardial infarction"
     raw = json.dumps(out)
     res = reason(st, llm_fn=ScriptedBackend(raw, raw), max_revisions=1)
     assert res.get("differential_withheld") is not True, res["validation_errors"]
@@ -240,11 +243,15 @@ def test_a_revision_request_carries_one_complaint_not_all_of_them():
     # prevent this one: pleural thickening was genuinely assessed, so it has an identifier, and
     # whether it bears on the diagnosis is a judgement no list of identifiers can settle.
     out["differential"][0]["contradicting"] = cite(st, "pleural thickening")
-    out["missing_information"] = ["troponin, lactate"]
+    out["recommended_next_step"] = "obtain a troponin to rule out myocardial infarction"
     backend = ScriptedBackend(json.dumps(out))
     res = reason(st, llm_fn=backend, max_revisions=1)
     _, revision = backend.calls[1]
     assert "does not bear" in revision, "the unsound fault must be the one sent"
-    assert "one test per" not in revision, "the untidy fault must not crowd the request"
+    # Matched on wording unique to the complaint. The revision prompt echoes the previous
+    # answer, which contains the offending phrase itself, so searching for "rule out" would
+    # find the answer rather than the complaint and pass whatever was sent.
+    assert "asserts more than decision support" not in revision, \
+        "the untidy fault must not crowd the request"
     # Nothing is lost: everything found is still recorded.
     assert res["revisions"][0]["also_found"], res["revisions"]

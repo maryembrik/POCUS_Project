@@ -189,3 +189,89 @@ def test_the_evidence_block_renders_every_identifier():
     assert "AVAILABLE EVIDENCE" in text
     for e in build_evidence(_state()):
         assert f"[{e['id']}]" in text
+
+
+# ------------------------------------------------------------------ deterministic output control
+NORMALISATION = "Deterministic output control"
+
+
+@prop(NORMALISATION)
+def test_a_comma_joined_missing_information_is_split_not_revised():
+    """Formatting is Python's job; clinical judgement is not.
+
+    Splitting ["troponin, bnp"] changes no claim -- it parses a list the model formatted
+    wrongly. The rule that Python never rewrites the model's answer is about judgement: a
+    likelihood edited in post would reach a clinician as the model's reasoning when it is
+    not. That is why the overclaiming wording of a recommendation is still sent back for
+    revision rather than reworded here.
+
+    Measured before it was automated: the model was given the corrected array to copy and did
+    not copy it, across two revision rounds on three separate cases.
+    """
+    from src.agents.clinical.reasoning import normalize_missing_information
+    st = _state(labs={})
+    answer = _answer(cite(st, "b_lines"))
+    answer["missing_information"] = ["troponin, bnp, d_dimer"]
+
+    notes = normalize_missing_information(answer, st)
+    assert answer["missing_information"] == ["troponin", "bnp", "d_dimer"]
+    assert notes and "split" in notes[0]
+
+
+@prop(NORMALISATION)
+def test_normalisation_is_recorded_not_silent():
+    """A silent correction would hide how often correction is needed, which is the thing worth
+    reporting."""
+    st = _state(labs={})
+    answer = _answer(cite(st, "b_lines"))
+    answer["missing_information"] = ["troponin, bnp"]
+    out = reason(st, llm_fn=ScriptedBackend(json.dumps(answer)))
+    assert out.get("normalizations"), out.keys()
+    assert any("split" in n for n in out["normalizations"])
+
+
+@prop(NORMALISATION)
+def test_a_well_formed_list_is_left_alone():
+    from src.agents.clinical.reasoning import normalize_missing_information
+    st = _state(labs={})
+    answer = _answer(cite(st, "b_lines"))
+    answer["missing_information"] = ["troponin", "bnp"]
+    assert normalize_missing_information(answer, st) == []
+    assert answer["missing_information"] == ["troponin", "bnp"]
+
+
+@prop(NORMALISATION)
+def test_overclaiming_wording_is_revised_not_rewritten():
+    """The boundary of the rule above. Python corrects a list; it does not reword a clinical
+    recommendation, because the wording IS the claim."""
+    st = _state()
+    answer = _answer(cite(st, "b_lines", "hr", "rr", "spo2"))
+    answer["recommended_next_step"] = "obtain a d-dimer to rule out pulmonary embolism"
+    out = reason(st, llm_fn=ScriptedBackend(json.dumps(answer)), max_revisions=1)
+    assert out["differential"]["recommended_next_step"] == \
+        "obtain a d-dimer to rule out pulmonary embolism", "the wording must be untouched"
+    assert out["warnings"], "and reported instead"
+
+
+@prop(NORMALISATION)
+def test_every_abnormal_value_reaches_the_reader_whether_or_not_the_model_cited_it():
+    """The coverage fault survived two attempts to make the model account for every abnormal
+    value. So the model stops being responsible for it: which values are abnormal is a fact
+    about the state, and listing them is a display guarantee that belongs in code.
+
+    This does not make the model more thorough, and check_evidence_coverage still says when it
+    is not. It removes the consequence of the omission for the reader.
+    """
+    from src.agents.clinical.clinical_state import evidence_considered
+    st = _state()
+    only_one = cite(st, "b_lines")
+    out = reason(st, llm_fn=ScriptedBackend(json.dumps(_answer(only_one))), max_revisions=0)
+
+    rows = out["evidence_considered"]
+    abnormal = {e["id"] for e in build_evidence(st)
+                if e.get("flag") in ("high", "low") or e.get("detected")}
+    assert {r["id"] for r in rows} == abnormal, "every abnormal value must be listed"
+    assert any(r["used"] for r in rows), "the cited one is marked used"
+    assert any(not r["used"] for r in rows), "the uncited ones are listed but unmarked"
+    # and the omission is still reported rather than hidden by the display guarantee
+    assert out.get("warnings"), out

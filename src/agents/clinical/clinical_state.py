@@ -470,6 +470,50 @@ def build_evidence(state: dict) -> list[dict]:
     return ev
 
 
+def evidence_considered(state: dict, answer: dict | None = None) -> list[dict]:
+    """Every abnormal value, with how the answer used it. Built by Python, not the model.
+
+    The coverage complaint was the most persistent fault in the benchmark: three of five cases
+    left an abnormal value uncited, and it survived a revision round that named the exact
+    identifier to add. Two attempts to make the model account for every value failed.
+
+    So the model stops being responsible for it. Which values are abnormal is a fact about the
+    state, and listing them is a display guarantee that belongs in code. The clinician now sees
+    every abnormal value whether or not the model mentioned it, and `used` records which ones
+    it actually reasoned from.
+
+    This does not make the model more thorough, and `check_evidence_coverage` still reports
+    when it is not. It removes the consequence of the model's omission for the reader, which
+    is a different and more achievable thing.
+    """
+    cited: set[str] = set()
+    for d in (answer or {}).get("differential", []) or []:
+        for field in ("supporting_ids", "contradicting_ids"):
+            cited |= {str(c).strip() for c in (d.get(field) or [])}
+
+    out: list[dict] = []
+    for e in build_evidence(state):
+        abnormal = e.get("flag") in ("high", "low") or (
+            e["kind"] == "finding" and e.get("detected"))
+        if not abnormal:
+            continue
+        out.append({"id": e["id"], "text": e["text"], "used": e["id"] in cited})
+    return out
+
+
+def render_evidence_considered(state: dict, answer: dict | None = None) -> str:
+    rows = evidence_considered(state, answer)
+    if not rows:
+        return "CLINICAL EVIDENCE CONSIDERED\n  no abnormal value recorded"
+    L = ["CLINICAL EVIDENCE CONSIDERED"]
+    for r in rows:
+        L.append(f"  {'*' if r['used'] else ' '} [{r['id']}] {r['text']}")
+    if any(not r["used"] for r in rows):
+        L.append("  (* cited in the differential; unmarked values were recorded but the "
+                 "model did not reason from them)")
+    return "\n".join(L)
+
+
 def render_evidence(evidence: list[dict]) -> str:
     """The evidence block as the model sees it."""
     if not evidence:
