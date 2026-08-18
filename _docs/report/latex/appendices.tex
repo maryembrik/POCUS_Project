@@ -10,32 +10,254 @@
 
 \subsection{Dataset Details}
 \label{app:datasets}
-\rmq{Per-dataset detail too long for Chapter~\ref{sec:data}: full class definitions,
-licence terms and conditions of use, exact file and case counts, and the filename patterns
-used to recover case identity for the lung dataset.}
+
+Chapter~\ref{sec:data} gives composition and provenance. This appendix records the detail
+needed to reproduce the partitions.
+
+\paragraph{Exact counts after cleaning.}
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\textwidth}{@{}lXrr@{}}
+    \toprule
+    Dataset & Unit recovered & Files & Cases \\
+    \midrule
+    Lung (POCUS-style clips) & clip, then case by filename pattern & 187 clips & 165 \\
+    Gallbladder (teaching atlas) & case by directory, capped at 25 frames & 4\,826 frames & 199 \\
+    Cardiac (CAMUS) & patient, provided by the dataset & --- & 100 (validation) \\
+    Triage (pooled) & encounter & --- & 16\,180 (test) \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Counts behind the reported figures. Frames are capped per gallbladder case so that
+    longer studies do not dominate the loss.}
+  \label{tab:app-counts}
+\end{table}
+
+\paragraph{Recovering case identity for the lung dataset.} The release carries no patient
+identifier linking clips belonging to one patient, so case identity was reconstructed from the
+filename pattern, which encodes the source acquisition. Clips sharing that prefix are treated
+as one case and never separated across folds. This is a heuristic: it can merge two patients
+whose files happen to share a prefix, or split one patient recorded under two. The residual
+uncertainty is stated as a limitation in Section~\ref{subsec:results-limitations} and is the
+reason the lung case count is reported as approximate rather than exact.
+
+\paragraph{Class definitions.} The gallbladder taxonomy trains on eight classes ---
+gallstones, cholecystitis, membranous/gangrenous, perforation, polyps, adenomyomatosis,
+carcinoma, wall thickening --- and reports five by summing group probabilities:
+cholelithiasis; acute cholecystitis (any severity), formed from cholecystitis, membranous and
+perforation; polyps and adenomyomatosis; carcinoma; and wall thickening. A ninth folder present
+in the original release was excluded after the per-case inspection described in
+Section~\ref{subsec:gallbladder-module}.
+
+The lung module models four findings: B-lines, consolidation, pleural effusion and pleural
+thickening. Pneumothorax is not modelled --- the dataset contains no positive cases.
+
+\paragraph{Licences.} Conditions of use are stated per dataset in Section~\ref{subsec:data-overview}.
 
 \subsection{Model Architectures}
 \label{app:architectures}
-\rmq{Layer configurations, parameter counts, and the training hyperparameters for each
-module: optimiser, learning rate, schedule, batch size, epoch budget and early-stopping
-criterion.}
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\textwidth}{@{}lXr@{}}
+    \toprule
+    Module & Architecture & Parameters \\
+    \midrule
+    Cardiac & U-Net, EfficientNet-B0 encoder, 4 output classes & 6\,251\,328 \\
+    Gallbladder & EfficientNet-B0, 8-way classifier head & 4\,017\,796 \\
+    Lung & EfficientNet-B0 features $\rightarrow$ dropout(0.4) $\rightarrow$ 512 ReLU
+      $\rightarrow$ dropout(0.4) $\rightarrow$ 4 & 4\,665\,472 \\
+    Triage & Gradient-boosted trees (XGBoost) & --- \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Architectures and parameter counts. The lung head is deliberately wider than a
+    linear classifier because the backbone's last blocks are unfrozen.}
+  \label{tab:app-arch}
+\end{table}
+
+\paragraph{Training hyperparameters.} All three imaging modules train with mixed precision, an
+AdamW optimiser and a cosine learning-rate schedule. Input size is $224\times224$ for the two
+classifiers and $256\times256$ for segmentation.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{@{}llll@{}}
+    \toprule
+    & Lung & Cardiac & Gallbladder \\
+    \midrule
+    Split & 3-fold GroupKFold by case & patient-wise & 5-fold GroupKFold by case \\
+    Epoch budget & 15 & --- & --- \\
+    Early stopping & val AUROC, patience 3 & val Dice, best kept & --- \\
+    Loss & masked BCE, multi-label & cross-entropy + soft Dice & weighted cross-entropy \\
+    Calibration & Platt, per finding & isotonic & temperature ($T=0.87$) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Training configuration per imaging module. Class weights for the gallbladder module
+    are computed per fold from the training portion only.}
+  \label{tab:app-hyper}
+\end{table}
+
+The triage model uses a temporal split --- fit on the earlier year, test on the later --- with
+class weighting favouring the urgent tiers, and a safety threshold of 0.20 on the high-urgency
+probability.
 
 \subsection{Additional Results}
 \label{app:results}
-\rmq{Per-fold results behind the pooled figures reported in Chapter~\ref{sec:results}, and
-the reliability diagrams accompanying each calibration.}
+
+\paragraph{Lung, per fold.} The pooled out-of-fold figures in Table~\ref{tab:lung-results} are
+computed over predictions from all three folds together. The per-fold AUROC below shows how
+much they vary, which is the honest indication of how stable a 165-case estimate is.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{@{}lcccc@{}}
+    \toprule
+    Finding & Fold 0 & Fold 1 & Fold 2 & Pooled \\
+    \midrule
+    B-lines & 0.805 & 0.536 & 0.551 & 0.830 \\
+    Consolidation & 0.808 & 0.867 & 0.817 & 0.832 \\
+    Pleural effusion & 0.745 & 0.593 & 0.738 & 0.718 \\
+    Pleural thickening & 0.795 & 0.728 & 0.740 & 0.773 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Lung AUROC per fold against the pooled out-of-fold figure. B-lines varies from 0.536
+    to 0.805 across folds --- a spread that a single pooled number conceals entirely, and the
+    clearest available evidence that 165 cases is a small sample.}
+  \label{tab:app-lung-folds}
+\end{table}
+
+The pooled figure is not the mean of the three folds. Pooling the out-of-fold predictions and
+computing one AUROC over all cases is the correct aggregation; averaging per-fold AUROCs weights
+small folds equally with large ones and is reported here only to expose the variance.
+
+\paragraph{Triage, per tier.}
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{@{}lcccr@{}}
+    \toprule
+    Tier & Precision & Recall & F1 & Support \\
+    \midrule
+    Low & 0.557 & 0.638 & 0.594 & 3\,452 \\
+    Medium & 0.647 & 0.595 & 0.620 & 6\,263 \\
+    High & 0.783 & 0.784 & 0.784 & 6\,465 \\
+    \midrule
+    Macro & 0.662 & 0.672 & 0.666 & 16\,180 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Triage performance per tier on the held-out later year.}
+  \label{tab:app-triage}
+\end{table}
+
+\paragraph{Cardiac, ejection fraction bands.} Per-band recall on 100 validation patients:
+severe 0.727 ($n=11$), reduced 0.697 ($n=66$), normal 0.478 ($n=23$). Severe-to-normal
+confusions: 0 of 100.
+
+\paragraph{Reliability diagrams} accompany each calibration in the module notebooks listed in
+Appendix~\ref{app:implementation}. Expected calibration errors before and after are reported
+in each module's calibration section in Chapter~\ref{sec:perception}.
 
 \subsection{Confusion Matrices}
 \label{app:confusion}
-\rmq{Full confusion matrices at case level for the triage and gallbladder modules,
-including the fine-grained matrix from which the collapsed taxonomy was derived.}
+
+\paragraph{Gallbladder, five reported classes.} Per-class recall is given in
+Table~\ref{tab:gb-results}. The structure of the errors matters more than the diagonal:
+\textbf{18\% of the fine-grained model's confusions stay inside their reported group}, meaning
+82\% cross a group boundary. That figure is what decided against reporting the coarser
+three-category grouping as the module's output --- if the groups captured a distinction the
+model could see, confusions would concentrate within them, and they do not.
+
+\paragraph{The collapsed matrix.} The taxonomy selection of
+Section~\ref{subsec:gallbladder-module} operated on the fine-grained confusion matrix directly:
+for each candidate grouping, the matrix rows and columns belonging to one group were summed to
+give the confusion matrix that grouping would produce, and balanced accuracy was read off
+without training anything. The chosen candidate was predicted at 63.0\% and measured at 59.7\%
+after training.
+
+\paragraph{Triage.} The three-tier confusion is summarised by
+Table~\ref{tab:app-triage}. The error that matters is asymmetric and is reported separately in
+Section~\ref{subsec:triage-error}: dangerous under-triage, a high-acuity case predicted low,
+occurred at 3.5\% without the safety threshold and 1.5\% with it.
 
 \subsection{Example Grad-CAM Maps}
 \label{app:gradcam}
-\rmq{Representative attention maps per module, chosen to include failure cases rather than
-only successful ones. A selection of successes alone is not evidence.}
+
+Attention maps are produced by each imaging module and the aggregate statistics are reported in
+Section~\ref{subsec:explainability}.
+
+The selection principle for any figures placed here matters more than the figures themselves: a
+selection of successful maps is not evidence, because a viewer who knows where the pathology
+lies will read the map as pointing at it. Any maps reproduced should therefore include cases the
+module got wrong, so that a reader can see whether the attention differs between correct and
+incorrect predictions --- which is the only comparison from which anything can be concluded
+without expert annotation.
+
+The measured statistics stand on their own regardless: centroid spread, area above
+half-maximum and normalised entropy were computed over the full sets rather than over a chosen
+subset, together with an explicit test for centre bias.
 
 \subsection{Technical Implementation}
 \label{app:implementation}
-\rmq{Repository structure, environment and dependency versions, instructions for
-reproducing the training runs, and the output schema in full.}
+
+\paragraph{Repository structure.}
+
+\begin{verbatim}
+src/agents/
+  schema.py              the contract all agents write through
+  triage/                Triage Agent
+  ultrasound/            Ultrasound Agent (routing; inference in notebooks)
+  clinical/              Clinical Reasoning Agent
+    clinical_state.py      structured state, evidence enumeration
+    reasoning.py           escalation policy, prompt, validators
+    llm.py                 llama.cpp backend plus test backends
+    retrieval.py           TF-IDF retrieval with a relevance floor
+    corpus/                30 sourced knowledge units
+    run_case.py            five benchmark scenarios, end to end
+  tests/                 180 tests, grouped by safety property
+notebooks/               training and inference, one per organ
+models/                  metrics, calibrators, frozen baselines
+manifests/               per-source dataset manifests
+\end{verbatim}
+
+\paragraph{Environment.} Python 3.13, PyTorch 2.13, torchvision 0.28, scikit-learn 1.5,
+XGBoost 3.2, NumPy 2.3. Segmentation uses \texttt{segmentation\_models\_pytorch}; the language
+model runs through \texttt{llama-cpp-python} with a CUDA build. Training and inference ran on
+Google Colab T4 GPUs.
+
+\paragraph{Reproducing the training runs.} Each module has one notebook under
+\texttt{notebooks/}, which loads its dataset, performs its own grouped split, trains, evaluates
+and exports both weights and calibrator. The notebooks are self-contained and were the interface
+through which every reported figure was produced.
+
+\paragraph{Reproducing the safety benchmark.} The 180 tests require no GPU, no model weights and
+no dataset:
+
+\begin{verbatim}
+python -m src.agents.tests.run_benchmark
+\end{verbatim}
+
+Test modules are discovered from the directory rather than listed, after a hand-maintained list
+silently omitted a new file of fourteen tests and the suite reported the same total as before,
+all passing.
+
+\paragraph{Reproducing the reasoning evaluation.} \texttt{run\_case} executes one scenario end
+to end. Its \texttt{-{}-dry-run} mode prints the clinical state, the escalation decision and the
+exact prompt without loading the language model:
+
+\begin{verbatim}
+python -m src.agents.clinical.run_case --scenario conflict --dry-run
+python -m src.agents.clinical.run_case --scenario conflict --n-gpu-layers -1
+\end{verbatim}
+
+Determinism is enforced by temperature 0, a fixed seed and a KV-cache reset before each call;
+two identical calls produce byte-identical output.
+
+\paragraph{The output schema.} A report carries the organ, a status, a list of detected findings
+with calibrated confidences, a list of findings screened for and not detected, and a reliability
+block declaring scope. Section~\ref{subsec:output-contract} states the four validation rules and
+the reason for each.
