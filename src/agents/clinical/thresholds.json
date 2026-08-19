@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "note": "Every numeric cutoff used by the deterministic alert and severity layer. Kept in one file rather than scattered through the code so that each value is auditable, changeable without touching logic, and citable in the generated report. Nothing here is derived from a model.",
+  "provenance": "Conventional emergency-medicine warning bounds, of the kind used by early-warning scores. They are NOT taken from a specific validated scoring system, and are therefore configuration for a prototype rather than a clinical standard. A deployment would replace this file with the thresholds of the institution's own escalation policy.",
+
+  "vitals": {
+    "spo2": {
+      "critical_below": 90.0,
+      "warning_below": 94.0,
+      "unit": "%",
+      "critical_label": "severe hypoxaemia",
+      "warning_label": "hypoxaemia"
+    },
+    "sbp": {
+      "critical_below": 90.0,
+      "warning_below": 100.0,
+      "critical_above": 220.0,
+      "unit": "mmHg",
+      "critical_label": "hypotension",
+      "warning_label": "low blood pressure"
+    },
+    "hr": {
+      "critical_above": 130.0,
+      "warning_above": 100.0,
+      "critical_below": 40.0,
+      "unit": "bpm",
+      "critical_label": "severe tachycardia",
+      "warning_label": "tachycardia"
+    },
+    "rr": {
+      "critical_above": 30.0,
+      "warning_above": 20.0,
+      "critical_below": 8.0,
+      "unit": "/min",
+      "critical_label": "severe tachypnoea",
+      "warning_label": "tachypnoea"
+    },
+    "temp": {
+      "critical_above": 39.5,
+      "warning_above": 38.0,
+      "critical_below": 35.0,
+      "unit": "C",
+      "critical_label": "high fever",
+      "warning_label": "fever"
+    }
+  },
+
+  "labs": {
+    "lactate": {
+      "critical_above": 4.0,
+      "warning_above": 2.0,
+      "unit": "mmol/L",
+      "critical_label": "marked hyperlactataemia",
+      "warning_label": "raised lactate"
+    },
+    "troponin": {
+      "critical_above": 100.0,
+      "warning_above": 14.0,
+      "unit": "ng/L",
+      "critical_label": "markedly raised troponin",
+      "warning_label": "raised troponin"
+    },
+    "ph": {
+      "critical_below": 7.25,
+      "warning_below": 7.35,
+      "critical_above": 7.55,
+      "unit": "",
+      "critical_label": "significant acidaemia",
+      "warning_label": "acidaemia"
+    }
+  },
+
+  "critical_modalities": {
+    "note": "Organs whose absence from an assessment is itself an alert, per scenario. An organ requested and never assessed is a gap in the record, not a negative result.",
+    "acute_dyspnoea": ["lung", "heart"],
+    "undifferentiated_shock": ["heart", "lung"],
+    "trauma": ["fast", "lung"],
+    "cardiorespiratory_arrest": ["heart", "lung"]
+  }
+}

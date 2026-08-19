@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-18T11:57:31+00:00",
-  "total_tests": 180,
-  "total_passed": 180,
+  "generated_at": "2026-08-19T09:47:58+00:00",
+  "total_tests": 209,
+  "total_passed": 209,
   "by_property": {
     "Absent is not normal": {
       "tests": 17,
@@ -10,6 +10,10 @@
     "Advice scope": {
       "tests": 4,
       "passed": 4
+    },
+    "Automated reporting": {
+      "tests": 7,
+      "passed": 7
     },
     "Benchmark scenarios": {
       "tests": 9,
@@ -47,6 +51,10 @@
       "tests": 5,
       "passed": 5
     },
+    "Examination recommendations": {
+      "tests": 7,
+      "passed": 7
+    },
     "Failure severity": {
       "tests": 5,
       "passed": 5
@@ -74,6 +82,14 @@
     "Retrieval grounding": {
       "tests": 19,
       "passed": 19
+    },
+    "Scenario routing": {
+      "tests": 3,
+      "passed": 3
+    },
+    "Severity and alerts": {
+      "tests": 12,
+      "passed": 12
     },
     "Unassessed-organ reporting": {
       "tests": 5,

@@ -67,7 +67,7 @@ src/agents/
     retrieval.py           TF-IDF retrieval with a relevance floor and citation checking
     corpus/                30 knowledge units, clinical knowledge only
     run_case.py            five benchmark scenarios, runnable end to end
-  tests/                 180 tests, grouped by the safety property each exercises
+  tests/                 209 tests, grouped by the safety property each exercises
 
 src/data_prep/           per-source manifest builders
 notebooks/               training and inference notebooks, one per organ
@@ -80,7 +80,7 @@ _docs/report/latex/      internship report
 ## Running it
 
 ```bash
-python -m src.agents.tests.run_benchmark          # 180 safety tests, no model needed
+python -m src.agents.tests.run_benchmark          # 209 safety tests, no model needed
 python -m src.agents.clinical.run_case --dry-run  # state + escalation, no model
 python -m src.agents.clinical.run_case --scenario conflict --n-gpu-layers -1
 ```
@@ -98,13 +98,16 @@ minutes. The same workload on CPU takes roughly 23 minutes **per case**.
 | Retrieval grounding | 19 |
 | Absent is not normal | 17 |
 | Malformed output rejection | 15 |
+| Severity and alerts | 12 |
 | Escalation policy | 11 |
 | Benchmark scenarios | 9 |
 | Confidence calibration | 9 |
 | Conflict detection | 9 |
 | Enumerated evidence | 8 |
 | Evidence coverage | 8 |
+| Automated reporting | 7 |
 | Deterministic output control | 7 |
+| Examination recommendations | 7 |
 | Case-quality grading | 6 |
 | Evidence relationships | 5 |
 | Failure severity | 5 |
@@ -113,6 +116,7 @@ minutes. The same workload on CPU takes roughly 23 minutes **per case**.
 | Reference-range detection | 5 |
 | Unassessed-organ reporting | 5 |
 | Advice scope | 4 |
+| Scenario routing | 3 |
 | Value-reading consistency | 3 |
 
 Every check was written against a failure the system actually produced. Among them: a normal

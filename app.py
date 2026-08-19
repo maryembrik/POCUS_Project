@@ -36,7 +36,9 @@ sys.path.insert(0, str(ROOT))
 from src.agents import schema as S  # noqa: E402
 from src.agents.clinical.clinical_state import (  # noqa: E402
     LAB_REFERENCE, VITAL_REFERENCE, build_clinical_state, build_evidence)
+from src.agents.clinical.decision_support import decision_support  # noqa: E402
 from src.agents.clinical.llm import FailingBackend  # noqa: E402
+from src.agents.clinical.report import build_report, render_report  # noqa: E402
 from src.agents.clinical.reasoning import escalation_decision, reason  # noqa: E402
 from src.agents.clinical.retrieval import Retriever  # noqa: E402
 
@@ -260,6 +262,7 @@ state = build_clinical_state(bundle, labs=labs)
 # vitals reach the state through triage features; the builder flags them against the reference
 esc = escalation_decision(state)
 evidence = build_evidence(state)
+support = decision_support(state, esc)          # Module 4, deterministic, live
 
 # =======================================================================  derived, live
 with derived:
@@ -273,6 +276,43 @@ with derived:
         st.markdown("<div class='banner dir'><b>DIRECT — no escalation trigger</b>"
                     "<div style='margin-top:.35rem'>• evidence agrees, record complete, "
                     "no organ left unassessed</div></div>", unsafe_allow_html=True)
+
+    sev = support["severity"]
+    tone = {"HIGH": "esc", "MODERATE": "hold", "LOW": "dir"}[sev["severity"]]
+    why = "".join(f"<div style='margin-top:.3rem'>• {r}</div>" for r in sev["reasons"])
+    st.markdown(f"<div class='banner {tone}'><b>SEVERITY {sev['severity']}</b> "
+                f"<span class='muted'>— triage {sev['triage_urgency']}, "
+                f"{sev['critical_alerts']} critical alert(s)</span>{why}</div>",
+                unsafe_allow_html=True)
+
+    if support["alerts"]:
+        st.markdown("**Critical alerts**")
+        st.caption("Deterministic. Each names the threshold it fired on, from "
+                   f"thresholds.json v{support['thresholds_version']} — checkable rather "
+                   "than trusted.")
+        for al in support["alerts"]:
+            (st.error if al["severity"] == "CRITICAL" else st.warning)(
+                f"**{al['type']}** — {al['message']}")
+
+    st.markdown(f"**Scenario** — {support['scenario']['label']} "
+                f"<span class='muted'>(matched on "
+                f"{support['scenario'].get('matched_on')})</span>", unsafe_allow_html=True)
+
+    if support["additional_examinations"]:
+        with st.expander(f"Recommended additional examinations "
+                         f"({len(support['additional_examinations'])})"):
+            for r in support["additional_examinations"]:
+                st.markdown(f"**[{r['priority']}] {r['exam']}** — {r['reason']}")
+            st.caption("The system recommends examinations; it does not order them.")
+
+    th = support["therapeutic"]
+    with st.expander("Therapeutic considerations"):
+        if not th["considerations"]:
+            st.info(f"None — {th['status']}.")
+            st.caption(th.get("note", ""))
+        for c_ in th["considerations"]:
+            st.markdown(f"**CONSIDER** {c_['consideration']}")
+            st.caption(f"{c_['basis']} [{c_['passage']}] — {c_['disclaimer']}")
 
     q = (state.get("case_quality") or {}).get("grade", "?")
     m = st.columns(4)

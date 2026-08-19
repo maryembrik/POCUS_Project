@@ -888,6 +888,12 @@ def reason(state: dict, llm_fn=None, retrieved: list[dict] | None = None,
         "differential": None,
         "validation_errors": None,
     }
+
+    # Module 4. Deterministic, computed from the state and the escalation, and attached on
+    # every return path below -- including the ones where the model was never consulted or
+    # failed outright. Severity and alerts must not depend on the model having answered.
+    from .decision_support import decision_support
+    result["decision_support"] = decision_support(state, esc, None, retrieved)
     if llm_fn is None:
         result["note"] = "no model supplied — escalation and prompt only"
         return result
