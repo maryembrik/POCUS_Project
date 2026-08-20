@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-08-20T12:44:08+00:00",
-  "total_tests": 212,
-  "total_passed": 212,
+  "generated_at": "2026-08-20T15:37:28+00:00",
+  "total_tests": 226,
+  "total_passed": 226,
   "by_property": {
     "Absent is not normal": {
-      "tests": 17,
-      "passed": 17
+      "tests": 19,
+      "passed": 19
     },
     "Advice scope": {
       "tests": 4,
@@ -68,12 +68,16 @@
       "passed": 5
     },
     "Malformed output rejection": {
-      "tests": 15,
-      "passed": 15
+      "tests": 16,
+      "passed": 16
     },
     "Model-scope propagation": {
       "tests": 5,
       "passed": 5
+    },
+    "Perception contract": {
+      "tests": 11,
+      "passed": 11
     },
     "Reference-range detection": {
       "tests": 5,

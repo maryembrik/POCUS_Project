@@ -60,6 +60,7 @@ src/agents/
   schema.py              the contract all three agents write through
   triage/                Triage Agent — urgency from structured data, no imaging
   ultrasound/            Ultrasound Agent — organ routing (see its README)
+    agent.py               real per-organ inference, importable and under test
   clinical/              Clinical Reasoning Agent
     clinical_state.py      structured state: findings, labs, vitals, and what is MISSING
     reasoning.py           escalation policy, prompt, and every validator
@@ -70,7 +71,7 @@ src/agents/
     thresholds.json        every alert cutoff, versioned and auditable
     corpus/                32 knowledge units incl. one sourced protocol
     run_case.py            five benchmark scenarios, runnable end to end
-  tests/                 212 tests, grouped by the safety property each exercises
+  tests/                 226 tests, grouped by the safety property each exercises
 
 src/data_prep/           per-source manifest builders
 notebooks/               training and inference notebooks, one per organ
@@ -83,11 +84,15 @@ _docs/report/latex/      internship report
 ## Running it
 
 ```bash
-python -m src.agents.tests.run_benchmark          # 212 safety tests, no model needed
+python -m src.agents.tests.run_benchmark          # 226 safety tests, no model needed
 python -m src.agents.clinical.run_case --dry-run  # state + escalation, no model
 python tools/run_regression.py                    # 150 end-to-end checks
-streamlit run app.py                              # interactive demonstrator
+streamlit run app.py                              # clinician-facing assistant
 ```
+
+`app.py` runs lung inference on CPU: a clinician uploads a scan and the module reports its own
+findings. Cardiac and gallbladder weights are not in this repository, so those organs return
+`not_supported` in the ordinary report format rather than a guess.
 
 `notebooks/clinical_reasoning_gpu.ipynb` runs all five scenarios on a Colab T4 in about five
 minutes. The same workload on CPU takes roughly 23 minutes **per case**.
@@ -100,10 +105,11 @@ minutes. The same workload on CPU takes roughly 23 minutes **per case**.
 |---|---:|
 | Hallucination rejection | 25 |
 | Retrieval grounding | 19 |
-| Absent is not normal | 17 |
-| Malformed output rejection | 15 |
+| Absent is not normal | 19 |
+| Malformed output rejection | 16 |
 | Severity and alerts | 12 |
 | Escalation policy | 11 |
+| Perception contract | 11 |
 | Examination recommendations | 10 |
 | Benchmark scenarios | 9 |
 | Confidence calibration | 9 |
@@ -133,6 +139,15 @@ Several were found by the tests before the model ever met them — `not_detected
 and no writer, so negative findings vanished; a positive lung finding silenced an unexamined
 heart in the escalation policy; substring matching accused a paraphrase of fabrication while
 letting any sentence containing the word "high" pass as grounded.
+
+The perception tests found one immediately. `lung_calibration.json` was never exported from the
+training notebook, and both the notebook and the extracted agent fell back to a threshold of
+0.5 for every finding. This model's outputs sit in roughly 0.2–0.8, so at 0.5 it fired on
+almost nothing and every scan came back all-negative — a silent failure that reads downstream
+as a screened-and-clear study. The tuned operating points (0.30 / 0.20 / 0.35 / 0.45) were on
+disk the whole time in the per-split results, and the agent now reads them. On 120 B-line
+positives from LUS-BALD, a dataset this classifier never saw, b-lines score 0.81 on average and
+fire on 100% of them; consolidation fires on 0% of anything at a threshold of 0.5.
 
 ---
 
