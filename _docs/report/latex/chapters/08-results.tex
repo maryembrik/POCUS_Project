@@ -284,7 +284,7 @@ claiming an assessment occurred while recording nothing about it is rejected.
 
 \paragraph{Safety decisions independent of the language model.} Escalation is computed from
 the structured state before the model is consulted and is unchanged by anything the model
-does. This is demonstrated rather than asserted: 180 tests exercise the safety layer with no
+does. This is demonstrated rather than asserted: 209 tests exercise the safety layer with no
 model present, and the decision was verified identical across three different backends
 including one that fails.
 
@@ -328,7 +328,7 @@ mechanisms behave as specified. It forbids any statement about how the reasoning
 perform on real presentations, and it is too small to establish that retrieval does or does
 not help.
 
-\paragraph{The per-organ inference functions are not under test.} The 180 tests build module
+\paragraph{The per-organ inference functions are not under test.} The 209 tests build module
 reports directly and none of them imports the per-organ prediction code, which lives in a
 notebook. The suite proves the contract is enforced, not that the ultrasound agent honours it;
 that link is currently verified by running the notebook rather than by the test suite.

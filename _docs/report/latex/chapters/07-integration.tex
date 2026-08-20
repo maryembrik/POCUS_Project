@@ -69,7 +69,7 @@ stating, because they were what made the rest of this project tractable:
 \begin{enumerate}
   \item \textbf{Each agent is independently testable.} The reasoning agent can be exercised
         against a hand-written bundle with no imaging model present at all, which is how all
-        180 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
+        209 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
         no model weights.
   \item \textbf{Each decision is reproducible after the fact.} The bundle that produced a given
         output is on disk. A decision can be re-examined months later against exactly the inputs
@@ -101,6 +101,10 @@ One encounter proceeds through five stages, each producing a named artefact.
       between agents, and a case-quality grade \\
     5. Reasoning & result & escalation decision, evidence list, differential or withheld, the
       abnormal values considered \\
+    6. Decision support & support object & severity, critical alerts, recommended
+      examinations, routed scenario, therapeutic considerations if a protocol was retrieved \\
+    7. Reporting & report + archive & standardised report with a conclusion, written to the
+      archive with a content hash \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -115,6 +119,13 @@ Stage 5 splits internally. The escalation decision is computed from the state al
 complete before the language model is consulted. The differential is produced by the model,
 checked against the state, and either delivered or withheld. Both leave the system together, so
 a withheld differential still arrives with an escalation decision attached.
+
+Stage 6 shares that property and extends it. Severity, alerts, examination recommendations and
+scenario routing are computed from the state, not from the model's answer, and are therefore
+attached to every result --- including those where the model was never consulted or failed
+outright. A report on a case whose differential was withheld still carries a severity and its
+alerts, which is the behaviour a clinician needs from a system whose reasoning component has
+just declined to answer.
 
 \subsection{Example Clinical Scenarios}
 \label{subsec:integration-scenarios}
@@ -232,7 +243,8 @@ reads is reproducible and auditable rather than regenerated each time.
 What the application is \emph{not} is also worth stating. It has no authentication, no patient
 record, no persistence between sessions and no connection to any hospital system. It runs the
 prototype's own synthetic encounters on a laptop, and it would need all of the above before it
-could be shown a real patient --- which the limitations of Section~ef{subsec:results-limitations}
+could be shown a real patient --- which the limitations of Section~
+ef{subsec:results-limitations}
 forbid in any case.
 
 \subsection{End-to-End Execution}

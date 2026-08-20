@@ -301,7 +301,7 @@ that cites tests which were never run is not a slightly flawed answer; it is an 
 on evidence that does not exist, and showing it beside a warning invites the reader to use
 it anyway.
 
-These rules are exercised by 158 automated tests, grouped by the property each one
+These rules are exercised by 209 automated tests, grouped by the property each one
 protects. Tab.~\ref{tab:safetytests} lists the largest groups. The tests use scripted
 responses and need no model, so they run in seconds and are independent of which model is
 installed.
@@ -392,15 +392,111 @@ not itself surface for that question, because TF--IDF matches words rather than 
 The conclusion is narrow and worth stating plainly: on these five cases, retrieval did not
 make the system better. It changed which errors occurred.
 
+\subsection{Decision Support and Automated Reporting}
+\label{subsec:reasoning-decision-support}
+
+A differential is not by itself a decision aid. The specification requires four further
+outputs --- a severity level, critical alerts, recommendations for additional examinations,
+and therapeutic suggestions in accordance with the recommendations --- together with an
+automated clinical report. All five are implemented, and the design principle behind them is
+the one that governs the rest of this chapter: \textbf{none of them is produced by the
+language model}. The module that computes them imports nothing that can reach one.
+
+The reason is not stylistic. \emph{Is this patient critical?} is a question whose answer is
+already determined by values the structured state holds. Routing it through a quantised 8B
+model would make a deterministic answer probabilistic, and would place a safety-critical
+output inside the least predictable component of the system --- exactly the arrangement
+Section~\ref{subsec:reasoning-escalation} exists to avoid.
+
+\paragraph{Severity.} One level for the encounter, derived rather than judged, and
+deliberately monotone: any single reason for concern raises it and nothing lowers it. A triage
+tier of \emph{low} beside a critical alert therefore yields \textsc{high}. That combination is
+precisely the disagreement the architecture exists to surface, and a rule that averaged the
+two would bury the case the system was built for. Severity summarises the encounter for a
+reader; it does not feed back into the escalation decision, which remains computed
+independently and stays the routing authority.
+
+\paragraph{Critical alerts.} Two kinds, and the second is what a simpler system omits.
+\emph{Physiological} alerts fire when a measured value crosses a configured bound.
+\emph{Structural} alerts fire on the state of the record itself: the agents disagreeing, a key
+test never obtained, a modality the presentation expected and nobody performed. A patient can
+be in danger because of what was not done, and no vital sign shows it.
+
+Every numeric cutoff lives in one versioned configuration file rather than scattered through
+the code, and every alert names the bound it fired on. A reader can therefore check an alert
+against the configuration instead of trusting its label, and the generated report cites the
+configuration version it used.
+
+\paragraph{Recommended examinations.} Built from the record, not from the model's prose. An
+examination reaches the list because a test was never performed, because an escalation trigger
+names it, or because a modality the routed presentation expected is absent. The differential,
+where available, is used only to raise priority --- a missing D-dimer matters more when
+pulmonary embolism is under consideration --- and cannot add an examination that the record
+does not already show to be missing. A hallucinated diagnosis therefore cannot produce a
+hallucinated recommendation, and a test asserts it.
+
+The system recommends an examination; it does not order one.
+
+\paragraph{Therapeutic considerations.} This is the output that required the most restraint,
+and the implemented behaviour is a deliberate refusal:
+
+\begin{keystatement}
+Therapeutic recommendations were deliberately gated behind retrieval of an authoritative,
+citable protocol. In the absence of an appropriate protocol source, the system produces no
+therapeutic recommendation rather than relying on the language model's parametric knowledge.
+\end{keystatement}
+
+The mechanism surfaces passages from a sourced protocol in the retrieval corpus, attributed to
+it, framed as considerations requiring clinician verification rather than as instructions. When
+no such protocol has been retrieved it returns nothing and states why. The corpus does not yet
+contain a protocol source, so at the time of writing the layer is inert.
+
+That is the correct behaviour rather than an incomplete one. A suggestion resting on the
+model's training data would be indistinguishable, to a reader, from one backed by a protocol,
+and the difference is exactly what a clinician would need to judge it. The same discipline
+governs the corpus itself, where a passage marked \texttt{placeholder} can never pass as
+evidence (Section~\ref{subsec:reasoning-rag}).
+
+\paragraph{Scenario routing.} The four priority presentations of the specification --- acute
+dyspnoea, undifferentiated shock, trauma, and cardiorespiratory arrest --- are routed from the
+presenting complaint, with physiology as a fallback. Routing does not select a model and does
+not suppress findings from organs outside the scenario; its purpose is to record which
+modalities the presentation expected, so that one nobody performed is reported as a gap rather
+than passing unnoticed. A case matching no scenario is reported as unclassified rather than
+forced into the nearest one, because inventing an expectation would manufacture a gap that
+nobody actually left.
+
+\paragraph{Automated reporting.} One standardised report assembles context, triage, POCUS
+findings, quantitative measures, values with their reference ranges, the reasoning, the
+decision support and the safety envelope, closing with a conclusion and an archived copy
+carrying a content hash.
+
+Two choices in it are safety decisions rather than presentation ones. \textsc{not assessed} is
+a section of the report rather than an omission: leaving it out would ask a reader to infer
+absence from silence, and silence is what a normal result looks like. And a withheld
+differential is rendered \emph{as withheld}, with its reason, because a report that merely
+lacks a differential is indistinguishable from one where the model was never consulted.
+
+The conclusion paragraph is assembled by template rather than generated. It is the line a busy
+reader will act on, and it must say the same thing as the body; generating it would introduce
+a place where the two could differ.
+
 \subsection{Limitations}
 \label{subsec:reasoning-limits}
 
-The safety layer behaved as specified on five designed cases and on 158 automated tests.
+The safety layer behaved as specified on five designed cases and on 209 automated tests.
 That is the whole of what has been shown. The reasoning quality of the local model remained
 limited, and the system was not evaluated against clinical ground truth: there is no
 reference standard here saying what the correct differential was for any case. The five
 cases were written to exercise particular failure modes, not sampled from a population, so
 no rate of anything can be inferred from them.
+
+The decision-support outputs of
+Section~\ref{subsec:reasoning-decision-support} inherit that bound and add one of their own.
+Their thresholds are conventional emergency-medicine warning bounds rather than values taken
+from a validated scoring system, so an alert indicates that a configured limit was crossed and
+nothing more. A deployment would replace that configuration with the escalation policy of the
+institution using it.
 
 This is decision support and not a diagnostic device. It has not been validated against
 patient outcomes and is not suitable for clinical use.

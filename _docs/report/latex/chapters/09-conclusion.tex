@@ -35,7 +35,7 @@ reassuring.
 \paragraph{A deterministic escalation policy independent of the language model.} The
 safety-critical decision is computed from the structured state before the model is consulted and
 is unchanged by anything the model does, including failing entirely. This is demonstrated rather
-than asserted: 180 tests exercise it with no model present, and the decision was verified
+than asserted: 209 tests exercise it with no model present, and the decision was verified
 identical across three backends including one that raises on every call.
 
 \paragraph{An evidence interface that makes fabrication unrepresentable.} The reasoning layer
@@ -44,10 +44,50 @@ identifiers drawn from an enumerated list of facts the state actually holds, so 
 identifier for an invented observation, none for a test never performed, and none for a sentence
 lifted from the reference corpus. Section~\ref{subsec:reasoning-ab} reports what that changed.
 
+\paragraph{Decision support that does not pass through the model.} Severity, critical alerts,
+recommended examinations and scenario routing are computed from the structured state by the
+module described in Section~\ref{subsec:reasoning-decision-support}, which imports nothing
+capable of reaching a language model. Severity is monotone, so a reassuring triage tier never
+lowers it beside a critical alert. Every numeric cutoff sits in one versioned configuration
+file and every alert names the bound it fired on, which makes an alert checkable rather than
+merely plausible.
+
+\paragraph{A refusal, implemented.} Therapeutic suggestions are required by the specification
+and are gated rather than generated:
+
+\begin{keystatement}
+Therapeutic recommendations were deliberately gated behind retrieval of an authoritative,
+citable protocol. In the absence of an appropriate protocol source, the system produces no
+therapeutic recommendation rather than relying on the language model's parametric knowledge.
+\end{keystatement}
+
+\paragraph{An automated clinical report.} One standardised document assembling the encounter,
+the reasoning and the decision support, with an archived copy carrying a content hash so that
+what a clinician was shown can be recovered later and proven unaltered. Within it, a modality
+never assessed occupies its own section and a withheld differential is rendered as withheld
+--- both because absence inferred from silence is indistinguishable from a normal result.
+
 \paragraph{A methodological contribution.} Case-level evaluation was established for three
 datasets that did not provide it. Each required reconstructing the statistical unit before any
 model could be honestly evaluated, and in two of the three the reconstruction changed the
 reported figures materially --- downward.
+
+\medskip
+Taken together, the position this work supports is a narrow one and is worth stating in the
+form it can be defended:
+
+\begin{keystatement}
+The complete MVP pipeline is implemented and technically verified. The system provides
+multimodal POCUS-based decision support with deterministic safety controls,
+retrieval-augmented reasoning, structured recommendations and automated reporting. Clinical
+validation against expert ground truth remains outside the current internship scope.
+\end{keystatement}
+
+Every word of that is checkable. \emph{Implemented} and \emph{technically verified} are claims
+about software, evidenced by 209 tests. \emph{Deterministic safety controls} names a property
+demonstrated by running the pipeline against a failing model backend. And the final sentence
+states what the work does not establish, in the same breath as what it does, because the two
+are not separable here.
 
 \subsection{Achieved Objectives}
 \label{subsec:conclusion-objectives}
