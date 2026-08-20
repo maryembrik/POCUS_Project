@@ -1,0 +1,17 @@
+# Professional hospital-software palette rather than the default dark theme: white ground,
+# dark navy text, restrained blue accent. Amber and red are applied per-component in app.py
+# and are reserved for warnings and critical alerts, so colour carries clinical meaning
+# rather than decoration.
+[theme]
+base = "light"
+primaryColor = "#1f4e79"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f6f9"
+textColor = "#12263f"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
