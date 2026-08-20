@@ -366,3 +366,43 @@ def test_the_hash_ignores_the_timestamp_so_a_rerun_is_distinguishable_from_a_cha
     b["generated_at"] = "2099-01-01T00:00:00+00:00"
     with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
         assert archive_report(a, t1)["sha256"] == archive_report(b, t2)["sha256"]
+
+
+@prop(EXAMS)
+def test_a_protocol_only_surfaces_for_the_scenario_it_covers():
+    """Scenario-matched, not merely protocol-shaped. The initial management of undifferentiated
+    shock is not advice about a trauma case, and surfacing it there would be worse than
+    surfacing nothing because it would arrive with a real citation attached."""
+    shock_protocol = {"id": "P31", "topic": "protocol_undifferentiated_shock",
+                      "status": "sourced", "source": "Hasanin et al. 2024 (CC BY 4.0)",
+                      "text": "Maintain ABCs, INfuse, INvestigate, Ultrasound, Treat, "
+                              "Stabilize.", "n": 1, "score": 0.4}
+
+    shock = _state(complaint="hypotension and collapse")
+    out = therapeutic_considerations(shock, route_scenario(shock), [shock_protocol])
+    assert len(out["considerations"]) == 1, out
+
+    trauma = _state(complaint="blunt trauma after a fall")
+    out = therapeutic_considerations(trauma, route_scenario(trauma), [shock_protocol])
+    assert out["considerations"] == [], "a shock protocol must not surface on a trauma case"
+
+
+@prop(EXAMS)
+def test_an_unclassified_encounter_matches_no_protocol():
+    st = _state(complaint="routine review", vitals={"o2sat": 98, "sbp": 120})
+    p = {"id": "P31", "topic": "protocol_undifferentiated_shock", "status": "sourced",
+         "source": "s", "text": "t", "n": 1, "score": 0.4}
+    assert route_scenario(st)["scenario"] is None
+    assert therapeutic_considerations(st, route_scenario(st), [p])["considerations"] == []
+
+
+@prop(EXAMS)
+def test_the_shock_protocol_is_reachable_from_the_live_corpus():
+    """End to end rather than with a hand-built passage: the units really are in the corpus,
+    really are retrieved for a shock presentation, and really do produce a cited
+    consideration."""
+    st = _state(complaint="undifferentiated shock with hypotension",
+                vitals={"sbp": 82, "pulse": 124})
+    out = therapeutic_considerations(st, route_scenario(st))
+    assert out["status"] == "protocol-backed", out["status"]
+    assert any("Hasanin" in c["basis"] for c in out["considerations"]), out

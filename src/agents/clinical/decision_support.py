@@ -363,7 +363,8 @@ def recommended_examinations(state: dict, escalation: dict,
 # Therapeutic considerations -- protocol-constrained
 # ---------------------------------------------------------------------------------------
 def therapeutic_considerations(state: dict, scenario: dict | None = None,
-                               retrieved: list[dict] | None = None) -> dict[str, Any]:
+                               retrieved: list[dict] | None = None,
+                               corpus: dict | None = None) -> dict[str, Any]:
     """Considerations drawn from an approved protocol, or nothing.
 
     This layer generates no treatment. It surfaces text from a sourced protocol in the
@@ -379,9 +380,35 @@ def therapeutic_considerations(state: dict, scenario: dict | None = None,
     doing.
     """
     key = (scenario or {}).get("scenario")
-    protocols = [h for h in (retrieved or [])
-                 if h.get("status") == "sourced"
-                 and str(h.get("topic", "")).startswith("protocol_")]
+
+    # Scenario-matched, not merely protocol-shaped. A protocol's topic encodes the
+    # presentation it covers, and the initial management of undifferentiated shock is not
+    # advice about a trauma case; surfacing it there would be worse than surfacing nothing,
+    # because it would arrive with a real citation attached. An unclassified encounter matches
+    # no protocol at all.
+    def covers(topic: str) -> bool:
+        if not topic.startswith("protocol_"):
+            return False
+        if topic == "protocol_general":
+            return True
+        return bool(key) and topic.startswith(f"protocol_{key}")
+
+    # Looked up by topic rather than retrieved by similarity. The scenario is already known,
+    # so the protocol for it is an exact selection, and ranking would only introduce a way for
+    # the right protocol to be missed: measured on this corpus, a shock presentation retrieves
+    # finding-vocabulary passages and ranks the management-vocabulary protocol nowhere. A
+    # therapeutic layer that silently falls back to nothing because a similarity score came in
+    # low is worse than one that looks the protocol up.
+    #
+    # `retrieved` still takes precedence when supplied, so a caller can pass an explicit set.
+    if retrieved is None:
+        from .retrieval import load_corpus
+        source = (corpus or load_corpus())["passages"]
+    else:
+        source = retrieved
+
+    protocols = [h for h in source
+                 if h.get("status") == "sourced" and covers(str(h.get("topic", "")))]
 
     if not protocols:
         return {
@@ -422,6 +449,8 @@ def decision_support(state: dict, escalation: dict, differential: dict | None = 
         "alerts": alerts,
         "additional_examinations": recommended_examinations(state, escalation, differential,
                                                             scenario),
-        "therapeutic": therapeutic_considerations(state, scenario, retrieved),
+        # retrieved is deliberately not forwarded: the protocol is selected by
+        # topic, not ranked among the evidence passages.
+        "therapeutic": therapeutic_considerations(state, scenario),
         "thresholds_version": T.get("version"),
     }

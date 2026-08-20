@@ -1,5 +1,5 @@
 {
-  "corpus_version": "1.0-all-units-sourced",
+  "corpus_version": "1.1-with-shock-protocol",
   "description": "Emergency POCUS interpretation corpus for the Clinical Reasoning Agent. Thirty knowledge units, each answering one clinical question, rather than thirty documents.",
   "scope_note": "Clinical knowledge only. Laboratory reference ranges are deliberately NOT here: comparing a value against a threshold is deterministic, and clinical_state.py already does it, printing e.g. 'bnp: 890.0 pg/mL <-- HIGH (ref <=100)'. Putting the same information in a retrieval corpus would make a settled comparison depend on a similarity score.",
   "licence_note": "Store a citation and a short quotation per unit. Do NOT redistribute whole guideline documents: most are copyrighted. Every unit must name where its text came from before it is used for anything reported.",
@@ -214,6 +214,20 @@
       "status": "sourced",
       "source": "Choi W, Cho YS, Ha YR, et al.; Society Emergency and Critical Care Imaging (SECCI). Role of point-of-care ultrasound in critical care and emergency medicine: update and future perspective. Clin Exp Emerg Med. 2023;10(4):363-81. doi:10.15441/ceem.23.101 (CC BY-NC 4.0)",
       "text": "Comprehensive echocardiography or additional imaging modalities should be considered for a complete evaluation of uncertain findings or complex clinical presentations. Given that POCUS examinations do not cover the full functional and structural status of patients, comprehensive ultrasound has been commonly used in the intensive care unit. Trained physicians should be able to demonstrate proficiency in obtaining and interpreting focused cardiac ultrasound images before performing the examination independently."
+    },
+    {
+      "id": "P31",
+      "topic": "protocol_undifferentiated_shock",
+      "status": "sourced",
+      "source": "Hasanin A, Sanfilippo F, Dunser MW, Ahmed HM, Zieleskiewicz L, Myatra SN, Mostafa M. The MINUTES bundle for the initial 30 min management of undifferentiated circulatory shock: an expert opinion. Int J Emerg Med. 2024;17:96. doi:10.1186/s12245-024-00660-y (CC BY 4.0)",
+      "text": "The MINUTES acronym includes seven sequential steps which should be performed in the first 30 min following shock recognition: Maintain \"ABCs\", INfuse vasopressors and/or fluids (to support hemodynamic/perfusion) and INvestigate with simple blood tests, Ultrasound to detect the type of shock, Treat the underlying Etiology, and Stabilize organ perfusion. Maintain \"ABCs\": provide basic and advanced life support (e.g., compress external bleeding, decompress tension pneumothorax). INfuse vasopressors and/or fluids: reverse life-threatening arterial hypotension using vasopressors and/or rapid fluid bolus. INvestigate main causes: perform ECG, blood gas analysis, and send cardiac enzymes."
+    },
+    {
+      "id": "P32",
+      "topic": "protocol_undifferentiated_shock_ultrasound",
+      "status": "sourced",
+      "source": "Hasanin A, Sanfilippo F, Dunser MW, Ahmed HM, Zieleskiewicz L, Myatra SN, Mostafa M. The MINUTES bundle for the initial 30 min management of undifferentiated circulatory shock: an expert opinion. Int J Emerg Med. 2024;17:96. doi:10.1186/s12245-024-00660-y (CC BY 4.0)",
+      "text": "Ultrasound: conduct cardiac ultrasound to identify the type of shock. Conduct lung ultrasound to identify congestion and pneumothorax. Ultrasound can rapidly differentiate the pathophysiological type of shock with excellent accuracy. Treat underlying Etiology: specific therapy of the underlying etiology of shock. Stabilize systemic organ perfusion: evaluate and stabilize systemic organ perfusion."
     }
   ],
   "sourcing_note": "Lung units L01-L10 carry a verified open-access citation. Replace each text field with two or three sentences from the section named, then set status to sourced. CC BY-NC permits reproduction with attribution for non-commercial use; a thesis qualifies."

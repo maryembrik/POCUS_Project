@@ -65,9 +65,12 @@ src/agents/
     reasoning.py           escalation policy, prompt, and every validator
     llm.py                 HuatuoGPT-o1-8B via llama.cpp, plus test backends
     retrieval.py           TF-IDF retrieval with a relevance floor and citation checking
-    corpus/                30 knowledge units, clinical knowledge only
+    decision_support.py    severity, alerts, examinations, scenario routing
+    report.py              automated clinical report and archiving
+    thresholds.json        every alert cutoff, versioned and auditable
+    corpus/                32 knowledge units incl. one sourced protocol
     run_case.py            five benchmark scenarios, runnable end to end
-  tests/                 209 tests, grouped by the safety property each exercises
+  tests/                 212 tests, grouped by the safety property each exercises
 
 src/data_prep/           per-source manifest builders
 notebooks/               training and inference notebooks, one per organ
@@ -80,9 +83,10 @@ _docs/report/latex/      internship report
 ## Running it
 
 ```bash
-python -m src.agents.tests.run_benchmark          # 209 safety tests, no model needed
+python -m src.agents.tests.run_benchmark          # 212 safety tests, no model needed
 python -m src.agents.clinical.run_case --dry-run  # state + escalation, no model
-python -m src.agents.clinical.run_case --scenario conflict --n-gpu-layers -1
+python tools/run_regression.py                    # 150 end-to-end checks
+streamlit run app.py                              # interactive demonstrator
 ```
 
 `notebooks/clinical_reasoning_gpu.ipynb` runs all five scenarios on a Colab T4 in about five
@@ -100,6 +104,7 @@ minutes. The same workload on CPU takes roughly 23 minutes **per case**.
 | Malformed output rejection | 15 |
 | Severity and alerts | 12 |
 | Escalation policy | 11 |
+| Examination recommendations | 10 |
 | Benchmark scenarios | 9 |
 | Confidence calibration | 9 |
 | Conflict detection | 9 |
@@ -107,7 +112,6 @@ minutes. The same workload on CPU takes roughly 23 minutes **per case**.
 | Evidence coverage | 8 |
 | Automated reporting | 7 |
 | Deterministic output control | 7 |
-| Examination recommendations | 7 |
 | Case-quality grading | 6 |
 | Evidence relationships | 5 |
 | Failure severity | 5 |

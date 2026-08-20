@@ -1,0 +1,67 @@
+{
+  "version": "system-v1",
+  "label": "complete MVP pipeline: perception, fusion, retrieval, reasoning, safety, decision support, automated reporting",
+  "frozen_at": "2026-08-20T12:52:58+00:00",
+  "git_commit": "6a11f57",
+  "components": {
+    "perception": {
+      "triage": "XGBoost, 3-tier, Platt-calibrated, safety threshold 0.20",
+      "lung": "EfficientNet-B0 multi-label, 4 findings, Platt per finding",
+      "cardiac": "EfficientNet-B0 U-Net, EF band, isotonic",
+      "gallbladder": "EfficientNet-B0, 8 classes trained / 5 reported, temperature 0.87"
+    },
+    "reasoning": "HuatuoGPT-o1-8B Q4_K_M via llama.cpp, temperature 0, fixed seed, max_revisions=1",
+    "retrieval": "TF-IDF over the corpus, relevance floor 0.10",
+    "decision_support": "deterministic: severity, alerts, examinations, scenario routing",
+    "reporting": "structured report, templated conclusion, archive with content hash"
+  },
+  "versions": {
+    "corpus": "1.1-with-shock-protocol",
+    "corpus_units": "32/32 sourced",
+    "thresholds": "1.0",
+    "report_format": "1.0",
+    "prompt_sha256_12": "9b44748d024c"
+  },
+  "source_hashes": {
+    "src/agents/schema.py": "d28ea6f008bf",
+    "src/agents/clinical/clinical_state.py": "2a7a2bff7a9d",
+    "src/agents/clinical/reasoning.py": "2479767acb43",
+    "src/agents/clinical/retrieval.py": "d6f0bab24832",
+    "src/agents/clinical/decision_support.py": "6b966f8f64b7",
+    "src/agents/clinical/report.py": "d46d40bd82ec",
+    "src/agents/clinical/thresholds.json": "d46eac32845b",
+    "src/agents/clinical/corpus/pocus_corpus.json": "c0aaaf5e5bbd"
+  },
+  "verification": {
+    "safety_benchmark": {
+      "tests": 212,
+      "passed": 212,
+      "properties": 24
+    },
+    "end_to_end_regression": {
+      "checks": 150,
+      "cases": 10,
+      "passed": true,
+      "run_at": "2026-08-20T12:51:44+00:00"
+    },
+    "reasoning_ab": "models/clinical_reasoning_v4_final/ -- 0 errors and 0/5 withheld without retrieval, on five synthetic cases"
+  },
+  "what_this_establishes": "The complete MVP pipeline is implemented and technically verified. The system provides multimodal POCUS-based decision support with deterministic safety controls, retrieval-augmented reasoning, structured recommendations and automated reporting.",
+  "what_this_does_not_establish": "Clinical validation against expert ground truth remains outside the current internship scope. No figure in this project was measured against a patient outcome or against a clinician's conclusion. The benchmarks are software tests on synthetic cases; they establish that the safety mechanisms behave as specified and say nothing about diagnostic accuracy.",
+  "known_limitations": [
+    "Therapeutic considerations cover undifferentiated shock only. One protocol is sourced (Hasanin et al. 2024, CC BY 4.0); the other three priority presentations return no consideration rather than generating one, which is the designed behaviour.",
+    "Alert thresholds are conventional warning bounds, not a validated scoring system. An alert means a configured limit was crossed and nothing more.",
+    "Severity is monotone and the benchmark cases are all difficult, so nine of ten score HIGH. A benign control is included in the regression precisely because a suite of hard cases cannot show that the rule discriminates.",
+    "Case counts are small: 165 lung, 199 gallbladder, 100 cardiac validation patients.",
+    "Only the triage model was evaluated across independent sources (0.617 to 0.789).",
+    "The per-organ inference functions live in notebooks, so no test imports them; the suite proves the contract is enforced, not that the ultrasound agent honours it.",
+    "Retrieval showed no measurable benefit on the five-case benchmark and remains inconclusive."
+  ],
+  "reproduce": {
+    "safety_benchmark": "python -m src.agents.tests.run_benchmark",
+    "end_to_end_regression": "python tools/run_regression.py",
+    "corpus_check": "python -m src.agents.clinical.check_corpus",
+    "single_case": "python -m src.agents.clinical.run_case --scenario conflict --dry-run",
+    "application": "streamlit run app.py"
+  }
+}

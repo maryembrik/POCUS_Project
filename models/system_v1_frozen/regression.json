@@ -1,0 +1,20 @@
+{
+  "run_at": "2026-08-20T12:51:44+00:00",
+  "cases": [
+    "benchmark:concordant",
+    "benchmark:conflict",
+    "benchmark:missing",
+    "benchmark:not_assessed",
+    "benchmark:reassuring",
+    "control:benign",
+    "presentation:acute_dyspnoea",
+    "presentation:cardiorespiratory_arrest",
+    "presentation:trauma",
+    "presentation:undifferentiated_shock"
+  ],
+  "checks": 150,
+  "failures": [],
+  "passed": true,
+  "corpus_version": "1.1-with-shock-protocol",
+  "retrieval_coverage": "5/5"
+}
