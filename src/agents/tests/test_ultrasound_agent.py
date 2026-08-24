@@ -14,7 +14,8 @@ import numpy as np
 
 from src.agents import schema as S
 from src.agents.ultrasound.agent import (
-    LUNG_FINDINGS, available, predict_lung, ultrasound_agent)
+    GB_CLASSES, GB_GROUP, GB_LOW_CONFIDENCE, LUNG_FINDINGS, available, predict_lung,
+    ultrasound_agent)
 from .helpers import MISSING_NOT_NORMAL, SCHEMA_REJECTION, prop
 
 PERCEPTION = "Perception contract"
@@ -246,3 +247,27 @@ def test_no_frames_fails_rather_than_inventing_a_result():
     rep = predict_lung([])
     assert rep["status"] == "failed"
     assert rep["findings"] == []
+
+
+@prop(PERCEPTION)
+def test_every_gallbladder_class_carries_a_clinical_group():
+    """The escalation policy reads severity from the group as well as the label, so a class
+    without one is a finding whose seriousness cannot be assessed. The two tables lived in a
+    notebook and were edited independently; here they are asserted consistent."""
+    assert len(GB_CLASSES) == 5
+    assert set(GB_GROUP) == set(GB_CLASSES), set(GB_CLASSES) ^ set(GB_GROUP)
+    assert all(GB_GROUP[c] for c in GB_CLASSES)
+    assert 0.0 < GB_LOW_CONFIDENCE < 1.0
+
+
+@prop(PERCEPTION)
+def test_the_gallbladder_module_is_single_label_not_multi_label():
+    """Unlike the lung module's four independent findings, this one reports exactly one class.
+    A report listing the four that lost the argmax as `not_detected` would claim they were
+    screened out, which is a different and stronger statement than losing."""
+    rep = S.make_report(
+        "gallbladder", [S.make_finding("Carcinoma", 0.62, group=GB_GROUP["Carcinoma"])],
+        reliability={"has_normal_class": False, "scope": "teaching-atlas stills"})
+    assert S.validate_report(rep) == []
+    assert len(rep["findings"]) == 1
+    assert rep["not_detected"] == []

@@ -42,6 +42,28 @@ from typing import Any, Iterable
 from .. import schema as S
 
 LUNG_FINDINGS = ["b_lines", "consolidation", "pleural_effusion", "pleural_thickening"]
+
+# The gallbladder module is single-label over five classes, unlike the lung module's four
+# independent findings. It predicts eight fine-grained classes and MARGINALISES to these five
+# rather than taking the argmax and mapping it -- merging the predictions scored 63.1% against
+# 57.2% for merging the labels, because a case that splits its mass across cholecystitis,
+# gangrene and perforation is one confident inflammation, not three uncertain diagnoses.
+#
+# Declared here rather than in the notebook so the contract has one importable home. The
+# weights are not in this deployment, so nothing here runs inference yet; the names and groups
+# are what a report must carry when it does.
+GB_CLASSES = ["Cholelithiasis", "Acute cholecystitis (any severity)",
+              "Polyps / adenomyomatosis", "Carcinoma", "Wall thickening"]
+GB_GROUP = {"Cholelithiasis": "Cholelithiasis",
+            "Acute cholecystitis (any severity)": "Acute inflammation",
+            "Polyps / adenomyomatosis": "Wall thickening / mass",
+            "Carcinoma": "Wall thickening / mass",
+            "Wall thickening": "Wall thickening / mass"}
+GB_SCOPE = "teaching-atlas stills; no healthy class exists in the training data"
+# Below this the module's own notebook marks the read low-confidence rather than presenting it
+# as a call. Five classes on 199 cases at 59.7% balanced accuracy does not support more.
+GB_LOW_CONFIDENCE = 0.4
+
 IMG_SIZE = 224
 IMAGENET_MEAN, IMAGENET_STD = 0.449, 0.226
 

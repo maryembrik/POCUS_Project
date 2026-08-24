@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-24T09:50:41+00:00",
-  "total_tests": 226,
-  "total_passed": 226,
+  "generated_at": "2026-08-24T10:25:06+00:00",
+  "total_tests": 228,
+  "total_passed": 228,
   "by_property": {
     "Absent is not normal": {
       "tests": 19,
@@ -76,8 +76,8 @@
       "passed": 5
     },
     "Perception contract": {
-      "tests": 11,
-      "passed": 11
+      "tests": 13,
+      "passed": 13
     },
     "Reference-range detection": {
       "tests": 5,

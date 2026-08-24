@@ -58,7 +58,8 @@ from src.agents.clinical.reasoning import escalation_decision, reason  # noqa: E
 from src.agents.clinical.report import build_report, render_report  # noqa: E402
 from src.agents.clinical.retrieval import Retriever  # noqa: E402
 from src.agents.clinical.run_case import SCENARIOS, build as build_scenario  # noqa: E402
-from src.agents.ultrasound.agent import LUNG_FINDINGS  # noqa: E402
+from src.agents.ultrasound.agent import (  # noqa: E402
+    GB_CLASSES, GB_GROUP, GB_LOW_CONFIDENCE, GB_SCOPE, LUNG_FINDINGS)
 from src.agents.ultrasound.agent import available as organs_available  # noqa: E402
 from src.agents.ultrasound.agent import ultrasound_agent  # noqa: E402
 
@@ -212,6 +213,7 @@ BLANK = dict(name="", age=60, sex="F", complaint="", tier="medium", tconf=0.70,
 
 # The Triage Agent emits its source columns; the clinical state uses canonical names.
 _VMAP = {"o2sat": "spo2", "pulse": "hr", "bpsys": "sbp", "respr": "rr", "temp": "temp"}
+ORGANS_LOWER = ("lung", "heart", "gallbladder")
 
 
 def _preset(key: str, title: str, tag: tuple[str, str]) -> dict:
@@ -226,15 +228,19 @@ def _preset(key: str, title: str, tag: tuple[str, str]) -> dict:
     sp = SCENARIOS[key]
     tri, us = sp["triage"], sp["ultrasound"]
     scanned = {o: r for o, r in us.items() if r["status"] == "ok"}
-    organ = "Lung" if "lung" in scanned else ("Heart" if "heart" in scanned else "Lung")
+    organ = next((o.title() for o in ORGANS_LOWER if o in scanned), "Lung")
     rep = scanned.get(organ.lower(), {})
+    # Only the lung module's finding names are underscored keys; the cardiac label and the
+    # gallbladder classes are prose and are carried as written.
+    def _key(label: str) -> str:
+        u = label.replace(" ", "_")
+        return u if u in LUNG_FINDINGS else label
+
     findings: dict[str, float] = {}
     for f in rep.get("findings", []):
-        findings[f["label"].replace(" ", "_")] = f["confidence"]
+        findings[_key(f["label"])] = f["confidence"]
     for f in rep.get("not_detected", []):
-        findings[f["label"].replace(" ", "_")] = -f["confidence"]
-    if organ == "Heart":
-        findings = {k.replace("_", " "): v for k, v in findings.items()}
+        findings[_key(f["label"])] = -f["confidence"]
     return dict(
         name=title, age=sp["clinical"]["age"], sex=sp["clinical"]["sex"],
         complaint=sp["clinical"]["chief_complaint"], tier=tri["urgency"],
@@ -252,6 +258,11 @@ CASES = {
     "Everything negative": _preset("reassuring", "Case D", ("t-amb", "Review")),
     "Organ never scanned": _preset("not_assessed", "Case E", ("t-red", "Critical")),
 }
+# The three perception modules the project trained, plus the honest fourth option. `schema`
+# also admits "vascular" and "fast" as organs, but no module was built for either, so offering
+# them would advertise a capability that does not exist.
+ORGANS = ["Lung", "Heart", "Gallbladder", "Not performed"]
+
 SCREENS = [("home", "Home", "⌂", ""), ("intake", "New assessment", "＋", ""),
            ("clinical", "Clinical data", "❤", ""), ("pocus", "POCUS", "◉", ""),
            ("assessment", "Assessment", "✦", "AI"), ("alerts", "Alerts", "⚠", ""),
@@ -303,6 +314,19 @@ def build_state(enc: dict):
             not_detected=[] if sd > 0 else [S.make_finding("severe dysfunction", -sd)],
             reliability={"confidence_calibrated": True, "has_normal_class": True,
                          "scope": "CAMUS-like 4CH stills; EF is an area proxy"})
+    elif organ == "Gallbladder":
+        # Single-label, unlike the lung module: one class is reported, carrying the clinical
+        # group the escalation policy reads severity from. There is no `not_detected` list —
+        # the four classes that lost the argmax were not screened out, they simply were not
+        # the winner, and reporting them as negatives would be a different claim.
+        det = [S.make_finding(k, v, group=GB_GROUP.get(k, ""))
+               for k, v in enc["findings"].items() if v > 0]
+        reports["gallbladder"] = S.make_report(
+            "gallbladder", det,
+            quality={"low_confidence": bool(det and
+                                            det[0]["confidence"] < GB_LOW_CONFIDENCE)},
+            reliability={"confidence_calibrated": True, "has_normal_class": False,
+                         "modelled_findings": GB_CLASSES, "scope": GB_SCOPE})
     for gap in enc.get("not_assessed", []):
         reports.setdefault(gap, S.make_report(
             gap, [], status="not_supported",
@@ -771,6 +795,9 @@ elif SCREEN == "pocus":
         seed(f"c_{f}", abs(float(F["findings"].get(f, 0.05))) or 0.05)
     seed("f_sd", F["findings"].get("severe dysfunction", 0) > 0)
     seed("c_sd", abs(float(F["findings"].get("severe dysfunction", 0.20))) or 0.20)
+    _gb = next((k for k, v in F["findings"].items() if k in GB_CLASSES and v > 0), None)
+    seed("gb_cls", _gb or GB_CLASSES[0])
+    seed("gb_conf", float(F["findings"].get(_gb, 0.45)) if _gb else 0.45)
 
     st.markdown("<div class='step-eyebrow'>Step 3 of 4</div>"
                 "<h1 class='h1'>POCUS examination</h1>", unsafe_allow_html=True)
@@ -780,15 +807,14 @@ elif SCREEN == "pocus":
         f"font-size:13.5px'>{o}</span>" if o == organ else
         f"<span class='tag' style='background:#fff;border:1px solid {BORDER2};color:{MUTED};"
         f"padding:8px 16px;font-size:13.5px;font-weight:600'>{o}</span>"
-        for o in ["Lung", "Heart", "Not performed"]), unsafe_allow_html=True)
+        for o in ORGANS), unsafe_allow_html=True)
     st.write("")
 
     left, right = st.columns(2, gap="large")
     analysed = None
 
     with left:
-        organ = st.selectbox("Organ examined", ["Lung", "Heart", "Not performed"],
-                             key="_organ")
+        organ = st.selectbox("Organ examined", ORGANS, key="_organ")
         up = None
         if organ == "Lung":
             up = st.file_uploader("Add ultrasound examination — the model reads it",
@@ -870,6 +896,20 @@ elif SCREEN == "pocus":
                 a, b = st.columns([1, 2])
                 a.checkbox("severe dysfunction", key="f_sd")
                 b.slider(" ", 0.0, 1.0, step=0.01, key="c_sd", label_visibility="collapsed")
+            elif organ == "Gallbladder":
+                st.caption("Gallbladder weights are not in this deployment, so the module "
+                           "cannot read an image here. It is single-label: one of five "
+                           "classes is reported, never a set.")
+                st.selectbox("Reported class", GB_CLASSES, key="gb_cls")
+                st.slider("Confidence", 0.0, 1.0, step=0.01, key="gb_conf")
+                _c = st.session_state["gb_conf"]
+                st.markdown(
+                    f"<div class='note'>Clinical group: "
+                    f"<b>{E(GB_GROUP[st.session_state['gb_cls']])}</b>. "
+                    + (f"Below {GB_LOW_CONFIDENCE:g} the module's own notebook marks the read "
+                       f"low-confidence rather than presenting it as a call — this one is "
+                       f"<b>{_c:.2f}</b>. " if _c < GB_LOW_CONFIDENCE else "")
+                    + f"{E(GB_SCOPE)}.</div>", unsafe_allow_html=True)
 
     st.write("")
     nav = st.columns([1, 1.4, 5])
@@ -884,6 +924,8 @@ elif SCREEN == "pocus":
             elif organ == "Heart":
                 c_ = st.session_state["c_sd"]
                 findings["severe dysfunction"] = c_ if st.session_state["f_sd"] else -c_
+            elif organ == "Gallbladder":
+                findings = {st.session_state["gb_cls"]: st.session_state["gb_conf"]}
         F["organ"], F["findings"] = organ, findings
         P = CASES.get(st.session_state.get("_preset") or "", BLANK)
         sub = dict(name=F["name"], age=int(F["age"]), sex=F["sex"],
