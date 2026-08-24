@@ -69,7 +69,7 @@ stating, because they were what made the rest of this project tractable:
 \begin{enumerate}
   \item \textbf{Each agent is independently testable.} The reasoning agent can be exercised
         against a hand-written bundle with no imaging model present at all, which is how all
-        209 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
+        228 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
         no model weights.
   \item \textbf{Each decision is reproducible after the fact.} The bundle that produced a given
         output is on disk. A decision can be re-examined months later against exactly the inputs
@@ -194,14 +194,33 @@ than from a mock-up: Section~\ref{subsec:integration-execution} shows that every
 the language model completes in under two seconds, which means the safety layer is fast enough
 to be \emph{interactive} while the differential is not.
 
-The interface is built around that asymmetry. Rather than replaying fixed cases, it lets the
-user construct a patient --- triage tier, which organs were requested, which were actually
-scanned, each finding and its confidence, and for every vital and laboratory value a checkbox
-that makes it \emph{never measured} rather than normal. The clinical state, the conflicts, the
-list of what is absent, the evidence identifiers and the escalation decision are recomputed on
-every change, with no model and no GPU involved.
+The interface is built around that asymmetry. It is organised as a clinician would work rather
+than as the pipeline is built: a four-step intake --- patient, clinical measurements,
+point-of-care ultrasound, assessment --- followed by screens for the alerts, the reasoning
+chain, the retrieved sources, an encounter timeline and the generated report. Rather than
+replaying fixed cases, it lets the user enter a patient: the presenting complaint, the triage
+tier, which organs were requested, which were actually scanned, and for every vital and
+laboratory value a checkbox that makes it \emph{never measured} rather than normal. The
+clinical state, the conflicts, the list of what is absent, the evidence identifiers, the
+severity, the alerts and the escalation decision are recomputed on every change, with no
+language model and no GPU involved.
 
-Three things about it are worth reporting.
+The point-of-care ultrasound step offers the three organs for which modules were trained ---
+lung, cardiac and gallbladder --- and no others. The output contract admits vascular and FAST
+as organs, but no module was built for either, and an examination tab with nothing behind it
+would advertise a capability that does not exist. On a screen whose purpose is to distinguish
+\emph{not detected} from \emph{never examined}, that would be the wrong claim to make.
+
+Four things about it are worth reporting.
+
+\paragraph{The module reads the image.} For the lung, the clinician uploads a study and the
+module analyses it in the browser, on CPU, in a few seconds. What appears on screen is the
+module's own report --- which findings crossed their tuned operating points, which were
+screened for and not seen, the thresholds used and their provenance --- and none of it is
+typed in. This is the step that makes the system multimodal in operation rather than only in
+architecture. The cardiac and gallbladder weights are not held in the repository, so those
+organs report \texttt{not\_supported} and the interface asks instead what the module reported,
+labelling the difference rather than hiding it.
 
 \paragraph{Absence is visible as absence.} Unticking a laboratory value moves it out of the
 evidence list and into a panel headed \emph{never measured --- no identifier exists}. The
@@ -214,18 +233,63 @@ the system's actual output: the differential withheld with the backend error rec
 escalation decision unchanged beside it. This is the central architectural claim of the project,
 and the interface demonstrates it by performing it.
 
-\paragraph{Live and recorded are labelled distinctly.} The differential requires a 4.9\,GB model
-on a GPU, so for the five benchmark cases the interface displays the answers recorded from the
-frozen run of Section~\ref{subsec:reasoning-ab}, marked \textsc{recorded} with their measured
-latency, while everything computed in the browser is marked \textsc{live}. An interface that
-blurred the two would misrepresent what the machine in front of the examiner is doing.
+\paragraph{Live and recorded are labelled distinctly, and the label is enforced.} The
+differential requires a 4.9\,GB model on a GPU, so for the five benchmark encounters the
+interface displays the answers recorded from the frozen run of
+Section~\ref{subsec:reasoning-ab}, while everything computed in the browser is marked as
+computed there. An interface that blurred the two would misrepresent what the machine in front
+of the examiner is doing.
+
+The label is not merely written on the screen. A recorded differential belongs to one specific
+record, so the interface attaches it only when the encounter on screen is still \emph{that}
+record: if the clinician edits any field, or an uploaded image has been analysed, the recording
+is dropped and the screen says that no differential was generated. An untouched benchmark
+encounter is built by the same function the regression harness uses, rather than by
+reconstructing an equivalent-looking bundle in the interface --- the reliability text alone
+would differ, and that text reaches the prompt.
+
+This guard caught a defect of its own during development, which is the reason for describing
+it. The wizard's benchmark presets had been written out beside the canonical scenarios rather
+than derived from them, and had drifted: a different age, a sex, one missing blood pressure. A
+recorded differential was therefore about to appear next to a record it had not been computed
+from. The presets are now derived from the scenarios, and the alert counts the interface
+reports agree exactly with those the regression harness reports for the same encounters.
+
+\subsubsection{Where the visual design and the system disagreed}
+
+The application's visual design --- its palette, typography, layout and screen structure ---
+was produced separately from the system and adopted as delivered. Two pieces of its
+\emph{placeholder content} could not be reproduced literally, and the reason is worth recording
+because it is the same principle the rest of the architecture rests on.
+
+The first was a roster of patients: named individuals, a count of assessments completed today,
+a table of recent cases with clinical statuses. These are ordinary mock data in a design, and
+in a clinical interface they are fabricated records. The same tables and cards are rendered in
+the same style from the project's own benchmark encounters, whose severities and alert counts
+are computed rather than written.
+
+The second was a conversational assistant supplied with a dictionary of pre-written replies. A
+chat that answers a typed clinical question with a fluent paragraph implies a conversational
+model reasoning about the patient, and this system has none: its language model emits one
+structured, validated differential and nothing else. The screen is built as designed, but every
+answer is assembled from the computed assessment --- the escalation triggers, the alerts, the
+absent tests, the evidence identifiers actually cited --- and a free-typed question is answered
+by saying plainly that only the computed assessment can be answered from.
+
+The general point is that a demonstration interface is part of the safety argument, not a
+presentation layer above it. A screen that overstates what the system did is a failure of the
+same kind as a differential citing a test that was never performed; it is simply committed by
+the interface rather than by the model.
 
 Alongside the application, three lower-level interfaces remain, each honest about its fidelity:
 
 \begin{itemize}
-  \item \textbf{Notebooks.} The perception modules run in Jupyter notebooks on Colab, one per
-        organ for training and one for unified inference. These are the working interface and
-        the one all reported results were produced through.
+  \item \textbf{Notebooks.} The perception modules are trained in Jupyter notebooks on Colab,
+        one per organ, and all reported training results were produced through them. Inference
+        for the lung module no longer depends on a notebook: it was extracted into an
+        importable module, which is what the application calls and what the test suite
+        exercises (Section~\ref{subsubsec:agent-extraction}). Cardiac and gallbladder inference
+        still runs only in the notebook, because their weights are not held in the repository.
   \item \textbf{A command-line entry point.} \texttt{run\_case} executes a complete encounter
         end to end, with switches for the retrieval backend, the number of correction rounds
         and whether to consult the model at all. Its \texttt{-{}-dry-run} mode prints the
@@ -233,7 +297,7 @@ Alongside the application, three lower-level interfaces remain, each honest abou
         language model, which is how the safety layer is inspected without a GPU.
   \item \textbf{A rendered clinical summary.} The system produces a deterministic text
         rendering of the encounter --- state, escalation, evidence considered, differential or
-        withheld --- suitable for display but not yet displayed by anything.
+        withheld. The application's report screen displays it and offers it for export.
 \end{itemize}
 
 The rendering underlies what the application displays, and it was written deterministically

@@ -284,7 +284,7 @@ claiming an assessment occurred while recording nothing about it is rejected.
 
 \paragraph{Safety decisions independent of the language model.} Escalation is computed from
 the structured state before the model is consulted and is unchanged by anything the model
-does. This is demonstrated rather than asserted: 209 tests exercise the safety layer with no
+does. This is demonstrated rather than asserted: 228 tests exercise the safety layer with no
 model present, and the decision was verified identical across three different backends
 including one that fails.
 
@@ -328,10 +328,20 @@ mechanisms behave as specified. It forbids any statement about how the reasoning
 perform on real presentations, and it is too small to establish that retrieval does or does
 not help.
 
-\paragraph{The per-organ inference functions are not under test.} The 209 tests build module
-reports directly and none of them imports the per-organ prediction code, which lives in a
-notebook. The suite proves the contract is enforced, not that the ultrasound agent honours it;
-that link is currently verified by running the notebook rather than by the test suite.
+\paragraph{Two of the three per-organ inference functions are still not under test.} This
+limitation was previously total: every test built module reports directly, none imported the
+per-organ prediction code, and the suite therefore proved the contract was \emph{enforced}
+without proving that any module \emph{honoured} it.
+
+It has been closed for the lung module, whose prediction code was extracted from the notebook
+and is now exercised by thirteen tests running real inference on the shipped checkpoints
+(Section~\ref{subsubsec:agent-extraction}). Closing it immediately exposed a defect that had
+made the module silently report every study as negative, which is the strongest available
+argument that the limitation was worth closing rather than merely declaring.
+
+Cardiac and gallbladder inference remains outside the suite, because their weights are not held
+in the repository. For those two modules the original statement stands: the contract is proven
+enforced, not honoured.
 
 \subsection{Clinical Interpretation}
 \label{subsec:results-discussion}

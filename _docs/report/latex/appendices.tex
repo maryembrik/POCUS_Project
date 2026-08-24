@@ -210,16 +210,22 @@ subset, together with an explicit test for centre bias.
 src/agents/
   schema.py              the contract all agents write through
   triage/                Triage Agent
-  ultrasound/            Ultrasound Agent (routing; inference in notebooks)
+  ultrasound/            Ultrasound Agent
+    agent.py               organ routing; lung inference, importable and tested
   clinical/              Clinical Reasoning Agent
     clinical_state.py      structured state, evidence enumeration
     reasoning.py           escalation policy, prompt, validators
     llm.py                 llama.cpp backend plus test backends
     retrieval.py           TF-IDF retrieval with a relevance floor
-    corpus/                30 sourced knowledge units
+    decision_support.py    severity, alerts, examinations, scenario routing
+    report.py              standardised report and archiving
+    thresholds.json        every alert cutoff, versioned
+    corpus/                32 sourced knowledge units
     run_case.py            five benchmark scenarios, end to end
-  tests/                 180 tests, grouped by safety property
-notebooks/               training and inference, one per organ
+  tests/                 228 tests, grouped by safety property
+tools/run_regression.py  150 end-to-end checks over 10 cases
+app.py                   clinician-facing Streamlit application
+notebooks/               training, one per organ
 models/                  metrics, calibrators, frozen baselines
 manifests/               per-source dataset manifests
 \end{verbatim}
@@ -234,7 +240,7 @@ Google Colab T4 GPUs.
 and exports both weights and calibrator. The notebooks are self-contained and were the interface
 through which every reported figure was produced.
 
-\paragraph{Reproducing the safety benchmark.} The 180 tests require no GPU, no model weights and
+\paragraph{Reproducing the safety benchmark.} The 228 tests require no GPU, no model weights and
 no dataset:
 
 \begin{verbatim}

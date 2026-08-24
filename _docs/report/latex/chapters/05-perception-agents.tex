@@ -255,6 +255,64 @@ object, and the distinction between ``examined and negative'' and ``never examin
 explicitly rather than inferred from an absence. Section~\ref{subsec:output-contract} describes
 the contract this relies on.
 
+\subsubsection{From notebook to importable module}
+\label{subsubsec:agent-extraction}
+
+The per-organ prediction code originally lived only in a Jupyter notebook. Nothing outside a
+Colab session could execute it, and consequently no automated test could import it: the suite
+proved that the output contract was \emph{enforced}, and could not prove that any perception
+module \emph{honoured} it. That gap was reported as a limitation of this work.
+
+It has since been closed for the lung module, whose checkpoints are held in the repository. The
+prediction code was extracted into an importable module and is now exercised by thirteen tests
+grouped under a new safety property, \emph{perception contract}.
+
+Two findings came out of the extraction, and both are more instructive than the extraction
+itself.
+
+\paragraph{The architecture had to be recovered from the checkpoints, not from the notebook.}
+The two disagree. The notebook builds a two-layer classification head; every shipped checkpoint
+contains a single linear layer of shape $4 \times 1280$. Loading the weights non-strictly
+succeeds and leaves the mismatched layers at their random initialisation --- silently, and with
+no error at any point. The architecture was therefore reconstructed from the checkpoint itself
+and is now loaded strictly, so that any future divergence fails loudly instead of producing a
+model that runs and means nothing.
+
+\paragraph{The first test found a defect that had silenced the model.} The lung calibration
+artefact described in Section~\ref{subsubsec:lung-calibration} was never exported from the
+training notebook to a file. Both the notebook and the extracted module therefore fell back to
+a decision threshold of $0.5$ for every finding. This model's outputs are compressed into
+roughly the interval $[0.2, 0.8]$, so at $0.5$ almost nothing crosses: every study returned an
+empty finding list, which the layers downstream read as a scan that was performed and showed
+none of the modelled pathologies.
+
+The failure is worth dwelling on because of its direction. A screening module that reports
+false positives is annoying; one that silently reports every patient as clear is dangerous, and
+it produces no error, no warning and no visible symptom. It was invisible precisely until the
+code became importable and something asserted a property of it.
+
+The tuned operating points had been written to disk by the training run all along, in the
+per-split results files: $0.30$, $0.20$, $0.35$ and $0.45$ for B-lines, consolidation, pleural
+effusion and pleural thickening respectively. The module now reads them back.
+
+The correction was verified on LUS-BALD, an independent B-line localisation dataset that this
+classifier never saw in training. Over 120 B-line-positive studies, the B-line output averages
+$0.813$ and crosses its tuned threshold on every one of them, against an area under the ROC
+curve of $0.919$ measured between those studies and random noise. Consolidation, correctly, sits
+at $0.155$ on the same images --- and fires on none of them at a threshold of $0.5$. The model
+was never the problem; the operating point was.
+
+A distinction that the episode makes concrete, and that is easy to elide: a threshold states
+\emph{where the decision boundary sits}, and calibration states \emph{what the number means}.
+The thresholds were recovered. The Platt calibrators were not, and are genuinely lost, so the
+deployed module continues to report \texttt{confidence\_calibrated: false} and emits a raw
+sigmoid output. The boundary is tuned; the number is not.
+
+The cardiac and gallbladder modules remain outside this treatment: their weights are not held in
+the repository, so the agent returns \texttt{not\_supported} for both rather than a guess. Their
+class names and clinical groups, however, now live in the same importable module as the lung
+findings, so the output contract has a single home rather than being restated in a notebook.
+
 % =========================================================================================
 \subsection{Lung Module}
 \label{subsec:lung-module}
@@ -391,6 +449,7 @@ outputs are not independent and per-finding figures should not be multiplied tog
 they were.
 
 \subsubsection{Calibration}
+\label{subsubsec:lung-calibration}
 
 Each finding receives its own Platt-scaled calibrator, fitted out of fold. One calibrator for
 all four would be wrong: the four heads are miscalibrated to different degrees, as the ECE
@@ -402,6 +461,13 @@ expected case, and was one of the two inflations removed from the earlier evalua
 
 One limitation of the calibration is stated rather than hidden: it is fitted and scored on the
 same out-of-fold predictions, so the reported ECE is optimistic.
+
+A second limitation is procedural rather than statistical, and cost more. The calibrators were
+fitted inside the training notebook and never written to a file, so nothing downstream could
+load them. The consequences of that omission, and the recovery of the tuned thresholds from the
+per-split results files, are described in Section~\ref{subsubsec:agent-extraction}. The
+thresholds were retrievable; the calibrators were not. An artefact that exists only in the
+memory of a notebook session does not exist.
 
 \subsubsection{Final Decision}
 

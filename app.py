@@ -280,6 +280,18 @@ def frozen() -> dict:
     return json.loads(FROZEN.read_text(encoding="utf-8")) if FROZEN.exists() else {}
 
 
+@st.cache_data
+def bench() -> dict:
+    """Test totals read from the artefact the suite writes, never typed into the page.
+
+    A hard-coded count is a claim about the repository that drifts the moment a test is added,
+    and it drifted within a day of being written. Reading it means the number on screen is
+    either current or visibly absent.
+    """
+    p = ROOT / "models" / "safety_benchmark.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
 # ══════════════════════════════════════════════════════════════════ pipeline
 def build_state(enc: dict):
     """The clinical state for an encounter.
@@ -538,7 +550,8 @@ if SCREEN == "home":
         f"<div class='stat'><b>{len(ROSTER)}</b><span>Benchmark encounters</span></div>"
         f"<div class='stat'><b>{st.session_state['ran']}</b><span>Analysed this session</span></div>"
         f"<div class='stat'><b>{crit}</b><span>High priority</span></div>"
-        f"<div class='stat'><b>226</b><span>Safety tests passing</span></div>"
+        f"<div class='stat'><b>{bench().get('total_passed', '—')}</b>"
+        f"<span>Safety tests passing</span></div>"
         f"</div></div>", unsafe_allow_html=True)
 
     q = st.columns(4, gap="medium")

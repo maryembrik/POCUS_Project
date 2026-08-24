@@ -35,7 +35,7 @@ reassuring.
 \paragraph{A deterministic escalation policy independent of the language model.} The
 safety-critical decision is computed from the structured state before the model is consulted and
 is unchanged by anything the model does, including failing entirely. This is demonstrated rather
-than asserted: 209 tests exercise it with no model present, and the decision was verified
+than asserted: 228 tests exercise it with no model present, and the decision was verified
 identical across three backends including one that raises on every call.
 
 \paragraph{An evidence interface that makes fabrication unrepresentable.} The reasoning layer
@@ -84,7 +84,7 @@ validation against expert ground truth remains outside the current internship sc
 \end{keystatement}
 
 Every word of that is checkable. \emph{Implemented} and \emph{technically verified} are claims
-about software, evidenced by 209 tests. \emph{Deterministic safety controls} names a property
+about software, evidenced by 228 tests. \emph{Deterministic safety controls} names a property
 demonstrated by running the pipeline against a failing model backend. And the final sentence
 states what the work does not establish, in the same breath as what it does, because the two
 are not separable here.
@@ -163,7 +163,7 @@ anywhere in it should be read as evidence of clinical utility.
 \subsection{Difficulties Encountered}
 \label{subsec:conclusion-difficulties}
 
-Four obstacles shaped the method rather than merely delaying it.
+Five obstacles shaped the method rather than merely delaying it.
 
 \paragraph{Intermittent GPU availability.} Training ran on free Colab sessions with no
 guarantee of allocation and a runtime that could be reclaimed mid-experiment. This made each
@@ -194,6 +194,21 @@ Connected-component analysis over the full external dataset disproved it. The hy
 abandoned and the reversal is reported in Section~\ref{subsec:cardiac-module} rather than
 quietly dropped, because a method that only records the hypotheses that survived gives a reader
 no way to judge it.
+
+\paragraph{Results that lived only inside a notebook session.} The lung module's decision
+thresholds and probability calibrators were computed during training and, for the calibrators,
+never written to a file. Everything downstream consequently fell back to a default threshold of
+$0.5$, which for this model's compressed output range meant reporting every study as negative
+--- a failure with no error message and no visible symptom, described in
+Section~\ref{subsubsec:agent-extraction}. The thresholds were recoverable because the training
+run had also written a results file; the calibrators were not, and remain lost.
+
+The lesson is narrow and worth stating exactly: an artefact that exists only in the memory of a
+notebook session does not exist. It also generalises, because the defect was invisible until the
+prediction code became importable and a test asserted a property of it. Research code that
+cannot be imported cannot be tested, and code that is not tested is not known to work --- a
+statement that sounds obvious and was nonetheless the single most expensive omission in this
+project.
 
 \subsection{Future Work}
 \label{subsec:conclusion-future}
