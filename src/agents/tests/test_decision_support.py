@@ -31,6 +31,62 @@ SCENARIO = "Scenario routing"
 REPORTING = "Automated reporting"
 
 
+@prop(SEVERITY)
+def test_an_alert_is_named_for_the_bound_it_actually_crossed():
+    """A measurement has bounds on both sides and they are opposite conditions.
+
+    The defect this guards was live and clinically embarrassing: labels were chosen by severity
+    level alone, so a value crossing the LOW bound was announced with the name of the HIGH one.
+    A heart rate of 38 read as `SEVERE_TACHYCARDIA`, a temperature of 34 as `HIGH_FEVER`, a
+    systolic of 230 as `HYPOTENSION`, a respiratory rate of 6 as `SEVERE_TACHYPNOEA`, and a pH
+    of 7.6 as `SIGNIFICANT_ACIDAEMIA`. Every one names the opposite of what happened.
+
+    The numeric message was correct throughout — it always named the bound and the direction —
+    which is precisely why this survived: the sentence underneath said "is below the configured
+    critical bound of 40", while the heading above it said tachycardia. A clinician reads the
+    heading.
+    """
+    cases = [
+        ({"hr": 38.0}, "BRADYCARDIA", "TACHYCARDIA"),
+        ({"temp": 34.0}, "HYPOTHERMIA", "FEVER"),
+        ({"sbp": 230.0}, "HYPERTENSION", "HYPOTENSION"),
+        ({"rr": 6.0}, "BRADYPNOEA", "TACHYPNOEA"),
+    ]
+    for vitals, expected, forbidden in cases:
+        alerts = critical_alerts(_state(vitals=vitals))
+        types = {a["type"] for a in alerts}
+        assert any(expected in t for t in types), (vitals, types)
+        assert not any(forbidden in t for t in types), (vitals, types)
+
+
+@prop(SEVERITY)
+def test_a_high_ph_is_alkalaemia_not_acidaemia():
+    """The same defect in the laboratory table, where the two directions have different names
+    and the same severity."""
+    alerts = critical_alerts(_state(labs={"ph": 7.62}))
+    types = {a["type"] for a in alerts}
+    assert any("ALKALAEMIA" in t for t in types), types
+    assert not any("ACIDAEMIA" in t for t in types), types
+
+    low = {a["type"] for a in critical_alerts(_state(labs={"ph": 7.10}))}
+    assert any("ACIDAEMIA" in t for t in low), low
+
+
+@prop(SEVERITY)
+def test_every_configured_bound_has_a_label_naming_its_own_direction():
+    """Checked over the file rather than over the four cases above, so a threshold added later
+    cannot inherit the opposite direction's name by omission."""
+    T = load_thresholds()
+    for group in ("vitals", "labs"):
+        for name, spec in T[group].items():
+            for bound in ("critical_below", "critical_above", "warning_below",
+                          "warning_above"):
+                if spec.get(bound) is None:
+                    continue
+                assert f"{bound}_label" in spec, f"{group}.{name} has {bound} but no label"
+                assert spec[f"{bound}_label"].strip(), f"{group}.{name}.{bound}_label empty"
+
+
 def _state(*, tier="high", tconf=0.79, labs=None, vitals=None, ultrasound=None,
            complaint="acute breathlessness"):
     return build_clinical_state(

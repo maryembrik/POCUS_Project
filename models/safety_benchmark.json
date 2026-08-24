@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-24T13:55:11+00:00",
-  "total_tests": 228,
-  "total_passed": 228,
+  "generated_at": "2026-08-24T14:07:22+00:00",
+  "total_tests": 231,
+  "total_passed": 231,
   "by_property": {
     "Absent is not normal": {
       "tests": 19,
@@ -92,8 +92,8 @@
       "passed": 3
     },
     "Severity and alerts": {
-      "tests": 12,
-      "passed": 12
+      "tests": 15,
+      "passed": 15
     },
     "Unassessed-organ reporting": {
       "tests": 5,

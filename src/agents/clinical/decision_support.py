@@ -170,7 +170,11 @@ def critical_alerts(state: dict, escalation: dict | None = None,
             if not crossed:
                 continue
             level = "CRITICAL" if bound.startswith("critical") else "WARNING"
-            label = spec.get(f"{level.lower()}_label", name)
+            # Direction-specific first. A measurement has bounds on both sides and they are
+            # opposite conditions: a heart rate crossing the LOW bound is a bradycardia, and
+            # labelling it with the high bound's name announced the opposite of what happened.
+            # The numeric message below was always right; the label is what is read first.
+            label = spec.get(f"{bound}_label") or spec.get(f"{level.lower()}_label", name)
             add(level, label.upper().replace(" ", "_"),
                 f"{name} {val} {unit} is {comparison} the configured "
                 f"{level.lower()} bound of {limit} {unit}",

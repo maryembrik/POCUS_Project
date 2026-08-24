@@ -1,13 +1,19 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "note": "Every numeric cutoff used by the deterministic alert and severity layer. Kept in one file rather than scattered through the code so that each value is auditable, changeable without touching logic, and citable in the generated report. Nothing here is derived from a model.",
   "provenance": "Conventional emergency-medicine warning bounds, of the kind used by early-warning scores. They are NOT taken from a specific validated scoring system, and are therefore configuration for a prototype rather than a clinical standard. A deployment would replace this file with the thresholds of the institution's own escalation policy.",
+  "changelog": {
+    "1.1": "Labels made direction-specific. Until now a measurement carried one label per SEVERITY, so a value crossing the low bound was announced with the name of the high one: a heart rate of 38 read as 'severe tachycardia', a temperature of 34 as 'high fever', a systolic of 230 as 'hypotension', a respiratory rate of 6 as 'severe tachypnoea', and a pH of 7.6 as 'significant acidaemia'. The numeric message beneath each was correct throughout -- it always named the bound and the direction -- but the label is what a clinician reads first, and every one of those five named the opposite condition. Each bound now carries its own label and the generic ones remain only as a fallback.",
+    "1.0": "Initial set."
+  },
 
   "vitals": {
     "spo2": {
       "critical_below": 90.0,
       "warning_below": 94.0,
       "unit": "%",
+      "critical_below_label": "severe hypoxaemia",
+      "warning_below_label": "hypoxaemia",
       "critical_label": "severe hypoxaemia",
       "warning_label": "hypoxaemia"
     },
@@ -16,6 +22,9 @@
       "warning_below": 100.0,
       "critical_above": 220.0,
       "unit": "mmHg",
+      "critical_below_label": "hypotension",
+      "warning_below_label": "low blood pressure",
+      "critical_above_label": "severe hypertension",
       "critical_label": "hypotension",
       "warning_label": "low blood pressure"
     },
@@ -24,6 +33,9 @@
       "warning_above": 100.0,
       "critical_below": 40.0,
       "unit": "bpm",
+      "critical_above_label": "severe tachycardia",
+      "warning_above_label": "tachycardia",
+      "critical_below_label": "severe bradycardia",
       "critical_label": "severe tachycardia",
       "warning_label": "tachycardia"
     },
@@ -32,6 +44,9 @@
       "warning_above": 20.0,
       "critical_below": 8.0,
       "unit": "/min",
+      "critical_above_label": "severe tachypnoea",
+      "warning_above_label": "tachypnoea",
+      "critical_below_label": "bradypnoea",
       "critical_label": "severe tachypnoea",
       "warning_label": "tachypnoea"
     },
@@ -40,6 +55,9 @@
       "warning_above": 38.0,
       "critical_below": 35.0,
       "unit": "C",
+      "critical_above_label": "high fever",
+      "warning_above_label": "fever",
+      "critical_below_label": "hypothermia",
       "critical_label": "high fever",
       "warning_label": "fever"
     }
@@ -50,6 +68,8 @@
       "critical_above": 4.0,
       "warning_above": 2.0,
       "unit": "mmol/L",
+      "critical_above_label": "marked hyperlactataemia",
+      "warning_above_label": "raised lactate",
       "critical_label": "marked hyperlactataemia",
       "warning_label": "raised lactate"
     },
@@ -57,6 +77,8 @@
       "critical_above": 100.0,
       "warning_above": 14.0,
       "unit": "ng/L",
+      "critical_above_label": "markedly raised troponin",
+      "warning_above_label": "raised troponin",
       "critical_label": "markedly raised troponin",
       "warning_label": "raised troponin"
     },
@@ -65,6 +87,9 @@
       "warning_below": 7.35,
       "critical_above": 7.55,
       "unit": "",
+      "critical_below_label": "significant acidaemia",
+      "warning_below_label": "acidaemia",
+      "critical_above_label": "significant alkalaemia",
       "critical_label": "significant acidaemia",
       "warning_label": "acidaemia"
     }
