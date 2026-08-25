@@ -350,6 +350,31 @@ def test_the_cardiac_calibrator_ceiling_travels_with_the_report():
 
 
 @prop(PERCEPTION)
+def test_a_finding_is_never_captioned_with_the_wrong_organ():
+    """The defect: the caption under a finding's name was the literal string "lung", so a
+    gallbladder study displayed its class attributed to the lung -- on the one screen a
+    clinician reads to see what was examined.
+
+    It survived because it lived in presentation code that no test imported, which is the same
+    reason the threshold defect survived. The caption is now derived from the finding and is
+    asserted here.
+    """
+    from src.agents.ultrasound.agent import finding_caption
+
+    gb = S.make_finding("Carcinoma", 0.62, group=GB_GROUP["Carcinoma"])
+    assert finding_caption(gb, "gallbladder") == "Wall thickening / mass"
+    assert "lung" not in finding_caption(gb, "gallbladder").lower()
+
+    weak = S.make_finding("pleural effusion", 0.4)
+    weak["unreliable"] = True
+    assert "unreliable" in finding_caption(weak, "lung")
+
+    plain = S.make_finding("b lines", 0.8)
+    assert finding_caption(plain, "lung") == "lung"
+    assert finding_caption(plain, "heart") == "heart"
+
+
+@prop(PERCEPTION)
 def test_every_gallbladder_class_carries_a_clinical_group():
     """The escalation policy reads severity from the group as well as the label, so a class
     without one is a finding whose seriousness cannot be assessed. The two tables lived in a

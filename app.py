@@ -65,7 +65,7 @@ from src.agents.clinical.run_case import SCENARIOS, build as build_scenario  # n
 from src.agents.ultrasound.agent import (  # noqa: E402
     GB_CLASSES, GB_GROUP, GB_LOW_CONFIDENCE, GB_SCOPE, LUNG_FINDINGS)
 from src.agents.ultrasound.agent import available as organs_available  # noqa: E402
-from src.agents.ultrasound.agent import module_status  # noqa: E402
+from src.agents.ultrasound.agent import finding_caption, module_status  # noqa: E402
 from src.agents.ultrasound.agent import ultrasound_agent  # noqa: E402
 
 FROZEN = ROOT / "models" / "clinical_reasoning_v4_final" / "results.json"
@@ -260,6 +260,20 @@ table.dt td{{padding:13px 0;border-top:1px solid {RULE}}}
 
 E = html.escape
 
+# ══════════════════════════════════════════════════════════════════ language
+# The INTERFACE is translated. Clinical output is not, and that is a deliberate line rather
+# than unfinished work: alerts, escalation triggers, evidence text, the differential and the
+# report conclusion are produced by the validated deterministic pipeline, archived under a
+# content hash and asserted by 236 tests. Translating them here would put text in front of a
+# clinician that no test has seen and that differs from the archived record — a clinical
+# statement rewritten by the presentation layer, which is the exact failure the validator
+# exists to prevent. The screen says so when a non-English interface is selected.
+LANGS = {"English": "en", "Français": "fr"}
+
+
+def L(en: str, fr: str) -> str:
+    return fr if st.session_state.get("lang") == "fr" else en
+
 
 def avatar(name: str, size: int = 30) -> str:
     """An initials disc where the design places a patient photograph.
@@ -331,12 +345,21 @@ CASES = {
     "Organ never scanned": _preset("not_assessed", "Case E", ("t-red", "Critical")),
 }
 
-SCREENS = [("home", "Home", "⌂", ""), ("intake", "New assessment", "＋", ""),
-           ("clinical", "Clinical data", "❤", ""), ("pocus", "POCUS", "◉", ""),
-           ("diagnosis", "Diagnosis", "✳", ""), ("record", "Patient record", "▣", ""),
-           ("assessment", "Assessment", "✦", "AI"), ("alerts", "Alerts", "⚠", ""),
-           ("assistant", "Clinical assistant", "✧", ""), ("timeline", "Timeline", "◷", ""),
-           ("report", "Report", "▤", ""), ("history", "History", "⟲", "")]
+# id, English, Français, icon, badge, needs an encounter to show anything
+SCREENS = [
+    ("home", "Home", "Accueil", "⌂", "", False),
+    ("intake", "New assessment", "Nouvelle évaluation", "＋", "", False),
+    ("clinical", "Clinical data", "Données cliniques", "❤", "", False),
+    ("pocus", "POCUS", "POCUS", "◉", "", False),
+    ("diagnosis", "Diagnosis", "Diagnostic", "✳", "", True),
+    ("record", "Patient record", "Dossier patient", "▣", "", False),
+    ("assessment", "Assessment", "Évaluation", "✦", "AI", True),
+    ("alerts", "Alerts", "Alertes", "⚠", "", True),
+    ("assistant", "Clinical assistant", "Assistant clinique", "✧", "", True),
+    ("timeline", "Timeline", "Chronologie", "◷", "", True),
+    ("report", "Report", "Rapport", "▤", "", True),
+    ("history", "History", "Historique", "⟲", "", False),
+]
 
 
 @st.cache_resource
@@ -499,6 +522,7 @@ st.session_state.setdefault("msgs", [{"r": "a", "t": "I have the clinical inform
                                                      "know?"}])
 st.session_state.setdefault("form", dict(BLANK, weight="", history="", meds="", allergies="",
                                          symptoms=[]))
+st.session_state.setdefault("lang", "en")
 
 
 def go(s: str) -> None:
@@ -543,15 +567,27 @@ with st.sidebar:
         f"POCUS-Emergency</div><div style='font-size:12px;color:{FAINT}'>Clinical Copilot</div>"
         f"</div></div>", unsafe_allow_html=True)
 
-    for sid, label, icon, badge in SCREENS:
+    for sid, en_, fr_, icon, badge, needs in SCREENS:
         # The alerts badge carries the count from the last analysis rather than a fixed number,
         # so the nav cannot advertise alerts this encounter does not have.
         b = str(st.session_state.get("_nalerts", 0)) if sid == "alerts" and enc else badge
         b = "" if b == "0" else b
-        st.button(f"{icon} {label}" + (f" · {b}" if b else ""),
+        # A screen that has nothing to show without an encounter is disabled rather than left
+        # clickable. Clicking one and landing on a near-empty card reads as a broken button,
+        # which is how these were reported: the navigation worked and looked like it did not.
+        st.button(f"{icon} {L(en_, fr_)}" + (f" · {b}" if b else ""),
                   key=f"nav_{sid}", use_container_width=True,
+                  disabled=bool(needs and not enc),
                   type="primary" if st.session_state["screen"] == sid else "secondary",
                   on_click=go, args=(sid,))
+
+    if not enc:
+        st.markdown(
+            f"<div style='margin:8px 8px 0;font-size:12px;color:{FAINT};line-height:1.45'>"
+            f"{L('Greyed items need an encounter. Open ', 'Les éléments grisés exigent une '
+                 'consultation. Ouvrez ')}<b>{L('New assessment', 'Nouvelle évaluation')}</b>"
+            f"{L(' and analyse a patient first.', ' et analysez un patient.')}</div>",
+            unsafe_allow_html=True)
 
     if enc:
         sev = st.session_state.get("_sev", "—")
@@ -568,30 +604,53 @@ with st.sidebar:
             f"<div style='margin-top:12px'><span class='tag {cls[0]}'>● {cls[1]}</span></div>"
             f"</div>", unsafe_allow_html=True)
 
+    _reason = {"ready": L("ready", "prêt"),
+               "ready, uncalibrated": L("ready, uncalibrated", "prêt, non calibré"),
+               "weights absent": L("weights absent", "poids absents")}
     st.markdown(
         f"<div style='margin-top:18px;padding:0 8px'><div style='font-size:12px;"
         f"letter-spacing:.09em;text-transform:uppercase;color:{V500};font-weight:700'>"
-        f"Perception modules</div>" +
+        f"{L('Perception modules', 'Modules de perception')}</div>" +
         "".join(f"<div style='font-size:12.5px;color:{MUTED};margin-top:6px'>"
-                f"{'●' if s['runs'] else '○'} {k} — {E(s['reason'])}</div>"
+                f"{'●' if s['runs'] else '○'} {k} — "
+                f"{E(_reason.get(s['reason'], s['reason']))}</div>"
                 for k, s in MODULES.items()) + "</div>", unsafe_allow_html=True)
 
-    st.toggle("Simulate a model failure", key="broken",
-              help="Runs the pipeline for real with a backend that raises on every call. "
-                   "The escalation surviving is executed, not narrated.")
-    st.caption("**Not a diagnostic device.** Synthetic cases, no clinical ground truth, never "
-               "validated against patient outcomes.")
+    st.selectbox(L("Interface language", "Langue de l'interface"), list(LANGS),
+                 index=list(LANGS.values()).index(st.session_state["lang"]),
+                 key="_lang_pick",
+                 on_change=lambda: st.session_state.update(
+                     lang=LANGS[st.session_state["_lang_pick"]]))
+    if st.session_state["lang"] != "en":
+        st.caption(L("", "L'interface est traduite. Les résultats cliniques — alertes, "
+                         "déclencheurs d'escalade, éléments de preuve, diagnostic "
+                         "différentiel et conclusion du rapport — restent en anglais : ils "
+                         "sont produits par la chaîne déterministe validée, archivés avec une "
+                         "empreinte de contenu et vérifiés par 236 tests. Les traduire ici "
+                         "afficherait au clinicien un texte qu'aucun test n'a vu et qui "
+                         "différerait du dossier archivé."))
+
+    st.toggle(L("Simulate a model failure", "Simuler une panne du modèle"), key="broken",
+              help=L("Runs the pipeline for real with a backend that raises on every call. "
+                     "The escalation surviving is executed, not narrated.",
+                     "Exécute réellement la chaîne avec un moteur qui échoue à chaque appel. "
+                     "La survie de l'escalade est exécutée, non racontée."))
+    st.caption(L("**Not a diagnostic device.** Synthetic cases, no clinical ground truth, "
+                 "never validated against patient outcomes.",
+                 "**Dispositif non diagnostique.** Cas synthétiques, aucune vérité terrain "
+                 "clinique, jamais validé sur des résultats patients."))
 
 # ══════════════════════════════════════════════════════════════════ header
 st.markdown(
     f"<div class='hdr'><div class='search'>"
     f"<span style='display:flex;gap:10px;align-items:center'><span>⌕</span>"
-    f"<span>Search patients, findings, reports…</span></span>"
+    f"<span>{L('Search patients, findings, reports…', 'Rechercher patients, résultats, rapports…')}</span></span>"
     f"<span style='color:#B4ACC8'>⚙</span></div>"
     f"<div style='display:flex;align-items:center;gap:14px'>"
-    f"<div class='pill-live'><span class='livedot'>●</span> Assistant ready</div>"
-    f"<span class='pill-lime'>＋ New assessment</span></div></div>",
-    unsafe_allow_html=True)
+    f"<div class='pill-live'><span class='livedot'>●</span> "
+    f"{L('Assistant ready', 'Assistant prêt')}</div>"
+    f"<span class='pill-lime'>＋ {L('New assessment', 'Nouvelle évaluation')}</span>"
+    f"</div></div>", unsafe_allow_html=True)
 
 SCREEN = st.session_state["screen"]
 
@@ -599,10 +658,22 @@ SCREEN = st.session_state["screen"]
 def need_encounter() -> bool:
     if enc:
         return False
-    st.markdown("<div class='card'><div class='h2'>No encounter loaded</div>"
-                "<p class='sub'>Open <b>New assessment</b>, enter a patient and analyse the "
-                "case.</p></div>", unsafe_allow_html=True)
-    st.button("＋ New assessment", type="primary", on_click=go, args=("intake",))
+    st.markdown(
+        f"<div class='band band-vio rise'>"
+        f"<div style='font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;"
+        f"color:{V700};font-weight:800'>"
+        f"{L('Nothing to show yet', 'Rien à afficher pour le moment')}</div>"
+        f"<p style='margin:8px 0 0;font-size:16px'>"
+        f"{L('This screen reads an analysed encounter, and none is loaded. It is not empty '
+             'because something failed — there is simply no patient yet.',
+             'Cet écran lit une consultation analysée, et aucune n’est chargée. Il n’est pas '
+             'vide à cause d’une erreur : il n’y a simplement pas encore de patient.')}</p>"
+        f"<p style='margin:10px 0 0;font-size:15px;color:{MUTED}'>"
+        f"{L('Enter a patient, add whatever measurements you have, and analyse the case.',
+             'Saisissez un patient, ajoutez les mesures dont vous disposez, puis analysez le '
+             'cas.')}</p></div>", unsafe_allow_html=True)
+    st.button(f"＋ {L('New assessment', 'Nouvelle évaluation')}", type="primary",
+              on_click=go, args=("intake",))
     return True
 
 
@@ -689,12 +760,12 @@ if SCREEN == "home":
         f"<table class='dt'><thead><tr><th>Patient</th><th>Age</th><th>Reason</th>"
         f"<th>Status</th><th style='text-align:right'>Alerts</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div>", unsafe_allow_html=True)
-    st.button("View all →", on_click=go, args=("history",))
+    st.button(L("View all →", "Tout afficher →"), on_click=go, args=("history",))
 
 # ═══════════════════════════════════════════════════════════════ 2 · INTAKE
 elif SCREEN == "intake":
-    st.markdown("<div class='step-eyebrow'>Step 1 of 4</div>"
-                "<h1 class='h1'>New clinical assessment</h1>"
+    st.markdown(f"<div class='step-eyebrow'>{L('Step 1 of 4', 'Étape 1 sur 4')}</div>"
+                f"<h1 class='h1'>{L('New clinical assessment', 'Nouvelle évaluation clinique')}</h1>"
                 "<p class='lede'>Only age, sex, chief complaint and the vital signs you have "
                 "are required. Anything left blank is recorded as not provided — never as "
                 "normal.</p>", unsafe_allow_html=True)
@@ -781,15 +852,15 @@ elif SCREEN == "intake":
 
     st.write("")
     nav = st.columns([1, 1, 6])
-    nav[0].button("← Home", on_click=go, args=("home",), use_container_width=True)
-    nav[1].button("Continue →", type="primary", on_click=go, args=("clinical",),
+    nav[0].button(L("← Home", "← Accueil"), on_click=go, args=("home",), use_container_width=True)
+    nav[1].button(L("Continue →", "Continuer →"), type="primary", on_click=go, args=("clinical",),
                   use_container_width=True)
 
 # ═══════════════════════════════════════════════════════════ 3 · CLINICAL
 elif SCREEN == "clinical":
     F = st.session_state["form"]
-    st.markdown(f"<div class='step-eyebrow'>Step 2 of 4</div>"
-                f"<h1 class='h1'>Clinical measurements</h1>"
+    st.markdown(f"<div class='step-eyebrow'>{L('Step 2 of 4', 'Étape 2 sur 4')}</div>"
+                f"<h1 class='h1'>{L('Clinical measurements', 'Mesures cliniques')}</h1>"
                 f"<p class='lede'>{E(F['name'] or 'Unnamed patient')} · {F['age']} · "
                 f"{E(F['sex'])} · {E(F['complaint'] or 'no complaint given')}</p>",
                 unsafe_allow_html=True)
@@ -885,7 +956,7 @@ elif SCREEN == "clinical":
     F["vitals"], F["labs"] = vitals, labs
     st.write("")
     nav = st.columns([1, 1, 6])
-    nav[0].button("← Back", on_click=go, args=("intake",), use_container_width=True)
+    nav[0].button(L("← Back", "← Retour"), on_click=go, args=("intake",), use_container_width=True)
     nav[1].button("Continue →", type="primary", on_click=go, args=("pocus",),
                   use_container_width=True)
 
@@ -902,8 +973,8 @@ elif SCREEN == "pocus":
     seed("gb_cls", _gb or GB_CLASSES[0])
     seed("gb_conf", float(F["findings"].get(_gb, 0.45)) if _gb else 0.45)
 
-    st.markdown("<div class='step-eyebrow'>Step 3 of 4</div>"
-                "<h1 class='h1'>POCUS examination</h1>", unsafe_allow_html=True)
+    st.markdown(f"<div class='step-eyebrow'>{L('Step 3 of 4', 'Étape 3 sur 4')}</div>"
+                f"<h1 class='h1'>{L('POCUS examination', 'Examen POCUS')}</h1>", unsafe_allow_html=True)
     organ = st.session_state["_organ"]
     st.markdown("".join(
         f"<span class='tag' style='background:{V700};color:#fff;padding:8px 16px;"
@@ -987,10 +1058,13 @@ elif SCREEN == "pocus":
 
     with right:
         if analysed is not None:
+            def _sub(f: dict) -> str:
+                return finding_caption(f, analysed["organ"])
+
             rows = "".join(
                 f"<div class='row'><div><div style='font-weight:700;font-size:15px'>"
                 f"{E(f['label'])}</div><div style='font-size:13px;color:{MUTED}'>"
-                f"{'unreliable — weak training signal' if f.get('unreliable') else 'lung'}"
+                f"{E(_sub(f))}"
                 f"</div></div><div style='text-align:right'>"
                 f"<span class='tag t-vio'>Detected</span>"
                 f"<div style='margin-top:5px;font-size:12.5px;color:{FAINT}'>"
@@ -1015,12 +1089,12 @@ elif SCREEN == "pocus":
             note = []
             if rel.get("has_normal_class") is False:
                 note.append("This examination cannot establish that the organ is normal, and "
-                            "it does not assess every condition.")
+                            "it does not assess every condition")
             if q.get("thresholds"):
                 note.append("Operating points " + ", ".join(
                     f"{k} {v:.2f}" for k, v in q["thresholds"].items())
                     + f" — the values the training run tuned, read back from "
-                      f"{q.get('thresholds_source')}.")
+                      f"{q.get('thresholds_source')}")
             note.append("Confidence is calibrated" if rel.get("confidence_calibrated")
                         else "Confidence is a raw sigmoid output, not a calibrated probability")
             if rel.get("confidence_ceiling") and rel["confidence_ceiling"] < 1.0:
@@ -1030,9 +1104,20 @@ elif SCREEN == "pocus":
             if rel.get("ece") is not None:
                 note.append(f"ECE {rel['ece']:.3f}")
             if q.get("fine_grained"):
-                note.append(f"finest-grained class: {q['fine_grained']}")
+                # Left unexplained this reads as a contradiction: the module reports one class
+                # and then names a different one underneath. It is the marginalisation doing
+                # its job -- the eight training classes are summed into five, so the winner of
+                # the five need not be the winner of the eight.
+                fine = q["fine_grained"]
+                det = analysed["findings"][0]["label"] if analysed["findings"] else None
+                note.append(
+                    f"the single most likely of the eight training classes was {fine}, and the "
+                    f"reported class is {det} because related classes are summed rather than "
+                    f"the winner relabelled"
+                    if det and fine.lower() not in det.lower() else
+                    f"most likely of the eight training classes: {fine}")
             if rel.get("scope") and analysed["status"] == "ok":
-                note.append(str(rel["scope"]))
+                note.append(str(rel["scope"]).rstrip("."))
 
             meas = ""
             if analysed.get("measurements"):
@@ -1081,7 +1166,7 @@ elif SCREEN == "pocus":
     st.write("")
     nav = st.columns([1, 1.4, 5])
     nav[0].button("← Back", on_click=go, args=("clinical",), use_container_width=True)
-    if nav[1].button("Analyse patient →", type="primary", use_container_width=True):
+    if nav[1].button(L("Analyse patient →", "Analyser le patient →"), type="primary", use_container_width=True):
         findings = {}
         if analysed is None:
             if organ == "Lung":
@@ -1456,12 +1541,12 @@ elif SCREEN == "assessment":
         state, esc, sup = A["state"], A["esc"], A["support"]
         sev, origin, rep = sup["severity"], A["origin"], A["report"]
         top = st.columns([4, 1.3])
-        top[0].markdown(f"<h1 class='h1' style='margin-top:0'>Clinical assessment</h1>"
+        top[0].markdown(f"<h1 class='h1' style='margin-top:0'>{L('Clinical assessment', 'Évaluation clinique')}</h1>"
                         f"<p class='lede'>{E(enc['name'] or 'Unnamed patient')} · "
                         f"{enc['age']} · {E(enc['sex'])} · "
                         f"{E(enc['complaint'] or 'no complaint given')}</p>",
                         unsafe_allow_html=True)
-        top[1].button("Generate clinical report", type="primary", on_click=go,
+        top[1].button(L("Generate clinical report", "Générer le rapport clinique"), type="primary", on_click=go,
                       args=("report",), use_container_width=True)
         st.write("")
 
@@ -1477,12 +1562,12 @@ elif SCREEN == "assessment":
             f"Routed as <b>{E(sup['scenario']['label'])}</b> · thresholds "
             f"v{E(str(sup['thresholds_version']))} · computed before the model runs, and "
             f"nothing the model says can lower it.</div></div>", unsafe_allow_html=True)
-        st.button("Review alerts →", on_click=go, args=("alerts",))
+        st.button(L("Review alerts →", "Voir les alertes →"), on_click=go, args=("alerts",))
         st.write("")
 
-        L, R = st.columns([1, 1.25], gap="large")
+        col_left, col_right = st.columns([1, 1.25], gap="large")
 
-        with L:
+        with col_left:
             vit = "".join(
                 f"<div style='display:flex;justify-content:space-between'>"
                 f"<span>{k} {v['value']:g} {v['unit']}</span>"
@@ -1527,7 +1612,7 @@ elif SCREEN == "assessment":
                             f"font-size:14px;color:{MUTED}'>{lim}</ul></div>",
                             unsafe_allow_html=True)
 
-        with R:
+        with col_right:
             st.markdown("<div class='card' style='padding-bottom:8px'>"
                         "<h2 class='h2'>Differential assessment</h2>"
                         "<p class='sub'>Offered for consideration. This is not a diagnosis."
@@ -1670,7 +1755,7 @@ elif SCREEN == "assessment":
             f"<p style='margin:8px 0 0;font-size:14.5px;opacity:.92'>Question this case in "
             f"plain language — what supports the leading possibility, what argues against it, "
             f"what is still missing.</p></div></div>", unsafe_allow_html=True)
-        st.button("Open assistant", on_click=go, args=("assistant",))
+        st.button(L("Open assistant", "Ouvrir l'assistant"), on_click=go, args=("assistant",))
 
 # ═══════════════════════════════════════════════════════════════ 8 · ALERTS
 elif SCREEN == "alerts":
@@ -1681,7 +1766,7 @@ elif SCREEN == "alerts":
         warn = [a for a in alerts if a["severity"] != "CRITICAL"]
         gone = A["state"]["missing"]["labs"] + A["state"]["missing"]["vitals"]
 
-        st.markdown(f"<h1 class='h1' style='margin-top:0'>Clinical alerts</h1>"
+        st.markdown(f"<h1 class='h1' style='margin-top:0'>{L('Clinical alerts', 'Alertes cliniques')}</h1>"
                     f"<p class='lede'>{len(crit)} critical · {len(warn)} warning · from "
                     f"thresholds v{E(str(sup['thresholds_version']))}, each naming the bound "
                     f"it crossed.</p>", unsafe_allow_html=True)
@@ -1734,7 +1819,7 @@ elif SCREEN == "alerts":
                     ("".join(f"<div class='row'>{E(t)}</div>" for t in A["esc"]["triggers"])
                      or "<div class='row'>No trigger fired — the case may be answered "
                         "directly.</div>") + "</div>", unsafe_allow_html=True)
-        st.button("View patient →", type="primary", on_click=go, args=("assessment",))
+        st.button(L("View patient →", "Voir le patient →"), type="primary", on_click=go, args=("assessment",))
 
 # ═══════════════════════════════════════════════════════════ 9 · ASSISTANT
 elif SCREEN == "assistant":
@@ -2095,7 +2180,7 @@ elif SCREEN == "assistant":
 # ═══════════════════════════════════════════════════════════ 10 · TIMELINE
 elif SCREEN == "timeline":
     if not need_encounter():
-        st.markdown(f"<h1 class='h1' style='margin-top:0'>Patient clinical timeline</h1>"
+        st.markdown(f"<h1 class='h1' style='margin-top:0'>{L('Patient clinical timeline', 'Chronologie clinique du patient')}</h1>"
                     f"<p class='lede'>{E(enc['name'] or 'Unnamed patient')} · started "
                     f"{A['started']} · elapsed times are the real cost of each stage on this "
                     f"machine.</p>", unsafe_allow_html=True)
@@ -2129,9 +2214,9 @@ elif SCREEN == "report":
         state, sup, rep = A["state"], A["support"], A["report"]
         txt = render_report(rep)
         top = st.columns([3, 1])
-        top[0].markdown("<h1 class='h1' style='margin-top:0'>Clinical assessment report</h1>",
+        top[0].markdown("<h1 class='h1' style='margin-top:0'>{L('Clinical assessment report', 'Rapport d\u2019évaluation clinique')}</h1>",
                         unsafe_allow_html=True)
-        top[1].download_button("📄 Export report", txt, type="primary",
+        top[1].download_button(L("📄 Export report", "📄 Exporter le rapport"), txt, type="primary",
                                use_container_width=True,
                                file_name=f"{rep['encounter_id']}_report.txt")
 
@@ -2201,7 +2286,7 @@ elif SCREEN == "report":
 
 # ══════════════════════════════════════════════════════════════ 12 · HISTORY
 elif SCREEN == "history":
-    st.markdown(f"<h1 class='h1' style='margin-top:0'>Benchmark encounters</h1>"
+    st.markdown(f"<h1 class='h1' style='margin-top:0'>{L('Benchmark encounters', 'Consultations de référence')}</h1>"
                 f"<p class='lede'>{len(ROSTER)} synthetic encounters · "
                 f"{len(st.session_state['records'])} analysed this session. No clinical ground "
                 f"truth — these exercise the safety layer, not diagnostic accuracy.</p>",

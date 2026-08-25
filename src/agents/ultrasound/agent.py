@@ -122,6 +122,26 @@ def _json(path: Path) -> dict[str, Any] | None:
     return None
 
 
+def finding_caption(finding: dict[str, Any], organ: str) -> str:
+    """The secondary line a display puts under a finding's name.
+
+    Extracted from the interface because it was wrong there and nothing could catch it. The
+    caption was hard-coded to the string "lung", so a gallbladder study rendered its class with
+    the word `lung` beneath it -- a finding attributed to the wrong organ, on the one screen a
+    clinician reads to see what was examined. It survived because presentation code is not
+    imported by any test.
+
+    The caption is a fact about the finding, so it is derived from the finding: the clinical
+    group where the module supplies one, the unreliability flag where it is set, and otherwise
+    the organ that was actually examined.
+    """
+    if finding.get("group"):
+        return str(finding["group"])
+    if finding.get("unreliable"):
+        return "unreliable — weak training signal"
+    return str(organ)
+
+
 def module_status() -> dict[str, dict[str, Any]]:
     """Whether each organ can run, and — when it cannot — which of the two reasons applies.
 
