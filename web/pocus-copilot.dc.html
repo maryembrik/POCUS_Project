@@ -83,7 +83,7 @@ input,textarea,select,button{font-family:inherit}
     <div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#8E88E8;font-weight:700">Current patient</div>
     <div style="margin-top:8px;font-weight:700;font-size:15px">{{ pName }}</div>
     <div style="font-size:13px;color:#6A6785">{{ pAge }} · {{ pSex }} · {{ pComplaint }}</div>
-    <div style="margin-top:12px;display:inline-flex;align-items:center;gap:7px;background:#FDECEC;color:#C13238;border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:700">● High priority</div>
+    <div style="margin-top:12px"><span style="{{ severityStyle }}">● {{ severity }}</span></div>
   </div>
 
   <div style="display:flex;align-items:center;gap:11px;padding:0 8px 4px">
@@ -196,7 +196,7 @@ input,textarea,select,button{font-family:inherit}
       <p style="margin:8px 0 0;color:#6A6785;font-size:15.5px;max-width:70ch;text-wrap:pretty">Enter everything you have on one page — history, vital signs, laboratory results and POCUS. Then analyze. Anything left blank is recorded as not provided, never as normal.</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <span style="background:#E9E8FB;color:#2E2A78;border-radius:999px;padding:8px 15px;font-size:13px;font-weight:700">{{ filledCount }} of 5 sections filled</span>
+      <span style="background:#E9E8FB;color:#2E2A78;border-radius:999px;padding:8px 15px;font-size:13px;font-weight:700">{{ filledCount }} of 5 sections filled<sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}"><span style="display:block;margin-top:6px;color:#C13238;font-weight:700;font-size:12.5px;max-width:46ch">{{ error }}</span></sc-if></span>
       <button type="button" onClick="{{ onAnalyze }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:14.5px;padding:13px 24px;border-radius:999px">✦ Analyze patient</button>
     </div>
   </div>
@@ -300,8 +300,8 @@ input,textarea,select,button{font-family:inherit}
   <div style="display:flex;flex-direction:column;gap:20px">
     <section class="alertpulse rise" style="background:#FFF1F1;border:1px solid #F6CFCF;border-left:5px solid #E5484D;border-radius:14px;padding:20px 26px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center">
       <div>
-        <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">High clinical priority</div>
-        <p style="margin:8px 0 0;font-size:16px;max-width:70ch;text-wrap:pretty">The current findings suggest a significant respiratory problem requiring prompt clinical evaluation.</p>
+        <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">{{ severity }} clinical priority</div>
+        <p style="margin:8px 0 0;font-size:16px;max-width:70ch;text-wrap:pretty">{{ conclusion }}</p>
       </div>
       <button type="button" onClick="{{ goAlerts }}" style="appearance:none;border:1px solid #E9B4B4;background:#fff;cursor:pointer;color:#C13238;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:999px">Review alerts →</button>
     </section>
@@ -435,6 +435,30 @@ input,textarea,select,button{font-family:inherit}
 </sc-if>
 
 <sc-if value="{{ onRecord }}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{ recordList }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:20px">
+  <div>
+    <h1 style="margin:0;font-size:27px;font-weight:800;letter-spacing:-.02em">Patients</h1>
+    <p style="margin:6px 0 0;color:#6A6785;font-size:15px">{{ patientCount }} assessed this session. Open one to see its case, findings, differential, timeline and report. There is no database behind this screen: closing the app discards it.</p>
+  </div>
+  <sc-if value="{{ noPatients }}" hint-placeholder-val="{{ false }}">
+  <div style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px;color:#6A6785;font-size:15px">No patient has been assessed yet. Open Patient workup, enter what you have and analyse the case.</div>
+  </sc-if>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
+    <sc-for list="{{ patients }}" as="p" hint-placeholder-count="4">
+    <button type="button" onClick="{{ p.onOpen }}" style="text-align:left;appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:22px 24px;display:flex;flex-direction:column;gap:10px;box-shadow:0 6px 20px rgba(91,60,196,.05)">
+      <span style="display:flex;align-items:center;gap:12px"><span style="width:40px;height:40px;border-radius:50%;background:#E4E2F8;color:#5B3CC4;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:0 0 auto">{{ p.initials }}</span><span><span style="font-weight:800;font-size:17px;display:block">{{ p.name }}</span><span style="font-size:13px;color:#8A87A8">{{ p.age }} · {{ p.sex }} · {{ p.at }}</span></span></span>
+      <span style="font-size:14px;color:#6A6785">{{ p.complaint }}</span>
+      <span style="font-size:13px;color:#8A87A8">{{ p.organ }} — {{ p.findings }}</span>
+      <span style="display:flex;gap:8px;align-items:center"><span style="{{ p.tagStyle }}">{{ p.severity }}</span><span style="font-size:12.5px;color:#8A87A8">{{ p.alerts }}</span></span>
+    </button>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ recordOpen }}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{ backToList }}" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#5B3CC4;font-weight:700;font-size:13.5px;padding:9px 15px;border-radius:9px;margin-bottom:16px">← All patients</button>
+
 <div style="display:flex;flex-direction:column;gap:20px">
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px;display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;align-items:center">
     <div style="display:flex;gap:18px;align-items:center">
@@ -553,6 +577,7 @@ input,textarea,select,button{font-family:inherit}
   </sc-if>
 </div>
 </sc-if>
+</sc-if>
 
 <sc-if value="{{ onAssessment }}" hint-placeholder-val="{{ true }}">
 <div style="display:flex;flex-direction:column;gap:24px">
@@ -566,8 +591,8 @@ input,textarea,select,button{font-family:inherit}
 
   <section class="alertpulse rise" style="background:#FFF1F1;border:1px solid #F6CFCF;border-left:5px solid #E5484D;border-radius:18px;padding:20px 24px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center">
     <div>
-      <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">High clinical priority</div>
-      <p style="margin:8px 0 0;font-size:16px;max-width:70ch;text-wrap:pretty">The current findings suggest a significant respiratory problem requiring prompt clinical evaluation.</p>
+      <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">{{ severity }} clinical priority</div>
+      <p style="margin:8px 0 0;font-size:16px;max-width:70ch;text-wrap:pretty">{{ conclusion }}</p>
     </div>
     <button type="button" onClick="{{ goAlerts }}" style="appearance:none;border:1px solid #E9B4B4;background:#fff;cursor:pointer;color:#C13238;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">Review alerts →</button>
   </section>
@@ -578,25 +603,19 @@ input,textarea,select,button{font-family:inherit}
       <p style="margin:0 0 18px;font-size:13.5px;color:#6A6785">The information available for this patient.</p>
 
       <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Symptoms</div>
-      <div style="margin:8px 0 18px;font-size:14.5px">Acute breathlessness, fatigue</div>
+      <div style="margin:8px 0 18px;font-size:14.5px">{{ pComplaint }}</div>
 
       <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Vital signs</div>
       <div style="margin:10px 0 18px;display:flex;flex-direction:column;gap:9px;font-size:14.5px">
-        <div style="display:flex;justify-content:space-between"><span>Heart rate 122 bpm</span><span style="color:#C13238;font-weight:700">High</span></div>
-        <div style="display:flex;justify-content:space-between"><span>SpO₂ 88%</span><span style="color:#C13238;font-weight:700">Low</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Respiratory rate 28/min</span><span style="color:#9A6207;font-weight:700">High</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Blood pressure 104/68</span><span style="color:#5A7A0F;font-weight:700">Normal</span></div>
+        <sc-for list="{{ vitals }}" as="v" hint-placeholder-count="5"><div style="display:flex;justify-content:space-between"><span>{{ v.label }} {{ v.value }} {{ v.unit }}</span><span style="{{ v.flagStyle }}">{{ v.flag }}</span></div></sc-for>
       </div>
 
       <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">POCUS</div>
-      <div style="margin:8px 0 18px;font-size:14.5px">B-lines detected — bilateral anterior zones</div>
+      <div style="margin:8px 0 18px;font-size:14.5px"><sc-for list="{{ findings }}" as="f" hint-placeholder-count="4"><div>{{ f.label }} — {{ f.status }} ({{ f.conf }})</div></sc-for><sc-for list="{{ notAssessed }}" as="o" hint-placeholder-count="1"><div style="color:#C13238;font-weight:700">{{ o.organ }} — not assessed</div></sc-for></div>
 
       <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Laboratory</div>
       <div style="margin:10px 0 0;display:flex;flex-direction:column;gap:9px;font-size:14.5px">
-        <div style="display:flex;justify-content:space-between"><span>BNP 890</span><span style="color:#C13238;font-weight:700">High</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Troponin 62</span><span style="color:#C13238;font-weight:700">High</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Lactate 2.6</span><span style="color:#9A6207;font-weight:700">High</span></div>
-        <div style="display:flex;justify-content:space-between;color:#9C99B8"><span>D-dimer</span><span>Not available</span></div>
+        <sc-for list="{{ labs }}" as="l" hint-placeholder-count="8"><div style="display:flex;justify-content:space-between"><span>{{ l.name }} {{ l.result }}</span><span style="{{ l.statusStyle }}">{{ l.status }}</span></div></sc-for>
       </div>
     </div>
 
@@ -605,61 +624,39 @@ input,textarea,select,button{font-family:inherit}
         <h2 style="margin:0 0 4px;font-size:17px;font-weight:800">Differential assessment</h2>
         <p style="margin:0 0 20px;font-size:13.5px;color:#6A6785">Offered for consideration. This is not a diagnosis.</p>
 
-        <article style="border:1px solid #DEDCF4;border-radius:16px;padding:20px 22px;background:#FCFBFF">
+        <sc-for list="{{ ranked }}" as="r" hint-placeholder-count="3">
+        <article style="{{ r.cardStyle }}">
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap">
-            <div><span style="font-size:12.5px;color:#8A87A8;font-weight:700">01 · Most likely</span><div style="font-size:22px;font-weight:800;letter-spacing:-.01em;margin-top:4px">Pulmonary edema</div></div>
-            <span style="background:#E4E2F8;color:#2E2A78;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:800">Moderate likelihood</span>
+            <div><span style="font-size:12.5px;color:#8A87A8;font-weight:700">{{ r.rank }}</span><div style="{{ r.titleStyle }}">{{ r.name }}</div></div>
+            <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
           </div>
-          <div style="margin-top:14px;height:8px;border-radius:6px;background:#E4E2F8;overflow:hidden"><div style="width:62%;height:100%;background:linear-gradient(90deg,#8E88E8,#2E2A78)"></div></div>
+          <div style="margin-top:14px;height:8px;border-radius:6px;background:#E4E2F8;overflow:hidden"><div style="{{ r.fillStyle }}"></div></div>
           <div style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:22px">
-            <div>
-              <div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#5A7A0F;font-weight:800">Why it is considered</div>
-              <ul style="margin:10px 0 0;padding-left:18px;font-size:14px;display:flex;flex-direction:column;gap:6px">
-                <li>B-lines on lung ultrasound</li><li>SpO₂ 88%</li><li>Heart rate 122 bpm</li><li>Respiratory rate 28/min</li><li>BNP elevated</li>
-              </ul>
-            </div>
-            <div>
-              <div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#9A6207;font-weight:800">What limits confidence</div>
-              <ul style="margin:10px 0 0;padding-left:18px;font-size:14px;display:flex;flex-direction:column;gap:6px;color:#6A6785">
-                <li>Important investigations remain unavailable</li><li>The examination cannot establish normality</li><li>Some conditions were not assessed</li>
-              </ul>
-            </div>
+            <div><div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#5A7A0F;font-weight:800">Why it is considered</div><p style="margin:10px 0 0;font-size:14px">{{ r.supports }}</p><div style="margin-top:8px;font-size:12.5px;color:#8A87A8">cited as {{ r.now }}</div></div>
+            <div><div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#9A6207;font-weight:800">What limits confidence</div><p style="margin:10px 0 0;font-size:14px;color:#6A6785">{{ r.limits }}</p></div>
           </div>
           <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
-            <button type="button" onClick="{{ askWhy }}" style="appearance:none;border:0;cursor:pointer;background:#2E2A78;color:#fff;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">Why?</button>
-            <button type="button" onClick="{{ askChallenge }}" style="appearance:none;border:1px solid #B9B5EC;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">🔍 Challenge this assessment</button>
+            <button type="button" onClick="{{ askWhy }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">Why?</button>
+            <button type="button" onClick="{{ askChallenge }}" style="appearance:none;border:1px solid #B9B5EC;background:#fff;cursor:pointer;color:#5B3CC4;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">Challenge this assessment</button>
           </div>
         </article>
-
-        <article style="margin-top:16px;border:1px solid #E4E2F8;border-radius:16px;padding:20px 22px">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap">
-            <div><span style="font-size:12.5px;color:#8A87A8;font-weight:700">02</span><div style="font-size:19px;font-weight:700;margin-top:4px">Pulmonary embolism</div></div>
-            <span style="background:#EFEEFB;color:#2E2A78;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700">Low–moderate</span>
-          </div>
-          <div style="margin-top:12px;height:8px;border-radius:6px;background:#F1EDFF;overflow:hidden"><div style="width:34%;height:100%;background:#8E88E8"></div></div>
-          <p style="margin:14px 0 0;font-size:14px;color:#6A6785;text-wrap:pretty">Tachycardia and tachypnea are compatible. The ultrasound findings favour another pulmonary process, and no available result can exclude it.</p>
+        </sc-for>
+        <sc-if value="{{ noDifferential }}" hint-placeholder-val="{{ true }}">
+        <article style="border:1px solid #E4E2F8;border-radius:16px;padding:20px 22px">
+          <p style="margin:0;font-size:15px;color:#6A6785">{{ differentialNote }}</p>
         </article>
-
-        <article style="margin-top:16px;border:1px solid #E4E2F8;border-radius:16px;padding:20px 22px">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap">
-            <div><span style="font-size:12.5px;color:#8A87A8;font-weight:700">03</span><div style="font-size:19px;font-weight:700;margin-top:4px">Pneumothorax</div></div>
-            <span style="background:#FFF3E0;color:#9A6207;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700">Cannot be excluded</span>
-          </div>
-          <p style="margin:14px 0 0;font-size:14px;color:#6A6785">The current examination does not assess this condition.</p>
-        </article>
+        </sc-if>
       </div>
 
       <div style="background:#fff;border:1px solid #E4E2F8;border-radius:20px;padding:26px 28px;box-shadow:0 4px 14px rgba(46,42,120,.05)">
         <h2 style="margin:0 0 4px;font-size:17px;font-weight:800">What would help clarify this case?</h2>
         <p style="margin:0 0 18px;font-size:13.5px;color:#6A6785">These tests were not performed. Their absence does not mean they are normal.</p>
         <div style="display:flex;flex-direction:column;gap:12px">
-          <div style="display:flex;gap:14px;padding:14px 16px;background:#FFF8EC;border-radius:14px"><span style="color:#E08A00;font-size:15px">●</span><div><div style="font-weight:700;font-size:15px">D-dimer</div><div style="font-size:13.5px;color:#6A6785">May contribute to the assessment of pulmonary embolism.</div></div></div>
-          <div style="display:flex;gap:14px;padding:14px 16px;background:#FFF8EC;border-radius:14px"><span style="color:#E08A00;font-size:15px">●</span><div><div style="font-weight:700;font-size:15px">Creatinine</div><div style="font-size:13.5px;color:#6A6785">Could help evaluate renal contribution and guide treatment.</div></div></div>
-          <div style="display:flex;gap:14px;padding:14px 16px;background:#EFEEFB;border-radius:14px"><span style="color:#8E88E8;font-size:15px">●</span><div><div style="font-weight:700;font-size:15px">Temperature</div><div style="font-size:13.5px;color:#6A6785">Would help weigh an infective cause.</div></div></div>
+          <sc-for list="{{ exams }}" as="e" hint-placeholder-count="3"><div style="display:flex;gap:14px;padding:14px 16px;background:#FFF8EC;border-radius:14px;margin-bottom:12px"><span style="color:#E08A00;font-size:15px">●</span><div><div style="font-weight:700;font-size:15px">{{ e.exam }}</div><div style="font-size:13.5px;color:#6A6785">{{ e.reason }}</div></div></div></sc-for>
         </div>
         <div style="margin-top:20px;padding-top:18px;border-top:1px solid #E9E8FB">
           <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Suggested next step</div>
-          <p style="margin:8px 0 0;font-size:18px;font-weight:700;line-height:1.35;text-wrap:pretty">Consider obtaining the missing high-priority investigations and reassessing the patient's respiratory status.</p>
+          <p style="margin:8px 0 0;font-size:18px;font-weight:700;line-height:1.35;text-wrap:pretty">{{ nextStep }}</p>
         </div>
       </div>
     </div>
@@ -680,31 +677,34 @@ input,textarea,select,button{font-family:inherit}
   <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
     <div>
       <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Clinical alerts</h1>
-      <p style="margin:0;color:#6A6785;font-size:15.5px">3 alerts require physician attention</p>
+      <p style="margin:0;color:#6A6785;font-size:15.5px">{{ alertCount }} alert(s) require physician attention</p>
     </div>
     <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">Acknowledge non-critical</button>
   </div>
 
-  <section style="background:#fff;border:1px solid #F6CFCF;border-left:5px solid #E5484D;border-radius:18px;padding:22px 26px">
-    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">Immediate attention</div>
-    <h2 style="margin:10px 0 6px;font-size:21px;font-weight:800">Oxygenation is compromised</h2>
-    <p style="margin:0;font-size:15px;color:#6A6785">SpO₂ 88% — below the configured emergency threshold.</p>
+  <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="4">
+  <section style="{{ a.style }}">
+    <div style="{{ a.kickerStyle }}">{{ a.kicker }}</div>
+    <h2 style="margin:10px 0 6px;font-size:21px;font-weight:800">{{ a.type }}</h2>
+    <p style="margin:0;font-size:15px;color:#6A6785">{{ a.message }}</p>
     <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
-      <button type="button" onClick="{{ goAssessment }}" style="appearance:none;border:0;cursor:pointer;background:#E5484D;color:#fff;font-weight:700;font-size:13.5px;padding:10px 18px;border-radius:11px">Review patient →</button>
-      <button type="button" style="appearance:none;border:1px solid #E9B4B4;background:#fff;cursor:pointer;color:#C13238;font-weight:700;font-size:13.5px;padding:10px 18px;border-radius:11px">Escalate to senior</button>
+      <button type="button" onClick="{{ goAssessment }}" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:10px 18px;border-radius:11px">Review patient</button>
     </div>
   </section>
-
-  <section style="background:#fff;border:1px solid #F7DFB4;border-left:5px solid #F5A623;border-radius:18px;padding:22px 26px">
-    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#9A6207;font-weight:800">Important</div>
-    <h2 style="margin:10px 0 10px;font-size:21px;font-weight:800">Multiple abnormal physiological values</h2>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <span style="background:#FFF3E0;color:#9A6207;border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:700">Heart rate 122</span>
-      <span style="background:#FFF3E0;color:#9A6207;border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:700">Respiratory rate 28</span>
-      <span style="background:#FFF3E0;color:#9A6207;border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:700">SpO₂ 88%</span>
-    </div>
-    <p style="margin:14px 0 0;font-size:15px;color:#6A6785">Together, these findings increase clinical urgency.</p>
+  </sc-for>
+  <sc-if value="{{ noAlerts }}" hint-placeholder-val="{{ false }}">
+  <section style="background:#F0FADB;border:1px solid #D5E8A8;border-left:5px solid #5A7A0F;border-radius:18px;padding:22px 26px">
+    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#5A7A0F;font-weight:800">No alert</div>
+    <p style="margin:10px 0 0;font-size:15px;color:#6A6785">No measured value crossed a configured bound and the record shows no structural gap.</p>
   </section>
+  </sc-if>
+  <sc-if value="{{ hasEncounter }}" hint-placeholder-val="{{ true }}">
+  <section style="background:#fff;border:1px solid #DEDCF4;border-left:5px solid #7C5CFC;border-radius:18px;padding:22px 26px">
+    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#5B3CC4;font-weight:800">Escalation triggers</div>
+    <h2 style="margin:10px 0 10px;font-size:21px;font-weight:800">Evaluated before the model runs</h2>
+    <sc-for list="{{ triggers }}" as="t" hint-placeholder-count="3"><div style="font-size:15px;color:#6A6785;padding:4px 0">{{ t.text }}</div></sc-for>
+  </section>
+  </sc-if>
 
   <section style="background:#fff;border:1px solid #DEDCF4;border-left:5px solid #8E88E8;border-radius:18px;padding:22px 26px">
     <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#2E2A78;font-weight:800">Information missing</div>
@@ -824,19 +824,19 @@ input,textarea,select,button{font-family:inherit}
     <header style="display:flex;justify-content:space-between;gap:24px;padding-bottom:20px;border-bottom:2px solid #E4E2F8;flex-wrap:wrap">
       <div>
         <div style="font-weight:800;font-size:20px">Clinical assessment</div>
-        <div style="font-size:13.5px;color:#6A6785;margin-top:4px">Emergency Department · 24 Aug 2026, 09:20</div>
+        <div style="font-size:13.5px;color:#6A6785;margin-top:4px">Emergency Department · {{ generatedAt }}</div>
       </div>
       <div style="text-align:right;font-size:13.5px;color:#6A6785">{{ pName }} · {{ pAge }} · {{ pSex }}<br>Encounter {{ pId }}</div>
     </header>
 
     <section style="margin-top:26px">
       <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Chief complaint</div>
-      <p style="margin:8px 0 0;font-size:16px">Acute breathlessness, onset 3 hours before arrival.</p>
+      <p style="margin:8px 0 0;font-size:16px">{{ pComplaint }}</p>
     </section>
 
     <section style="margin-top:24px">
       <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Clinical summary</div>
-      <p style="margin:8px 0 0;font-size:16px;line-height:1.6;text-wrap:pretty">The patient presents with acute breathlessness associated with tachycardia, tachypnea and reduced oxygen saturation. Lung ultrasound demonstrates B-lines in the bilateral anterior zones. Laboratory results show elevated BNP, troponin and lactate.</p>
+      <p style="margin:8px 0 0;font-size:16px;line-height:1.6;text-wrap:pretty">{{ conclusion }}</p>
     </section>
 
     <section style="margin-top:24px">
@@ -845,13 +845,13 @@ input,textarea,select,button{font-family:inherit}
         <div>
           <div style="font-weight:700;margin-bottom:8px">Vital signs</div>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <div>SpO₂ 88% — low</div><div>Heart rate 122 bpm — high</div><div>Respiratory rate 28/min — high</div><div>Blood pressure 104/68 — normal</div>
+            <sc-for list="{{ vitals }}" as="v" hint-placeholder-count="5"><div>{{ v.label }} {{ v.value }} {{ v.unit }} — {{ v.flag }}</div></sc-for>
           </div>
         </div>
         <div>
           <div style="font-weight:700;margin-bottom:8px">POCUS &amp; laboratory</div>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <div>Lung ultrasound: B-lines detected</div><div>BNP 890 pg/mL — high</div><div>Troponin 62 ng/L — high</div><div>Lactate 2.6 mmol/L — high</div>
+            <sc-for list="{{ findings }}" as="f" hint-placeholder-count="4"><div>{{ f.label }} — {{ f.status }} ({{ f.conf }})</div></sc-for><sc-for list="{{ labs }}" as="l" hint-placeholder-count="8"><div>{{ l.name }} {{ l.result }} — {{ l.status }}</div></sc-for>
           </div>
         </div>
       </div>
@@ -860,24 +860,20 @@ input,textarea,select,button{font-family:inherit}
     <section style="margin-top:24px">
       <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Differential</div>
       <ol style="margin:10px 0 0;padding-left:22px;font-size:16px;display:flex;flex-direction:column;gap:6px">
-        <li>Pulmonary edema — moderate likelihood</li>
-        <li>Pulmonary embolism — low to moderate, not excluded</li>
-        <li>Pneumothorax — cannot be excluded by the current examination</li>
+        <sc-for list="{{ ranked }}" as="r" hint-placeholder-count="3"><li>{{ r.name }} — {{ r.tag }} likelihood</li></sc-for>
       </ol>
     </section>
 
     <section style="margin-top:24px;background:#FFF8EC;border-radius:14px;padding:18px 22px">
       <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#9A6207;font-weight:800">Important limitations</div>
       <ul style="margin:10px 0 0;padding-left:20px;font-size:15.5px;display:flex;flex-direction:column;gap:6px;color:#6A4C0C">
-        <li>D-dimer, creatinine and temperature were not obtained at the time of assessment</li>
-        <li>The ultrasound examination cannot exclude conditions it does not assess</li>
-        <li>Not measured does not mean normal</li>
+        <sc-for list="{{ missing }}" as="m" hint-placeholder-count="3"><li>{{ m.name }} was not obtained at the time of assessment</li></sc-for><sc-for list="{{ outOfScope }}" as="o" hint-placeholder-count="2"><li>{{ o.text }}</li></sc-for><li>Not measured does not mean normal</li>
       </ul>
     </section>
 
     <section style="margin-top:24px">
       <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Recommended next step</div>
-      <p style="margin:8px 0 0;font-size:18px;font-weight:700;line-height:1.4;text-wrap:pretty">Physician review of the current findings, with consideration of the most clinically relevant missing investigations.</p>
+      <p style="margin:8px 0 0;font-size:18px;font-weight:700;line-height:1.4;text-wrap:pretty">{{ nextStep }}</p>
     </section>
 
     <footer style="margin-top:32px;padding-top:18px;border-top:1px solid #E4E2F8;font-size:13.5px;color:#8A87A8;text-wrap:pretty">AI-assisted clinical assessment. Requires physician review. This report is clinical decision support and does not constitute a diagnosis.</footer>
@@ -1018,19 +1014,64 @@ class Component extends DCLogic {
   }
 
   go(id) { return () => this.setState({ screen: id, fabOpen: false }); }
-  setForm(p) { this.setState(s => ({ form: Object.assign({}, s.form, p) })); }
+
+  // Editing the form makes this a NEW encounter. The preset must be cleared with it, or the
+  // next analyse still carries the benchmark key and the server compares the typed patient
+  // against a scenario it is no longer describing.
+  setForm(p) {
+    this.setState(s => ({ form: Object.assign({}, s.form, p), preset: '' }));
+  }
+
+  // parseFloat('') and parseFloat('abc') are both NaN, and JSON.stringify writes NaN as null.
+  // The API rejects null for a float, so a single unparseable box silently failed the whole
+  // analysis and left the previous encounter on screen. A value that is not a number is not a
+  // measurement: the key is removed, which records it as never measured.
+  static num(x) {
+    if (x === '' || x === null || x === undefined) return null;
+    const n = parseFloat(x);
+    return isFinite(n) ? n : null;
+  }
+
+  setNumeric(group, key, raw) {
+    const next = Object.assign({}, this.state.form[group]);
+    const n = Component.num(raw);
+    if (n === null) delete next[key]; else next[key] = n;
+    const patch = {}; patch[group] = next;
+    this.setForm(patch);
+  }
 
   async analyse() {
-    this.setState({ busy: true });
+    this.setState({ busy: true, error: '' });
     const body = Object.assign({}, this.state.form, {
       preset: this.state.preset || null,
       reportJson: this.state.upload ? this.state.upload.report : null
     });
     const view = await post('/api/analyse', body);
+    // A rejected request used to leave the previous encounter on screen, so analysing looked
+    // like it had analysed somebody else. Say so instead.
+    if (!view || !view.hasEncounter) {
+      this.setState({ busy: false,
+        error: 'That encounter could not be analysed: '
+               + (view && view.detail ? JSON.stringify(view.detail) : 'the server rejected it')
+               + '. Nothing on screen has changed.' });
+      return;
+    }
     const boot = await get('/api/bootstrap');
-    this.setState({ view, boot, busy: false, screen: 'assessment',
+    this.setState({ view, boot, busy: false, error: '', screen: 'assessment',
                     messages: this.state.messages.slice(0, 1) });
   }
+
+  // The patient record is a LIST first. A clinician opens a patient, and only then sees that
+  // patient's case, history, diagnostics and timeline. `recordSel` null means the list.
+  openRecord(id) {
+    return async () => {
+      this.setState({ busy: true });
+      const view = await get('/api/record?id=' + encodeURIComponent(id));
+      this.setState({ view, recordSel: id, busy: false, recTab: 'images' });
+    };
+  }
+
+  backToList() { this.setState({ recordSel: null }); }
 
   async loadPreset(key) {
     // Analysed server-side as the CANONICAL record. Posting a partial form produced an
@@ -1045,14 +1086,31 @@ class Component extends DCLogic {
 
   async upload(files) {
     if (!files || !files.length) return;
-    const reads = [].slice.call(files).slice(0, 2).map(f => new Promise(res => {
+    // Every file, not the first two. Several files are several studies unless the clinician
+    // says they are frames of one acquisition.
+    const reads = [].slice.call(files).slice(0, 8).map(f => new Promise(res => {
       const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f);
     }));
     const imgs = await Promise.all(reads);
     this.setState({ busy: true, previews: imgs });
-    const out = await post('/api/upload', { organ: this.state.form.organ, image: imgs[0],
-                                            image2: imgs[1] || null });
+    const out = await post('/api/upload', {
+      organ: this.state.form.organ, image: imgs[0], images: imgs,
+      image2: imgs[1] || null, asClip: !!this.state.asClip
+    });
     this.setState({ upload: out, busy: false });
+  }
+
+  async toggleClip() {
+    const next = !this.state.asClip;
+    this.setState({ asClip: next });
+    if (this.state.previews && this.state.previews.length > 1) {
+      this.setState({ busy: true });
+      const out = await post('/api/upload', {
+        organ: this.state.form.organ, image: this.state.previews[0],
+        images: this.state.previews, image2: this.state.previews[1] || null, asClip: next
+      });
+      this.setState({ upload: out, busy: false });
+    }
   }
 
   async ask(q) {
@@ -1130,7 +1188,15 @@ class Component extends DCLogic {
       escalateText: v.escalate ? 'escalation required' : 'no escalation',
       caseQuality: v.caseQuality || '—',
       alertCount: String(nAlerts),
-      missingCount: String((v.missing || []).length),
+      // On the workup this counts what the CLINICIAN has left blank, which is the number the
+      // note beside it is about. It previously read from the last analysis, so a fresh form
+      // always claimed nothing was missing.
+      missingCount: String(has
+        ? (v.missing || []).length
+        : (boot.vitalKeys || []).filter(k => f.vitals[k.key] === undefined).length
+          + (boot.labKeys || []).filter(k => f.labs[k.key] === undefined).length),
+      error: st.error || '',
+      hasError: !!st.error,
       severityStyle: { background: t.bg, color: t.fg, borderRadius: '999px',
                        padding: '5px 12px', fontSize: '12.5px', fontWeight: 700 },
       severityFg: { color: t.fg, fontSize: '12.5px', letterSpacing: '.11em',
@@ -1150,7 +1216,17 @@ class Component extends DCLogic {
       onHistory: e => this.setForm({ history: e.target.value }),
       onOrgan: e => this.setForm({ organ: e.target.value }),
       onUpload: e => this.upload(e.target.files),
-      clips: (st.previews || []).map(src => ({ src })),
+      clips: (st.previews || []).map((src, i) => ({ src, n: String(i + 1) })),
+      uploadNote: st.upload ? (st.upload.note || '') : '',
+      uploadCount: st.upload ? String(st.upload.count || 1) : '0',
+      multiUpload: !!(st.upload && st.upload.perImage && st.upload.perImage.length),
+      perImage: ((st.upload || {}).perImage || []).map(p => ({
+        title: 'Study ' + p.index + (p.status === 'ok' ? '' : ' — ' + p.status),
+        rows: p.rows.map(r => ({ label: r.label, caption: r.caption,
+          conf: r.conf.toFixed(2), status: r.detected ? 'Detected' : 'Not detected' })) })),
+      asClip: !!st.asClip,
+      clipToggleLabel: st.asClip ? 'Frames of one clip' : 'Separate studies',
+      onToggleClip: () => this.toggleClip(),
       uploadLabel: st.busy ? 'Reading…'
                  : (st.previews || []).length ? '＋ Replace'
                  : (f.organ === 'Heart' ? '＋ Add ED + ES' : '＋ Add clip'),
@@ -1188,17 +1264,17 @@ class Component extends DCLogic {
           inputStyle: { border: '1px solid #DEDCF4', borderRadius: '10px',
                         padding: '10px 12px', fontSize: '14.5px', background: '#FCFBFF',
                         width: '100%' },
-          onChange: e => {
-            const x = e.target.value, nv = Object.assign({}, this.state.form.vitals);
-            if (x === '') delete nv[k.key]; else nv[k.key] = parseFloat(x);
-            this.setForm({ vitals: nv });
-          } };
+          onChange: e => this.setNumeric('vitals', k.key, e.target.value) };
       }),
 
       labFields: (boot.labKeys || []).map(k => {
         const val = f.labs[k.key];
+        // Both directions. A pH of 6 is not "normal" because it is under the upper bound --
+        // it is profoundly acidaemic, and showing it as normal beside the number is worse
+        // than showing nothing.
         const flag = val === undefined ? 'not measured'
-          : (k.max !== null && val > k.max ? 'high' : 'normal');
+          : (k.min !== null && k.min !== undefined && val < k.min) ? 'low'
+          : (k.max !== null && k.max !== undefined && val > k.max) ? 'high' : 'normal';
         return { name: k.key, value: val === undefined ? '' : String(val), flag: flag,
           nameStyle: { fontWeight: 600, fontSize: '14px',
                        color: val === undefined ? '#9C99B8' : '#1B1A3A' },
@@ -1206,11 +1282,7 @@ class Component extends DCLogic {
           inputStyle: { border: '1px solid #DEDCF4', borderRadius: '10px',
                         padding: '9px 12px', fontSize: '14px', background: '#FCFBFF',
                         width: '100%' },
-          onChange: e => {
-            const x = e.target.value, nl = Object.assign({}, this.state.form.labs);
-            if (x === '') delete nl[k.key]; else nl[k.key] = parseFloat(x);
-            this.setForm({ labs: nl });
-          } };
+          onChange: e => this.setNumeric('labs', k.key, e.target.value) };
       }),
 
       // What the module reported, once it has read an image. Before that, the row shows the
@@ -1443,6 +1515,26 @@ class Component extends DCLogic {
           background: st.recTab === id ? '#5B54D6' : '#fff',
           color: st.recTab === id ? '#fff' : '#6A6785',
           border: '1px solid ' + (st.recTab === id ? '#5B54D6' : '#DEDCF4') } })),
+      // The record screen shows the LIST until a patient is opened.
+      recordList: !st.recordSel,
+      recordOpen: !!st.recordSel,
+      patients: (boot.records || []).map(r => ({
+        name: r.name, age: String(r.age), sex: r.sex, complaint: r.complaint, at: r.at,
+        severity: r.severity, alerts: r.alerts + ' alert(s)', organ: r.organ,
+        encounterId: r.encounterId,
+        findings: (r.findings || []).join(', ') || 'no positive finding',
+        initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
+        onOpen: this.openRecord(r.id),
+        tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
+          fontWeight: 700,
+          background: r.severity === 'HIGH' ? '#FDECEC'
+                    : r.severity === 'MODERATE' ? '#FFF3E0' : '#F0FADB',
+          color: r.severity === 'HIGH' ? '#C13238'
+               : r.severity === 'MODERATE' ? '#9A6207' : '#5A7A0F' } })),
+      noPatients: !(boot.records || []).length,
+      patientCount: String((boot.records || []).length),
+      backToList: () => this.backToList(),
+
       recImages: st.recTab === 'images', recData: st.recTab === 'data',
       recVisits: st.recTab === 'visits', recReports: st.recTab === 'reports'
     };

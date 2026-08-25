@@ -318,8 +318,10 @@ class Encounter(BaseModel):
 
 class Upload(BaseModel):
     organ: str
-    image: str                      # base64, with or without a data: prefix
-    image2: str | None = None       # end-systole frame, cardiac only
+    image: str                       # base64, with or without a data: prefix
+    image2: str | None = None        # end-systole frame, cardiac only
+    images: list[str] | None = None  # several studies, or several frames of one clip
+    asClip: bool = False             # frames of ONE acquisition, aggregated by median
 
 
 class Ask(BaseModel):
@@ -327,6 +329,29 @@ class Ask(BaseModel):
 
 
 _last: dict[str, Any] = {}
+
+
+def _remember(enc: dict, a: dict) -> None:
+    """Keep the whole encounter, not a summary of it.
+
+    The patient record is a list a clinician opens, so re-opening one has to restore the case
+    it actually produced -- its findings, alerts, differential, timeline and report. Storing
+    only a headline would mean re-deriving the rest, and a record that reconstructs itself is
+    a record that can differ from what was shown at the time.
+    """
+    rid = str(len(_records) + 1)
+    _records.append({
+        "id": rid,
+        "name": enc.get("name") or "Unnamed patient",
+        "age": enc.get("age"), "sex": enc.get("sex"),
+        "complaint": enc.get("complaint") or "no complaint given",
+        "at": datetime.now().strftime("%H:%M"),
+        "severity": a["support"]["severity"]["severity"],
+        "alerts": len(a["support"]["alerts"]), "organ": enc.get("organ"),
+        "encounterId": a["report"]["encounter_id"],
+        "findings": [f["label"] for f in a["state"]["imaging"]["findings"] if f["detected"]],
+        "_enc": enc, "_a": a,
+    })
 
 
 @app.get("/api/bootstrap")
@@ -346,13 +371,16 @@ def bootstrap() -> JSONResponse:
         "tests": bench.get("total_passed"),
         "vitalKeys": [{"key": k, "unit": v["unit"], "min": v["normal_min"],
                        "max": v["normal_max"]} for k, v in VITAL_REFERENCE.items()],
-        "labKeys": [{"key": k, "unit": v.get("unit", ""), "max": v.get("normal_max")}
-                    for k, v in LAB_REFERENCE.items()],
+        # Both bounds. Sending only the upper one let the interface call a pH of 6 "normal"
+        # because it sits under the maximum, when it is profoundly acidaemic.
+        "labKeys": [{"key": k, "unit": v.get("unit", ""), "max": v.get("normal_max"),
+                     "min": v.get("normal_min")} for k, v in LAB_REFERENCE.items()],
         "lungFindings": LUNG_FINDINGS,
         "gbClasses": GB_CLASSES,
         "organs": ["Lung", "Heart", "Gallbladder", "Not performed"],
-        "records": [{k: r[k] for k in ("name", "at", "severity", "alerts", "organ",
-                                       "encounterId", "findings")} for r in _records],
+        "records": [{k: r[k] for k in ("id", "name", "age", "sex", "complaint", "at",
+                                       "severity", "alerts", "organ", "encounterId",
+                                       "findings")} for r in _records],
     })
 
 
@@ -379,13 +407,7 @@ def api_analyse(e: Encounter) -> JSONResponse:
     a = analyse(enc, broken)
     _last.clear()
     _last.update(enc=enc, a=a)
-    _records.append({
-        "name": enc.get("name") or "Unnamed patient", "at": datetime.now().strftime("%H:%M"),
-        "severity": a["support"]["severity"]["severity"],
-        "alerts": len(a["support"]["alerts"]), "organ": enc.get("organ"),
-        "encounterId": a["report"]["encounter_id"],
-        "findings": [f["label"] for f in a["state"]["imaging"]["findings"] if f["detected"]],
-    })
+    _remember(enc, a)
     return JSONResponse(_view(enc, a))
 
 
@@ -399,30 +421,61 @@ def api_upload(u: Upload) -> JSONResponse:
         raw = base64.b64decode(b64.split(",", 1)[-1])
         return np.array(Image.open(io.BytesIO(raw)).convert("L"))
 
+    def rows(rep: dict) -> list[dict[str, Any]]:
+        return [{"label": f["label"], "caption": finding_caption(f, rep["organ"]),
+                 "conf": round(f["confidence"], 2), "detected": True}
+                for f in rep["findings"]] + \
+               [{"label": f["label"], "caption": finding_caption(f, rep["organ"]),
+                 "conf": round(f["confidence"], 2), "detected": False}
+                for f in rep.get("not_detected", [])]
+
     organ = u.organ.lower()
+    imgs = u.images or [u.image]
     t0 = time.time()
+
     if organ == "heart":
-        if not u.image2:
+        # EF is a comparison between two frames of ONE heart, so two images are two phases of
+        # the same acquisition rather than two studies.
+        second = u.image2 or (imgs[1] if len(imgs) > 1 else None)
+        if not second:
             rep = S.make_report(
                 "heart", [], status="failed",
                 reliability={"scope": "ejection fraction needs two frames, end-diastole and "
                                       "end-systole; one still cannot produce it"})
         else:
-            rep = ultrasound_agent("heart", ed=grey(u.image), es=grey(u.image2))
+            rep = ultrasound_agent("heart", ed=grey(imgs[0]), es=grey(second))
+        per = []
+    elif u.asClip and organ == "lung":
+        # Frames of one acquisition. The lung module reduces them by MEDIAN, because repeated
+        # looks at the same anatomy are not independent evidence and a mean lets one blurred
+        # frame carry the result.
+        rep = ultrasound_agent("lung", frames=[grey(x) for x in imgs])
+        per = []
     else:
-        rep = ultrasound_agent(organ, image=grey(u.image))
+        # SEPARATE studies. Each image is read on its own and reported on its own; nothing is
+        # aggregated across them, because images of different patients are not a clip. The
+        # encounter takes the first, since the clinical state holds one report per organ.
+        per = [ultrasound_agent(organ, image=grey(x)) for x in imgs]
+        rep = per[0]
 
-    errs = S.validate_report(rep)
     return JSONResponse({
         "report": rep,
         "seconds": round(time.time() - t0, 1),
-        "schemaErrors": errs,
-        "rows": [{"label": f["label"], "caption": finding_caption(f, rep["organ"]),
-                  "conf": round(f["confidence"], 2), "detected": True}
-                 for f in rep["findings"]]
-        + [{"label": f["label"], "caption": finding_caption(f, rep["organ"]),
-            "conf": round(f["confidence"], 2), "detected": False}
-           for f in rep.get("not_detected", [])],
+        "schemaErrors": S.validate_report(rep),
+        "rows": rows(rep),
+        "count": len(imgs),
+        "asClip": bool(u.asClip),
+        # One block per uploaded file when they were read as separate studies.
+        "perImage": [{"index": i + 1, "status": r["status"], "rows": rows(r)}
+                     for i, r in enumerate(per)] if len(per) > 1 else [],
+        "note": ("Read as one clip: {n} frames of a single acquisition, reduced by median."
+                 .format(n=len(imgs)) if u.asClip and len(imgs) > 1 else
+                 "Read as {n} separate studies. The encounter carries the first; the rest are "
+                 "reported beside it. Nothing is averaged across them, because images of "
+                 "different patients are not a clip.".format(n=len(imgs)) if len(per) > 1 else
+                 "One image, one study. A figure showing several scans side by side is still "
+                 "one image to the module: it is resized whole, so the reading belongs to none "
+                 "of the panels. Upload them as separate files."),
     })
 
 
@@ -443,14 +496,20 @@ def api_preset(key: str, broken: bool = False) -> JSONResponse:
     a = analyse(enc, broken)
     _last.clear()
     _last.update(enc=enc, a=a)
-    _records.append({
-        "name": c["name"], "at": datetime.now().strftime("%H:%M"),
-        "severity": a["support"]["severity"]["severity"],
-        "alerts": len(a["support"]["alerts"]), "organ": c["organ"],
-        "encounterId": a["report"]["encounter_id"],
-        "findings": [f["label"] for f in a["state"]["imaging"]["findings"] if f["detected"]],
-    })
+    _remember(enc, a)
     return JSONResponse(_view(enc, a))
+
+
+@app.get("/api/record")
+def api_record(id: str) -> JSONResponse:
+    """Re-open a patient from the list, exactly as their encounter was assessed."""
+    for r in _records:
+        if r["id"] == id:
+            _last.clear()
+            _last.update(enc=r["_enc"], a=r["_a"])
+            return JSONResponse(_view(r["_enc"], r["_a"]))
+    return JSONResponse({"hasEncounter": False,
+                         "message": f"no patient {id!r} in this session"}, status_code=404)
 
 
 @app.post("/api/ask")

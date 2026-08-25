@@ -53,19 +53,64 @@ class Component extends DCLogic {
   }
 
   go(id) { return () => this.setState({ screen: id, fabOpen: false }); }
-  setForm(p) { this.setState(s => ({ form: Object.assign({}, s.form, p) })); }
+
+  // Editing the form makes this a NEW encounter. The preset must be cleared with it, or the
+  // next analyse still carries the benchmark key and the server compares the typed patient
+  // against a scenario it is no longer describing.
+  setForm(p) {
+    this.setState(s => ({ form: Object.assign({}, s.form, p), preset: '' }));
+  }
+
+  // parseFloat('') and parseFloat('abc') are both NaN, and JSON.stringify writes NaN as null.
+  // The API rejects null for a float, so a single unparseable box silently failed the whole
+  // analysis and left the previous encounter on screen. A value that is not a number is not a
+  // measurement: the key is removed, which records it as never measured.
+  static num(x) {
+    if (x === '' || x === null || x === undefined) return null;
+    const n = parseFloat(x);
+    return isFinite(n) ? n : null;
+  }
+
+  setNumeric(group, key, raw) {
+    const next = Object.assign({}, this.state.form[group]);
+    const n = Component.num(raw);
+    if (n === null) delete next[key]; else next[key] = n;
+    const patch = {}; patch[group] = next;
+    this.setForm(patch);
+  }
 
   async analyse() {
-    this.setState({ busy: true });
+    this.setState({ busy: true, error: '' });
     const body = Object.assign({}, this.state.form, {
       preset: this.state.preset || null,
       reportJson: this.state.upload ? this.state.upload.report : null
     });
     const view = await post('/api/analyse', body);
+    // A rejected request used to leave the previous encounter on screen, so analysing looked
+    // like it had analysed somebody else. Say so instead.
+    if (!view || !view.hasEncounter) {
+      this.setState({ busy: false,
+        error: 'That encounter could not be analysed: '
+               + (view && view.detail ? JSON.stringify(view.detail) : 'the server rejected it')
+               + '. Nothing on screen has changed.' });
+      return;
+    }
     const boot = await get('/api/bootstrap');
-    this.setState({ view, boot, busy: false, screen: 'assessment',
+    this.setState({ view, boot, busy: false, error: '', screen: 'assessment',
                     messages: this.state.messages.slice(0, 1) });
   }
+
+  // The patient record is a LIST first. A clinician opens a patient, and only then sees that
+  // patient's case, history, diagnostics and timeline. `recordSel` null means the list.
+  openRecord(id) {
+    return async () => {
+      this.setState({ busy: true });
+      const view = await get('/api/record?id=' + encodeURIComponent(id));
+      this.setState({ view, recordSel: id, busy: false, recTab: 'images' });
+    };
+  }
+
+  backToList() { this.setState({ recordSel: null }); }
 
   async loadPreset(key) {
     // Analysed server-side as the CANONICAL record. Posting a partial form produced an
@@ -80,14 +125,31 @@ class Component extends DCLogic {
 
   async upload(files) {
     if (!files || !files.length) return;
-    const reads = [].slice.call(files).slice(0, 2).map(f => new Promise(res => {
+    // Every file, not the first two. Several files are several studies unless the clinician
+    // says they are frames of one acquisition.
+    const reads = [].slice.call(files).slice(0, 8).map(f => new Promise(res => {
       const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f);
     }));
     const imgs = await Promise.all(reads);
     this.setState({ busy: true, previews: imgs });
-    const out = await post('/api/upload', { organ: this.state.form.organ, image: imgs[0],
-                                            image2: imgs[1] || null });
+    const out = await post('/api/upload', {
+      organ: this.state.form.organ, image: imgs[0], images: imgs,
+      image2: imgs[1] || null, asClip: !!this.state.asClip
+    });
     this.setState({ upload: out, busy: false });
+  }
+
+  async toggleClip() {
+    const next = !this.state.asClip;
+    this.setState({ asClip: next });
+    if (this.state.previews && this.state.previews.length > 1) {
+      this.setState({ busy: true });
+      const out = await post('/api/upload', {
+        organ: this.state.form.organ, image: this.state.previews[0],
+        images: this.state.previews, image2: this.state.previews[1] || null, asClip: next
+      });
+      this.setState({ upload: out, busy: false });
+    }
   }
 
   async ask(q) {
@@ -165,7 +227,15 @@ class Component extends DCLogic {
       escalateText: v.escalate ? 'escalation required' : 'no escalation',
       caseQuality: v.caseQuality || '—',
       alertCount: String(nAlerts),
-      missingCount: String((v.missing || []).length),
+      // On the workup this counts what the CLINICIAN has left blank, which is the number the
+      // note beside it is about. It previously read from the last analysis, so a fresh form
+      // always claimed nothing was missing.
+      missingCount: String(has
+        ? (v.missing || []).length
+        : (boot.vitalKeys || []).filter(k => f.vitals[k.key] === undefined).length
+          + (boot.labKeys || []).filter(k => f.labs[k.key] === undefined).length),
+      error: st.error || '',
+      hasError: !!st.error,
       severityStyle: { background: t.bg, color: t.fg, borderRadius: '999px',
                        padding: '5px 12px', fontSize: '12.5px', fontWeight: 700 },
       severityFg: { color: t.fg, fontSize: '12.5px', letterSpacing: '.11em',
@@ -185,7 +255,17 @@ class Component extends DCLogic {
       onHistory: e => this.setForm({ history: e.target.value }),
       onOrgan: e => this.setForm({ organ: e.target.value }),
       onUpload: e => this.upload(e.target.files),
-      clips: (st.previews || []).map(src => ({ src })),
+      clips: (st.previews || []).map((src, i) => ({ src, n: String(i + 1) })),
+      uploadNote: st.upload ? (st.upload.note || '') : '',
+      uploadCount: st.upload ? String(st.upload.count || 1) : '0',
+      multiUpload: !!(st.upload && st.upload.perImage && st.upload.perImage.length),
+      perImage: ((st.upload || {}).perImage || []).map(p => ({
+        title: 'Study ' + p.index + (p.status === 'ok' ? '' : ' — ' + p.status),
+        rows: p.rows.map(r => ({ label: r.label, caption: r.caption,
+          conf: r.conf.toFixed(2), status: r.detected ? 'Detected' : 'Not detected' })) })),
+      asClip: !!st.asClip,
+      clipToggleLabel: st.asClip ? 'Frames of one clip' : 'Separate studies',
+      onToggleClip: () => this.toggleClip(),
       uploadLabel: st.busy ? 'Reading…'
                  : (st.previews || []).length ? '＋ Replace'
                  : (f.organ === 'Heart' ? '＋ Add ED + ES' : '＋ Add clip'),
@@ -223,17 +303,17 @@ class Component extends DCLogic {
           inputStyle: { border: '1px solid #DEDCF4', borderRadius: '10px',
                         padding: '10px 12px', fontSize: '14.5px', background: '#FCFBFF',
                         width: '100%' },
-          onChange: e => {
-            const x = e.target.value, nv = Object.assign({}, this.state.form.vitals);
-            if (x === '') delete nv[k.key]; else nv[k.key] = parseFloat(x);
-            this.setForm({ vitals: nv });
-          } };
+          onChange: e => this.setNumeric('vitals', k.key, e.target.value) };
       }),
 
       labFields: (boot.labKeys || []).map(k => {
         const val = f.labs[k.key];
+        // Both directions. A pH of 6 is not "normal" because it is under the upper bound --
+        // it is profoundly acidaemic, and showing it as normal beside the number is worse
+        // than showing nothing.
         const flag = val === undefined ? 'not measured'
-          : (k.max !== null && val > k.max ? 'high' : 'normal');
+          : (k.min !== null && k.min !== undefined && val < k.min) ? 'low'
+          : (k.max !== null && k.max !== undefined && val > k.max) ? 'high' : 'normal';
         return { name: k.key, value: val === undefined ? '' : String(val), flag: flag,
           nameStyle: { fontWeight: 600, fontSize: '14px',
                        color: val === undefined ? '#9C99B8' : '#1B1A3A' },
@@ -241,11 +321,7 @@ class Component extends DCLogic {
           inputStyle: { border: '1px solid #DEDCF4', borderRadius: '10px',
                         padding: '9px 12px', fontSize: '14px', background: '#FCFBFF',
                         width: '100%' },
-          onChange: e => {
-            const x = e.target.value, nl = Object.assign({}, this.state.form.labs);
-            if (x === '') delete nl[k.key]; else nl[k.key] = parseFloat(x);
-            this.setForm({ labs: nl });
-          } };
+          onChange: e => this.setNumeric('labs', k.key, e.target.value) };
       }),
 
       // What the module reported, once it has read an image. Before that, the row shows the
@@ -478,6 +554,26 @@ class Component extends DCLogic {
           background: st.recTab === id ? '#5B54D6' : '#fff',
           color: st.recTab === id ? '#fff' : '#6A6785',
           border: '1px solid ' + (st.recTab === id ? '#5B54D6' : '#DEDCF4') } })),
+      // The record screen shows the LIST until a patient is opened.
+      recordList: !st.recordSel,
+      recordOpen: !!st.recordSel,
+      patients: (boot.records || []).map(r => ({
+        name: r.name, age: String(r.age), sex: r.sex, complaint: r.complaint, at: r.at,
+        severity: r.severity, alerts: r.alerts + ' alert(s)', organ: r.organ,
+        encounterId: r.encounterId,
+        findings: (r.findings || []).join(', ') || 'no positive finding',
+        initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
+        onOpen: this.openRecord(r.id),
+        tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
+          fontWeight: 700,
+          background: r.severity === 'HIGH' ? '#FDECEC'
+                    : r.severity === 'MODERATE' ? '#FFF3E0' : '#F0FADB',
+          color: r.severity === 'HIGH' ? '#C13238'
+               : r.severity === 'MODERATE' ? '#9A6207' : '#5A7A0F' } })),
+      noPatients: !(boot.records || []).length,
+      patientCount: String((boot.records || []).length),
+      backToList: () => this.backToList(),
+
       recImages: st.recTab === 'images', recData: st.recTab === 'data',
       recVisits: st.recTab === 'visits', recReports: st.recTab === 'reports'
     };
