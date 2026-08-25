@@ -55,6 +55,10 @@ def _measurement(key: str, question: str) -> bool:
                or question.endswith(f" {w}") for w in words)
 
 
+def has_encounter(a: dict[str, Any]) -> bool:
+    return bool(a) and bool(a.get("state"))
+
+
 def answer(question: str, a: dict[str, Any]) -> str:
     """Answer `question` from the analysis dict produced by the pipeline.
 
@@ -69,6 +73,40 @@ def answer(question: str, a: dict[str, Any]) -> str:
 
     def has(*words: str) -> bool:
         return any(w in q for w in words)
+
+    def word(*tokens: str) -> bool:
+        """Whole-word match. `hi` must not fire on `troponin high`."""
+        return any(f" {t} " in q for t in tokens)
+
+    # ---- conversation, before anything clinical -------------------------------------
+    # A greeting is not a clinical question, and answering one with a refusal about
+    # fabricating clinical opinions reads as a broken assistant. It is also the first thing
+    # anyone types.
+    if word("hi", "hello", "hey", "yo", "salut", "bonjour", "coucou") or \
+            has("good morning", "good afternoon", "good evening"):
+        if not has_encounter(a):
+            return ("Hello. No encounter has been analysed yet, so I have nothing to read from "
+                    "— open Patient workup, enter what you have and analyse the case, and I "
+                    "can answer from it.")
+        d = a["state"].get("demographics") or {}
+        return (f"Hello. I have encounter {rep['encounter_id']}: {d.get('age', '—')} · "
+                f"{d.get('sex', '—')}, "
+                f"{d.get('chief_complaint') or 'no complaint given'}, assessed at "
+                f"{sup['severity']['severity']} severity with {len(sup['alerts'])} alert(s).\n\n"
+                f"Ask me anything about it — a value, what is missing, why the severity is what "
+                f"it is, what the scan saw, or what to do next.")
+
+    # "ok" and "okay" are deliberately NOT here: "is she going to be ok" is a prognosis
+    # question, and treating it as an acknowledgement would skip the boundary below.
+    if word("thanks", "thank", "thx", "merci", "cool", "bye", "goodbye"):
+        return "Noted. Ask whenever you want something from the record."
+
+    if has("who are you", "what are you", "what can you do", "what do you do", "help me",
+           " help ", "capabilities", "how do you work", "what is this"):
+        return ("I am the clinical assistant for this encounter. I do not generate clinical "
+                "prose: I read your question and return what the computed assessment actually "
+                "holds, so every line I give you is quoted from the record rather than "
+                "composed.\n\n" + CAPABILITIES)
 
     # ---- a specific measurement, by any of the names a clinician uses ----------------
     for key in list(LAB_REFERENCE) + list(VITAL_REFERENCE):
@@ -337,7 +375,6 @@ def answer(question: str, a: dict[str, Any]) -> str:
                     + "\n\nThat is what the record holds on it. I have not added anything to "
                       "it.")
 
-    return ("Nothing in this encounter's record bears on that, and I will not compose a "
-            "clinical opinion with no evidence behind it — that is the failure this system is "
-            "built to prevent.\n\n" + CAPABILITIES
-            + "\n\nAsk in those terms and you will get the record, not a guess.")
+    return ("I could not find anything in this encounter's record that bears on that. Rather "
+            "than write something plausible around the gap, here is what I can read out of "
+            "it:\n\n" + CAPABILITIES)

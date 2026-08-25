@@ -258,9 +258,10 @@ input,textarea,select,button{font-family:inherit}
         </sc-for>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px">
-        <div style="position:relative;aspect-ratio:4/3;background:#141824;border-radius:6px;overflow:hidden"><image-slot id="wk-clip-1" shape="rect" placeholder="R2 ant"></image-slot></div>
-        <div style="position:relative;aspect-ratio:4/3;background:#141824;border-radius:6px;overflow:hidden"><image-slot id="wk-clip-2" shape="rect" placeholder="L2 ant"></image-slot></div>
-        <div style="aspect-ratio:4/3;border:1px dashed #DEDCF4;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#9C99B8;font-size:12.5px;text-align:center;padding:8px">＋ Add clip</div>
+        <sc-for list="{{ clips }}" as="c" hint-placeholder-count="2">
+        <div style="position:relative;aspect-ratio:4/3;background:#141824;border-radius:6px;overflow:hidden"><img src="{{ c.src }}" style="width:100%;height:100%;object-fit:cover"></div>
+        </sc-for>
+        <label style="aspect-ratio:4/3;border:1px dashed #DEDCF4;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#5B54D6;font-size:12.5px;text-align:center;padding:8px;cursor:pointer;font-weight:700">{{ uploadLabel }}<input type="file" accept="image/*" multiple onChange="{{ onUpload }}" style="display:none"></label>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <sc-for list="{{ pocusFields }}" as="p" hint-placeholder-count="5">
@@ -480,8 +481,8 @@ input,textarea,select,button{font-family:inherit}
       </div>
     </sc-for>
     <div style="margin-top:26px;border:1px dashed #DEDCF4;border-radius:8px;padding:22px;text-align:center">
-      <div style="font-weight:700;font-size:15px">＋ Add images to this patient</div>
-      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Uploads are stored against the record and stay available at the next visit.</div>
+      <label style="font-weight:700;font-size:15px;cursor:pointer;color:#5B54D6">＋ Add images to this patient<input type="file" accept="image/*" multiple onChange="{{ onUpload }}" style="display:none"></label>
+      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Read by the module now and held for this session only. There is no database behind this screen.</div>
     </div>
   </section>
   </sc-if>
@@ -1149,6 +1150,10 @@ class Component extends DCLogic {
       onHistory: e => this.setForm({ history: e.target.value }),
       onOrgan: e => this.setForm({ organ: e.target.value }),
       onUpload: e => this.upload(e.target.files),
+      clips: (st.previews || []).map(src => ({ src })),
+      uploadLabel: st.busy ? 'Reading…'
+                 : (st.previews || []).length ? '＋ Replace'
+                 : (f.organ === 'Heart' ? '＋ Add ED + ES' : '＋ Add clip'),
 
       // The organs this deployment can actually run, from module_status. The mockup offered
       // FAST, for which no module was ever built; an examination tab with nothing behind it is

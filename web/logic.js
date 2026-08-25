@@ -185,6 +185,10 @@ class Component extends DCLogic {
       onHistory: e => this.setForm({ history: e.target.value }),
       onOrgan: e => this.setForm({ organ: e.target.value }),
       onUpload: e => this.upload(e.target.files),
+      clips: (st.previews || []).map(src => ({ src })),
+      uploadLabel: st.busy ? 'Reading…'
+                 : (st.previews || []).length ? '＋ Replace'
+                 : (f.organ === 'Heart' ? '＋ Add ED + ES' : '＋ Add clip'),
 
       // The organs this deployment can actually run, from module_status. The mockup offered
       // FAST, for which no module was ever built; an examination tab with nothing behind it is

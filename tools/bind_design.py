@@ -142,6 +142,30 @@ def main() -> int:
             '        <button type="button" onClick="{{ o.onClick }}" style="{{ o.style }}">'
             '{{ o.label }}</button>\n        </sc-for>', "organ chips")
 
+    # ---- 5c. the clip slots must accept a real file ---------------------------------
+    # `image-slot` is a Design Canvas drop target that persists to a sidecar; it never reaches
+    # this application, so clicking it did nothing. The two slots become previews of what was
+    # actually uploaded, and the "+ Add clip" tile becomes a real file input that posts to
+    # /api/upload and runs the module. Cardiac takes two frames, so the input accepts multiple.
+    s = cut(s, '<div style="display:grid;grid-template-columns:repeat(auto-fill,'
+               'minmax(112px,1fr));gap:10px">\n'
+               '        <div style="position:relative;aspect-ratio:4/3;background:#141824;'
+               'border-radius:6px;overflow:hidden"><image-slot id="wk-clip-1"',
+            'text-align:center;padding:8px">＋ Add clip</div>',
+            '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));'
+            'gap:10px">\n'
+            '        <sc-for list="{{ clips }}" as="c" hint-placeholder-count="2">\n'
+            '        <div style="position:relative;aspect-ratio:4/3;background:#141824;'
+            'border-radius:6px;overflow:hidden">'
+            '<img src="{{ c.src }}" style="width:100%;height:100%;object-fit:cover"></div>\n'
+            '        </sc-for>\n'
+            '        <label style="aspect-ratio:4/3;border:1px dashed #DEDCF4;border-radius:6px;'
+            'display:flex;align-items:center;justify-content:center;color:#5B54D6;'
+            'font-size:12.5px;text-align:center;padding:8px;cursor:pointer;font-weight:700">'
+            '{{ uploadLabel }}'
+            '<input type="file" accept="image/*" multiple onChange="{{ onUpload }}" '
+            'style="display:none"></label>', "clip upload")
+
     # ---- 6. temperature note is a fact about this encounter -------------------------
     s = re.sub(r"Temperature is empty\. It will be recorded as not measured\.",
                "{{ missingCount }} value(s) left blank. Each is recorded as not measured, "
@@ -207,6 +231,18 @@ def main() -> int:
         s = sub(s, ST.format(k=k, v=val), ST.format(k=nk, v=nv), f"record stat {k}")
     s = re.sub(r"\d+ studies · grouped by visit",
                "session-scoped · closing the app discards it", s)
+
+    # ---- 8b. the record's "add images" tile was decorative too ------------------------
+    s = sub(s, '<div style="font-weight:700;font-size:15px">＋ Add images to this patient</div>\n'
+               '      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Uploads are '
+               'stored against the record and stay available at the next visit.</div>',
+            '<label style="font-weight:700;font-size:15px;cursor:pointer;color:#5B54D6">'
+            '＋ Add images to this patient'
+            '<input type="file" accept="image/*" multiple onChange="{{ onUpload }}" '
+            'style="display:none"></label>\n'
+            '      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Read by the '
+            'module now and held for this session only. There is no database behind this '
+            'screen.</div>', "record upload")
 
     io.open(OUT, "w", encoding="utf8", newline="\n").write(s)
 
