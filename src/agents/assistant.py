@@ -17,6 +17,7 @@ answered differently depending on which front end asked it would be indefensible
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .clinical.clinical_state import LAB_REFERENCE, VITAL_REFERENCE, build_evidence
@@ -102,6 +103,21 @@ def answer(question: str, a: dict[str, Any]) -> str:
                 f"retrieved the system produces nothing rather than drawing on the language "
                 f"model's own training knowledge. It is decision support and does not instruct "
                 f"treatment.")
+
+    if has("prognos", "survive", "going to be ok", "going to be okay", "will she", "will he",
+           "will they", "outcome", "die", "mortality", "chance of", "how likely is he",
+           "how likely is she", "recover"):
+        # A prognosis is a prediction about a patient's future, and nothing in this system
+        # produces one. Every figure it holds describes the record as it stands: what was
+        # measured, what was seen, what is absent, how urgent the fixed rules judge it. Reaching
+        # into the corpus for something adjacent would dress a keyword match as a forecast.
+        return (f"This system does not predict outcomes, and I will not imply one. It was never "
+                f"validated against what happened to any patient — no figure in it describes a "
+                f"future.\n\nWhat it does say about this encounter, now: severity "
+                f"{sup['severity']['severity']}, {len(sup['alerts'])} alert(s), "
+                f"{'escalation required' if esc['escalate'] else 'no escalation'}"
+                + (f", and {len(gone)} value(s) never measured" if gone else "")
+                + ". The clinician makes the prognosis; this is decision support.")
 
     if has("suggest", "recommend", "next", "investigate", "order", "which test", "what test",
            "what should i do", "work up", "workup", "plan"):
@@ -265,7 +281,63 @@ def answer(question: str, a: dict[str, Any]) -> str:
                     + ". Against: " + "; ".join(d.get("contradicting") or ["—"])
                     + ". Limits: " + "; ".join(d.get("limitations") or ["—"]) + ".")
 
-    return ("I could not map that to anything in this encounter's record, and I will not "
-            "compose a clinical opinion that has no evidence behind it — that is the failure "
-            "this system is built to prevent.\n\n" + CAPABILITIES
+    # ---- last resort: match the question against the record itself ---------------------
+    # Rather than refuse on a phrasing the intents above did not anticipate, the words of the
+    # question are matched against the evidence, the alerts, the triggers and the retrieved
+    # passages. If anything in the record bears on what was asked, it is returned. This still
+    # composes nothing -- every line is quoted from the encounter.
+    stop = {"what", "the", "is", "a", "an", "of", "for", "and", "or", "to", "in", "on", "do",
+            "does", "did", "you", "i", "me", "my", "this", "that", "with", "about", "can",
+            "should", "would", "could", "are", "was", "were", "be", "it", "his", "her",
+            "patient", "any", "how", "why", "when", "which", "who", "tell", "show", "give"}
+    words = {w for w in re.findall(r"[a-z]{3,}", q) if w not in stop}
+    if words:
+        pool: list[tuple[int, str]] = []
+        for e in build_evidence(state):
+            hitn = sum(1 for w in words if w in e["text"].lower())
+            if hitn:
+                pool.append((hitn, f"{e['id']} — {e['text']}"))
+        for x in sup["alerts"]:
+            hitn = sum(1 for w in words if w in x["message"].lower())
+            if hitn:
+                pool.append((hitn, f"[{x['severity']}] {x['message']}"))
+        for tg in esc["triggers"]:
+            hitn = sum(1 for w in words if w in tg.lower())
+            if hitn:
+                pool.append((hitn, f"escalation trigger: {tg}"))
+        for x in sup["additional_examinations"]:
+            hitn = sum(1 for w in words if w in (x["exam"] + " " + x["reason"]).lower())
+            if hitn:
+                pool.append((hitn, f"recommended: {x['exam']} ({x['priority']}) — "
+                                   f"{x['reason']}"))
+        for h in hits:
+            hitn = sum(1 for w in words if w in (h["topic"] + " " + h["text"]).lower())
+            if hitn:
+                pool.append((hitn, f"[{h['n']}] {h['topic']} — {h['text']} ({h['source']})"))
+        for x in state["imaging"]["out_of_scope"]:
+            hitn = sum(1 for w in words if w in x.lower())
+            if hitn:
+                pool.append((hitn, f"declared limit: {x}"))
+        gonehit = [g for g in gone if any(w in g.lower() for w in words)]
+        for g in gonehit:
+            pool.append((2, f"{g} was never measured — absent, not normal, and it carries no "
+                            f"evidence identifier"))
+
+        if pool:
+            pool.sort(key=lambda p: -p[0])
+            seen, lines = set(), []
+            for _, text in pool:
+                if text not in seen:
+                    seen.add(text)
+                    lines.append(text)
+                if len(lines) >= 6:
+                    break
+            return ("From this encounter's record, the parts that bear on what you asked:\n\n"
+                    + "\n".join("• " + x for x in lines)
+                    + "\n\nThat is what the record holds on it. I have not added anything to "
+                      "it.")
+
+    return ("Nothing in this encounter's record bears on that, and I will not compose a "
+            "clinical opinion with no evidence behind it — that is the failure this system is "
+            "built to prevent.\n\n" + CAPABILITIES
             + "\n\nAsk in those terms and you will get the record, not a guess.")

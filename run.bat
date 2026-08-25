@@ -1,16 +1,14 @@
 @echo off
-REM Launch the POCUS Copilot application.
+REM Launch POCUS-Emergency. One deployment, one port: http://localhost:8501
 REM
-REM `streamlit run app.py` fails on a standard Anaconda install because Anaconda's Scripts
-REM directory is not on PATH. Worse, `python` on PATH often resolves to the Windows Store stub
-REM at AppData\Local\Microsoft\WindowsApps\python.exe, which does not run anything -- it offers
-REM to install Python from the Store. This script finds a real interpreter instead of relying
-REM on either.
+REM `python serve.py` alone usually fails on this machine for two reasons that look the same:
+REM Anaconda's Scripts directory is not on PATH, and `python` on PATH often resolves to the
+REM Windows Store stub at AppData\Local\Microsoft\WindowsApps\python.exe, which runs nothing
+REM and offers to install Python instead. This script finds a real interpreter.
 
 setlocal
 set "PY="
 
-REM Prefer an interpreter that actually has streamlit installed.
 for %%P in (
   "%USERPROFILE%\anaconda3\python.exe"
   "%USERPROFILE%\miniconda3\python.exe"
@@ -18,24 +16,25 @@ for %%P in (
   "C:\ProgramData\anaconda3\python.exe"
 ) do (
   if not defined PY if exist %%~P (
-    %%~P -c "import streamlit" >nul 2>&1 && set "PY=%%~P"
+    %%~P -c "import fastapi" >nul 2>&1 && set "PY=%%~P"
   )
 )
 
 if not defined PY (
   echo.
-  echo Could not find a Python interpreter with streamlit installed.
-  echo.
-  echo Run it directly with the full path to your interpreter, for example:
-  echo     C:\Users\%USERNAME%\anaconda3\python.exe -m streamlit run app.py
+  echo Could not find a Python interpreter with fastapi installed.
+  echo Run it directly, for example:
+  echo     C:\Users\%USERNAME%\anaconda3\python.exe serve.py
   echo.
   exit /b 1
 )
 
-REM Required on this machine: two OpenMP runtimes are linked into the process (torch and MKL),
-REM and without this the interpreter aborts at import with OMP error #15.
+REM Required here: torch and MKL each link their own OpenMP runtime, and without this the
+REM interpreter aborts at import with OMP error #15.
 set KMP_DUPLICATE_LIB_OK=TRUE
+set PORT=8501
 
 echo Using %PY%
-"%PY%" -m streamlit run "%~dp0app.py" %*
+echo Open http://localhost:%PORT%
+"%PY%" "%~dp0serve.py"
 endlocal

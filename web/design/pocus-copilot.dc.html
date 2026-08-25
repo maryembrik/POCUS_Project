@@ -81,14 +81,14 @@ input,textarea,select,button{font-family:inherit}
 
   <div style="margin-top:auto;background:#EFEEFB;border-radius:16px;padding:16px 18px">
     <div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#8E88E8;font-weight:700">Current patient</div>
-    <div style="margin-top:8px;font-weight:700;font-size:15px">{{ pName }}</div>
-    <div style="font-size:13px;color:#6A6785">{{ pAge }} · {{ pSex }} · {{ pComplaint }}</div>
+    <div style="margin-top:8px;font-weight:700;font-size:15px">Sarah Martin</div>
+    <div style="font-size:13px;color:#6A6785">74 · Female · Acute breathlessness</div>
     <div style="margin-top:12px;display:inline-flex;align-items:center;gap:7px;background:#FDECEC;color:#C13238;border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:700">● High priority</div>
   </div>
 
   <div style="display:flex;align-items:center;gap:11px;padding:0 8px 4px">
     <div style="width:34px;height:34px;border-radius:50%;background:#E4E2F8;display:flex;align-items:center;justify-content:center;font-weight:700;color:#2E2A78;font-size:13px">AR</div>
-    <div style="line-height:1.25"><div style="font-weight:600;font-size:13.5px">Perception modules</div><div style="font-size:12px;color:#8A87A8"><sc-for list="{{ modules }}" as="m" hint-placeholder-count="3"><span>{{ m.dot }} {{ m.organ }} </span></sc-for></div></div>
+    <div style="line-height:1.25"><div style="font-weight:600;font-size:13.5px">Dr. A. Reyes</div><div style="font-size:12px;color:#8A87A8">Emergency Medicine</div></div>
   </div>
 </aside>
 
@@ -114,7 +114,7 @@ input,textarea,select,button{font-family:inherit}
   <section style="background:#5B54D6;border-radius:24px;padding:38px 40px;color:#fff;display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;">
     <div style="max-width:560px">
       <div style="font-size:13px;letter-spacing:.1em;text-transform:uppercase;opacity:.82;font-weight:700">Your clinical copilot</div>
-      <h1 style="margin:12px 0 10px;font-size:36px;line-height:1.12;letter-spacing:-.02em;font-weight:800">{{ pName }}</h1>
+      <h1 style="margin:12px 0 10px;font-size:36px;line-height:1.12;letter-spacing:-.02em;font-weight:800">Good morning, Dr. Reyes</h1>
       <p style="margin:0;font-size:16px;line-height:1.55;opacity:.92;text-wrap:pretty">Start a new clinical assessment using clinical information, vital signs, laboratory results and POCUS findings. The assistant highlights what needs attention and what information is missing.</p>
       <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
         <button type="button" onClick="{{ goWorkup }}" style="appearance:none;border:0;cursor:pointer;background:#fff;color:#2E2A78;font-weight:700;font-size:14.5px;padding:13px 22px;border-radius:12px">+ New patient assessment</button>
@@ -124,10 +124,10 @@ input,textarea,select,button{font-family:inherit}
     <div style="display:flex;flex-direction:column;gap:14px;min-width:280px;align-items:stretch">
       <div class="drift" style="position:relative;height:130px;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.35)"><image-slot id="home-hero" shape="rect" placeholder="Ward or team photo"></image-slot><span style="position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(rgba(46,42,120,.5) 1px,transparent 1.2px);background-size:4px 4px;mix-blend-mode:multiply;opacity:.5"></span></div>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:14px;align-content:start">
-      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ rosterCount }}</div><div style="font-size:12.5px;opacity:.88">Benchmark encounters</div></div>
-      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ sessionCount }}</div><div style="font-size:12.5px;opacity:.88">Analysed this session</div></div>
-      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ criticalCount }}</div><div style="font-size:12.5px;opacity:.88">High priority</div></div>
-      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ testCount }}</div><div style="font-size:12.5px;opacity:.88">Safety tests passing</div></div>
+      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">12</div><div style="font-size:12.5px;opacity:.88">Assessments today</div></div>
+      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">3</div><div style="font-size:12.5px;opacity:.88">Require review</div></div>
+      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">2</div><div style="font-size:12.5px;opacity:.88">Critical alerts</div></div>
+      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">7</div><div style="font-size:12.5px;opacity:.88">Completed</div></div>
       </div>
     </div>
   </section>
@@ -142,7 +142,7 @@ input,textarea,select,button{font-family:inherit}
     <button type="button" onClick="{{ goAssessment }}" style="text-align:left;appearance:none;cursor:pointer;border:1px solid #E4E2F8;background:#fff;border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(46,42,120,.05)" style-hover="border-color:#B9B5EC">
       <span style="width:40px;height:40px;border-radius:12px;background:#EFEEFB;display:flex;align-items:center;justify-content:center;font-size:19px">🧠</span>
       <span style="font-weight:700;font-size:16.5px;margin-top:6px">Review a case</span>
-      <span style="font-size:13.5px;color:#6A6785">Continue the current encounter.</span>
+      <span style="font-size:13.5px;color:#6A6785">Continue the assessment for Sarah Martin.</span>
       <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Open case →</span>
     </button>
     <button type="button" onClick="{{ goAssistant }}" style="text-align:left;appearance:none;cursor:pointer;border:1px solid #E4E2F8;background:#fff;border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(46,42,120,.05)" style-hover="border-color:#B9B5EC">
@@ -171,9 +171,10 @@ input,textarea,select,button{font-family:inherit}
         </tr>
       </thead>
       <tbody>
-        <sc-for list="{{ roster }}" as="r" hint-placeholder-count="5">
-        <tr style="border-top:1px solid #E9E8FB"><td style="padding:14px 0;font-weight:600"><span style="display:flex;align-items:center;gap:11px"><span style="width:30px;height:30px;border-radius:50%;background:#E4E2F8;color:#5B3CC4;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex:0 0 auto">{{ r.initials }}</span>{{ r.name }}</span></td><td style="padding:14px 0">{{ r.age }}</td><td style="padding:14px 0">{{ r.complaint }}</td><td style="padding:14px 0"><span style="{{ r.tagStyle }}">{{ r.tag }}</span></td><td style="padding:14px 0;text-align:right;color:#6A6785">{{ r.alerts }}</td></tr>
-        </sc-for>
+        <tr style="border-top:1px solid #E9E8FB"><td style="padding:14px 0;font-weight:600"><span style="display:flex;align-items:center;gap:11px"><image-slot id="pt-sarah-sm" shape="circle" style="width:30px;height:30px;flex:0 0 auto" placeholder="Photo"></image-slot>Sarah Martin</span></td><td style="padding:14px 0">74</td><td style="padding:14px 0">Acute breathlessness</td><td style="padding:14px 0"><span style="background:#FDECEC;color:#C13238;border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700">Critical</span></td><td style="padding:14px 0;text-align:right;color:#6A6785">09:15</td></tr>
+        <tr style="border-top:1px solid #E9E8FB"><td style="padding:14px 0;font-weight:600"><span style="display:flex;align-items:center;gap:11px"><image-slot id="pt-b-sm" shape="circle" style="width:30px;height:30px;flex:0 0 auto" placeholder="Photo"></image-slot>Patient B</span></td><td style="padding:14px 0">51</td><td style="padding:14px 0">Chest pain</td><td style="padding:14px 0"><span style="background:#FFF3E0;color:#9A6207;border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700">Review</span></td><td style="padding:14px 0;text-align:right;color:#6A6785">08:42</td></tr>
+        <tr style="border-top:1px solid #E9E8FB"><td style="padding:14px 0;font-weight:600"><span style="display:flex;align-items:center;gap:11px"><image-slot id="pt-c-sm" shape="circle" style="width:30px;height:30px;flex:0 0 auto" placeholder="Photo"></image-slot>Patient C</span></td><td style="padding:14px 0">66</td><td style="padding:14px 0">Undifferentiated shock</td><td style="padding:14px 0"><span style="background:#F0FADB;color:#5A7A0F;border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700">Completed</span></td><td style="padding:14px 0;text-align:right;color:#6A6785">Yesterday</td></tr>
+        <tr style="border-top:1px solid #E9E8FB"><td style="padding:14px 0;font-weight:600"><span style="display:flex;align-items:center;gap:11px"><image-slot id="pt-d-sm" shape="circle" style="width:30px;height:30px;flex:0 0 auto" placeholder="Photo"></image-slot>Patient D</span></td><td style="padding:14px 0">44</td><td style="padding:14px 0">Pleuritic chest pain</td><td style="padding:14px 0"><span style="background:#F0FADB;color:#5A7A0F;border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700">Completed</span></td><td style="padding:14px 0;text-align:right;color:#6A6785">Yesterday</td></tr>
       </tbody>
     </table>
   </section>
@@ -209,11 +210,11 @@ input,textarea,select,button{font-family:inherit}
         <image-slot id="wk-photo" shape="circle" style="width:40px;height:40px;flex:0 0 auto" placeholder="Photo"></image-slot>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px">
-        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Name<input value="{{ fName }}" onChange="{{ onName }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"></label>
-        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Age<input value="{{ fAge }}" onChange="{{ onAge }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"></label>
-        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Sex<select onChange="{{ onSex }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"><option>Female</option><option>Male</option></select></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Name<input value="Sarah Martin" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Age<input value="74" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Sex<select style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"><option>Female</option><option>Male</option></select></label>
       </div>
-      <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Chief complaint<input value="{{ fComplaint }}" onChange="{{ onComplaint }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:11px 12px;font-size:15px;font-weight:600;background:#FAFAFE"></label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Chief complaint<input value="Acute breathlessness" style="border:1px solid #DEDCF4;border-radius:8px;padding:11px 12px;font-size:15px;font-weight:600;background:#FAFAFE"></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <span style="background:#E4E2F8;color:#2E2A78;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700">Dyspnea</span>
         <span style="background:#E4E2F8;color:#2E2A78;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700">Fatigue</span>
@@ -221,17 +222,17 @@ input,textarea,select,button{font-family:inherit}
         <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600">+ Chest pain</span>
         <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600">+ Cough</span>
       </div>
-      <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Medical history &amp; medications<textarea onChange="{{ onHistory }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;min-height:64px;resize:vertical;background:#FAFAFE">Hypertension, prior heart failure. On furosemide, ramipril.</textarea></label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Medical history &amp; medications<textarea style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;min-height:64px;resize:vertical;background:#FAFAFE">Hypertension, prior heart failure. On furosemide, ramipril.</textarea></label>
     </section>
 
     <section class="rise-2" style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:24px 26px;display:flex;flex-direction:column;gap:16px">
       <h2 style="margin:0;font-size:16.5px;font-weight:800">2 · Vital signs</h2>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px">
         <sc-for list="{{ vitalFields }}" as="v" hint-placeholder-count="6">
-          <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">{{ v.label }}<input value="{{ v.value }}" onChange="{{ v.onChange }}" placeholder="{{ v.unit }}" style="{{ v.inputStyle }}"><span style="{{ v.flagStyle }}">{{ v.flag }}</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">{{ v.label }}<input value="{{ v.value }}" placeholder="{{ v.unit }}" style="{{ v.inputStyle }}"><span style="{{ v.flagStyle }}">{{ v.flag }}</span></label>
         </sc-for>
       </div>
-      <div style="background:#FFF8EC;border:1px solid #F7DFB4;border-radius:10px;padding:13px 15px;font-size:13.5px;color:#7A5A16">{{ missingCount }} value(s) left blank. Each is recorded as not measured, never as normal.</div>
+      <div style="background:#FFF8EC;border:1px solid #F7DFB4;border-radius:10px;padding:13px 15px;font-size:13.5px;color:#7A5A16">Temperature is empty. It will be recorded as not measured.</div>
     </section>
 
     <section class="rise-3" style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:24px 26px;display:flex;flex-direction:column;gap:16px">
@@ -243,7 +244,7 @@ input,textarea,select,button{font-family:inherit}
         <sc-for list="{{ labFields }}" as="l" hint-placeholder-count="5">
           <div style="display:grid;grid-template-columns:1fr 108px 92px;gap:11px;align-items:center">
             <span style="{{ l.nameStyle }}">{{ l.name }}</span>
-            <input value="{{ l.value }}" onChange="{{ l.onChange }}" placeholder="—" style="{{ l.inputStyle }}">
+            <input value="{{ l.value }}" placeholder="—" style="{{ l.inputStyle }}">
             <span style="{{ l.flagStyle }}">{{ l.flag }}</span>
           </div>
         </sc-for>
@@ -253,9 +254,9 @@ input,textarea,select,button{font-family:inherit}
     <section class="rise-4" style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:24px 26px;display:flex;flex-direction:column;gap:16px">
       <h2 style="margin:0;font-size:16.5px;font-weight:800">4 · POCUS</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <sc-for list="{{ organChips }}" as="o" hint-placeholder-count="3">
-        <button type="button" onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
-        </sc-for>
+        <span style="background:#5B54D6;color:#fff;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700">Lung</span>
+        <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:600">Cardiac</span>
+        <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:600">FAST</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px">
         <div style="position:relative;aspect-ratio:4/3;background:#141824;border-radius:6px;overflow:hidden"><image-slot id="wk-clip-1" shape="rect" placeholder="R2 ant"></image-slot></div>
@@ -365,7 +366,7 @@ input,textarea,select,button{font-family:inherit}
 <div style="display:flex;flex-direction:column;gap:20px">
   <section class="rise" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
     <div style="background:#5B54D6;border-radius:10px;padding:30px 34px;color:#fff;position:relative;overflow:hidden">
-      <h1 style="margin:0;font-size:29px;font-weight:800;letter-spacing:-.02em;position:relative">{{ pName }}</h1>
+      <h1 style="margin:0;font-size:29px;font-weight:800;letter-spacing:-.02em;position:relative">Good morning, Dr. Reyes</h1>
       <p style="margin:10px 0 0;font-size:15px;opacity:.9;position:relative">You have 12 incomplete clinical tasks today</p>
       <div style="margin-top:22px;display:flex;gap:26px;flex-wrap:wrap;font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;position:relative">
         <span>✦ 23 suggestions</span><span>⚠ 8 anomalies</span>
@@ -373,8 +374,8 @@ input,textarea,select,button{font-family:inherit}
       <div class="drift" style="position:absolute;right:22px;top:22px;bottom:22px;width:170px"><image-slot id="dx-illus" shape="rounded" radius="14" placeholder="Illustration"></image-slot></div>
     </div>
     <div style="background:#C6F24E;border-radius:10px;padding:26px 30px;color:#1B1A3A">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px"><span style="font-weight:700;font-size:15.5px">▤ Evidence cited</span><span style="opacity:.7">⋮</span></div>
-      <div style="margin-top:24px;display:flex;align-items:baseline;gap:9px"><span style="font-size:36px;font-weight:800;letter-spacing:-.03em">{{ alertCount }}</span><span style="font-size:14px;opacity:.9">alerts raised</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px"><span style="font-weight:700;font-size:15.5px">▤ Clinical assistant</span><span style="opacity:.7">⋮</span></div>
+      <div style="margin-top:24px;display:flex;align-items:baseline;gap:9px"><span style="font-size:36px;font-weight:800;letter-spacing:-.03em">7,198</span><span style="font-size:14px;opacity:.9">conversations</span></div>
       <div style="margin-top:18px;display:flex;gap:7px"><span style="flex:5;height:6px;background:#2E2A78;border-radius:3px"></span><span style="flex:1;height:6px;background:rgba(46,42,120,.28);border-radius:3px"></span><span style="flex:1;height:6px;background:rgba(46,42,120,.28);border-radius:3px"></span></div>
     </div>
   </section>
@@ -439,15 +440,15 @@ input,textarea,select,button{font-family:inherit}
     <div style="display:flex;gap:18px;align-items:center">
       <image-slot id="pt-sarah" shape="circle" style="width:62px;height:62px;flex:0 0 auto" placeholder="Patient photo"></image-slot>
       <div>
-        <h1 style="margin:0;font-size:27px;font-weight:800;letter-spacing:-.02em">{{ pName }}</h1>
-        <div style="margin-top:5px;font-size:14px;color:#6A6785">{{ pAge }} · {{ pSex }} · {{ pComplaint }} · session-scoped, no database</div>
+        <h1 style="margin:0;font-size:27px;font-weight:800;letter-spacing:-.02em">Sarah Martin</h1>
+        <div style="margin-top:5px;font-size:14px;color:#6A6785">74 · Female · MRN 4471-882 · Bed 4</div>
       </div>
     </div>
     <div style="display:flex;gap:28px;flex-wrap:wrap;font-size:13.5px">
-      <div><div style="color:#6A6785">Encounters</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ sessionCount }}</div></div>
-      <div><div style="color:#6A6785">Benchmark</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ rosterCount }}</div></div>
-      <div><div style="color:#6A6785">Alerts</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ alertCount }}</div></div>
-      <div><div style="color:#6A6785">Severity</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ severity }}</div></div>
+      <div><div style="color:#6A6785">Visits</div><div style="font-weight:800;font-size:18px;margin-top:3px">4</div></div>
+      <div><div style="color:#6A6785">POCUS studies</div><div style="font-weight:800;font-size:18px;margin-top:3px">7</div></div>
+      <div><div style="color:#6A6785">Reports</div><div style="font-weight:800;font-size:18px;margin-top:3px">3</div></div>
+      <div><div style="color:#6A6785">Last seen</div><div style="font-weight:800;font-size:18px;margin-top:3px">Today</div></div>
     </div>
   </section>
 
@@ -461,7 +462,7 @@ input,textarea,select,button{font-family:inherit}
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:20px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:18px;font-weight:800">Stored POCUS images</h2>
-      <span style="font-size:13.5px;color:#6A6785">session-scoped · closing the app discards it</span>
+      <span style="font-size:13.5px;color:#6A6785">7 studies · grouped by visit</span>
     </div>
     <sc-for list="{{ visits }}" as="v" hint-placeholder-count="3">
       <div style="margin-top:26px">
@@ -558,7 +559,7 @@ input,textarea,select,button{font-family:inherit}
   <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
     <div>
       <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Clinical assessment</h1>
-      <p style="margin:0;color:#6A6785;font-size:15.5px">{{ pName }} · {{ pAge }} · {{ pSex }} · {{ pComplaint }}</p>
+      <p style="margin:0;color:#6A6785;font-size:15.5px">Sarah Martin · 74 · Female · Acute breathlessness</p>
     </div>
     <button type="button" onClick="{{ goReport }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:14.5px;padding:12px 22px;border-radius:12px;">Generate clinical report</button>
   </div>
@@ -774,7 +775,7 @@ input,textarea,select,button{font-family:inherit}
 <div style="display:flex;flex-direction:column;gap:24px;max-width:900px">
   <div>
     <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Patient clinical timeline</h1>
-    <p style="margin:0;color:#6A6785;font-size:15.5px">{{ pName }} · encounter {{ pId }}</p>
+    <p style="margin:0;color:#6A6785;font-size:15.5px">Sarah Martin · today</p>
   </div>
 
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:20px;padding:30px 34px;box-shadow:0 4px 14px rgba(46,42,120,.05)">
@@ -825,7 +826,7 @@ input,textarea,select,button{font-family:inherit}
         <div style="font-weight:800;font-size:20px">Clinical assessment</div>
         <div style="font-size:13.5px;color:#6A6785;margin-top:4px">Emergency Department · 24 Aug 2026, 09:20</div>
       </div>
-      <div style="text-align:right;font-size:13.5px;color:#6A6785">{{ pName }} · {{ pAge }} · {{ pSex }}<br>Encounter {{ pId }}</div>
+      <div style="text-align:right;font-size:13.5px;color:#6A6785">Sarah Martin · 74 · Female<br>Attending: Dr. A. Reyes</div>
     </header>
 
     <section style="margin-top:26px">
@@ -902,14 +903,30 @@ input,textarea,select,button{font-family:inherit}
   </div>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(288px,1fr));gap:18px">
-    <sc-for list="{{ roster }}" as="r" hint-placeholder-count="5">
-    <button type="button" onClick="{{ r.onOpen }}" style="text-align:left;appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 20px rgba(91,60,196,.05)">
-      <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
-      <span style="display:flex;align-items:center;gap:12px;margin-top:6px"><span style="width:38px;height:38px;border-radius:50%;background:#E4E2F8;color:#5B3CC4;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:0 0 auto">{{ r.initials }}</span><span style="font-weight:800;font-size:17px">{{ r.name }} · {{ r.age }}{{ r.sex }}</span></span>
-      <span style="font-size:14px;color:#6A6785">{{ r.complaint }}</span>
-      <span style="font-size:13px;color:#8A87A8;margin-top:6px">{{ r.severity }} · {{ r.alerts }}</span>
+    <button type="button" onClick="{{ goRecord }}" style="text-align:left;appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;border-top:4px solid #E5484D;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(46,42,120,.05)" style-hover="border-color:#B9B5EC">
+      <span style="background:#FDECEC;color:#C13238;border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700;align-self:flex-start">Critical</span>
+      <span style="display:flex;align-items:center;gap:12px;margin-top:6px"><image-slot id="pt-sarah-hist" shape="circle" style="width:38px;height:38px;flex:0 0 auto" placeholder="Photo"></image-slot><span style="font-weight:800;font-size:17px">Sarah Martin · 74F</span></span>
+      <span style="font-size:14px;color:#6A6785">Acute breathlessness</span>
+      <span style="font-size:13px;color:#8A87A8;margin-top:6px">Today · 09:15</span>
     </button>
-    </sc-for>
+    <div style="background:#fff;border:1px solid #E4E2F8;border-top:4px solid #F5A623;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:8px">
+      <span style="background:#FFF3E0;color:#9A6207;border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700;align-self:flex-start">Review required</span>
+      <span style="display:flex;align-items:center;gap:12px;margin-top:6px"><image-slot id="pt-b-hist" shape="circle" style="width:38px;height:38px;flex:0 0 auto" placeholder="Photo"></image-slot><span style="font-weight:800;font-size:17px">Patient B · 62M</span></span>
+      <span style="font-size:14px;color:#6A6785">Undifferentiated shock</span>
+      <span style="font-size:13px;color:#8A87A8;margin-top:6px">Yesterday · 16:32</span>
+    </div>
+    <div style="background:#fff;border:1px solid #E4E2F8;border-top:4px solid #22A06B;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:8px">
+      <span style="background:#F0FADB;color:#5A7A0F;border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700;align-self:flex-start">Completed</span>
+      <span style="display:flex;align-items:center;gap:12px;margin-top:6px"><image-slot id="pt-c-hist" shape="circle" style="width:38px;height:38px;flex:0 0 auto" placeholder="Photo"></image-slot><span style="font-weight:800;font-size:17px">Patient C · 44F</span></span>
+      <span style="font-size:14px;color:#6A6785">Chest pain</span>
+      <span style="font-size:13px;color:#8A87A8;margin-top:6px">Yesterday · 13:08</span>
+    </div>
+    <div style="background:#fff;border:1px solid #E4E2F8;border-top:4px solid #22A06B;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:8px">
+      <span style="background:#F0FADB;color:#5A7A0F;border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700;align-self:flex-start">Completed</span>
+      <span style="display:flex;align-items:center;gap:12px;margin-top:6px"><image-slot id="pt-d-hist" shape="circle" style="width:38px;height:38px;flex:0 0 auto" placeholder="Photo"></image-slot><span style="font-weight:800;font-size:17px">Patient D · 51M</span></span>
+      <span style="font-size:14px;color:#6A6785">Pleuritic chest pain</span>
+      <span style="font-size:13px;color:#8A87A8;margin-top:6px">22 Aug · 11:44</span>
+    </div>
   </div>
 </div>
 </sc-if>
@@ -924,7 +941,7 @@ input,textarea,select,button{font-family:inherit}
       <span style="width:34px;height:34px;border-radius:10px;background:#C6F24E;color:#1B1A3A;display:flex;align-items:center;justify-content:center;font-size:16px">✦</span>
       <div style="line-height:1.35;min-width:0">
         <div style="font-weight:800;font-size:14.5px;white-space:nowrap">Clinical assistant</div>
-        <div style="font-size:12px;opacity:.78">{{ pName }} · {{ pAge }}{{ pSex }}</div>
+        <div style="font-size:12px;opacity:.78">Sarah Martin · 74F</div>
       </div>
     </div>
     <div style="display:flex;gap:6px;align-items:center">
@@ -962,492 +979,406 @@ input,textarea,select,button{font-family:inherit}
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{}">
-// Replaces the mockup's constants. Everything clinical comes from /api/*; only nav labels and
-// empty-state copy live here, because those are interface chrome rather than patient data.
 const SCREENS = [
   { id: 'home', label: 'Home', icon: '⌂' },
-  { id: 'workup', label: 'Patient workup', icon: '✎' },
+  { id: 'workup', label: 'Patient workup', icon: '＋' },
   { id: 'diagnosis', label: 'Diagnosis', icon: '✳' },
   { id: 'record', label: 'Patient record', icon: '▣' },
   { id: 'assessment', label: 'Assessment', icon: '✦', badge: 'AI' },
-  { id: 'alerts', label: 'Alerts', icon: '⚠' },
+  { id: 'alerts', label: 'Alerts', icon: '⚠', badge: '3' },
   { id: 'assistant', label: 'Clinical assistant', icon: '✧' },
   { id: 'timeline', label: 'Timeline', icon: '◷' },
   { id: 'report', label: 'Report', icon: '▤' },
   { id: 'history', label: 'History', icon: '⟲' }
 ];
 
-// Screens that read a computed encounter. Without one they have nothing to show, so the nav
-// marks them rather than letting a click land on an empty page and read as a broken button.
-const NEEDS = ['diagnosis', 'assessment', 'alerts', 'assistant', 'timeline', 'report'];
+const ANSWERS = {
+  support: "The strongest supporting findings are the detected B-lines on lung ultrasound, an elevated BNP, reduced oxygen saturation, tachycardia and tachypnea. Together these make pulmonary edema a leading consideration. This does not establish a definitive diagnosis.",
+  missing: "Several investigations have not been performed, including D-dimer, creatinine and temperature. Their absence should be read as unavailable information, not as normal results.",
+  pe: "Tachycardia and tachypnea support considering pulmonary embolism. The ultrasound findings give stronger support to another pulmonary process, and the information available is not sufficient to exclude PE.",
+  why: "Pulmonary edema is currently ranked first mainly because B-lines on lung ultrasound appear together with hypoxemia, tachycardia, tachypnea and a raised BNP. The available information is incomplete, so the assessment remains uncertain — several investigations that could distinguish between causes have not been obtained.",
+  challenge: "Reassessing with only the available clinical information: an infective cause is less supported without a temperature or consolidation, but cannot be dismissed. A cardiac injury is plausible given the raised troponin. A D-dimer result or a documented temperature would be most likely to change the ranking.",
+  blines: "B-lines in the bilateral anterior zones usually indicate fluid in the lung interstitium. In this patient, alongside a raised BNP and low oxygen saturation, they point towards a cardiogenic cause. They are not specific, and this examination cannot establish that the lungs are normal.",
+  summary: "74-year-old female with three hours of breathlessness. SpO₂ 88%, heart rate 122, respiratory rate 28, blood pressure 104/68. Lung ultrasound shows B-lines. BNP, troponin and lactate are elevated; D-dimer, creatinine and temperature are unavailable. Leading consideration is pulmonary edema at moderate likelihood, with pulmonary embolism not excluded.",
+  next: "Consider obtaining the missing high-priority investigations — D-dimer and creatinine — and reassessing the respiratory status. A documented temperature would also help weigh an infective cause.",
+  fallback: "Based on the information recorded for this patient, the findings that carry most weight are the B-lines, the reduced oxygen saturation and the raised BNP. Several investigations are still unavailable, so the assessment remains uncertain and warrants your review."
+};
 
 const SUGGESTIONS = [
-  'What findings support the leading entry?',
-  'What information is missing?',
-  'What did POCUS actually see?',
-  'Summarise this patient.',
-  'What should I investigate next?',
-  'Challenge this assessment.'
+  ['What findings support pulmonary edema?', 'support'],
+  ['What information is missing?', 'missing'],
+  ['Why is PE still in the differential?', 'pe'],
+  ['Summarize this patient.', 'summary'],
+  ['What should I investigate next?', 'next']
 ];
 
-const post = (u, b) => fetch(u, { method: 'POST',
-  headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
-  .then(r => r.json());
-const get = u => fetch(u).then(r => r.json());
+const TIMELINE = [
+  ['09:02', 'Patient registered', 'Self-presenting, Bed 4', false],
+  ['09:07', 'Clinical information entered', 'Age, sex, chief complaint, symptoms', false],
+  ['09:11', 'Vital signs recorded', 'SpO₂ 88%, HR 122, RR 28, BP 104/68', false],
+  ['09:13', 'Laboratory results added', 'BNP 890, lactate 2.6', false],
+  ['09:14', 'POCUS examination uploaded', 'Lung — 2 clips, 6 zones', false],
+  ['09:15', 'Clinical assessment generated', 'High priority · pulmonary edema leading', true],
+  ['09:17', 'Alerts raised', 'Oxygenation compromised · missing investigations', false],
+  ['09:19', 'Troponin result added', '62 ng/L — high', false],
+  ['09:20', 'Assessment updated', 'Acute cardiac injury added to the differential', true]
+];
+
+const BARS = [
+  ['Pulmonary\nedema', 62, 22],
+  ['Pulmonary\nembolism', 34, 41],
+  ['Pneumonia', 21, 58],
+  ['Pneumothorax', 12, 30],
+  ['Cardiac\ninjury', 38, 34],
+  ['COPD\nexacerbation', 18, 62],
+  ['Anemia', 9, 71],
+  ['Sepsis', 15, 66]
+];
+
+const SATS = [96,95,94,96,93,92,94, 92,91,93,90,91,89,90, 90,89,88,89,88,87,88, 88,88,87,88,88,88,88];
+
+const VISITS = [
+  {
+    date: '24 Aug 2026', reason: 'Acute breathlessness',
+    meta: 'Lung POCUS · 3 clips', tag: 'Critical', outcome: 'Pulmonary edema leading · under review',
+    images: [
+      { zone: 'Lung · R2 anterior', finding: 'B-lines detected', time: '09:14' },
+      { zone: 'Lung · L2 anterior', finding: 'B-lines detected', time: '09:14' },
+      { zone: 'Lung · R4 lateral', finding: 'No effusion', time: '09:15' }
+    ]
+  },
+  {
+    date: '12 Jun 2026', reason: 'Exertional breathlessness',
+    meta: 'Lung + cardiac POCUS · 2 clips', tag: 'Completed', outcome: 'Discharged with cardiology follow-up',
+    images: [
+      { zone: 'Lung · R2 anterior', finding: 'Scattered B-lines', time: '14:02' },
+      { zone: 'Cardiac · subxiphoid', finding: 'No effusion', time: '14:06' }
+    ]
+  },
+  {
+    date: '3 Mar 2026', reason: 'Ankle swelling',
+    meta: 'Lung POCUS · 2 clips', tag: 'Completed', outcome: 'Routine review, no acute finding',
+    images: [
+      { zone: 'Lung · R2 anterior', finding: 'No B-lines', time: '10:28' },
+      { zone: 'Lung · L2 anterior', finding: 'No B-lines', time: '10:29' }
+    ]
+  },
+  {
+    date: '18 Jan 2026', reason: 'Routine review',
+    meta: 'No imaging', tag: 'Completed', outcome: 'Baseline observations recorded',
+    images: []
+  }
+];
+
+const DATA_ROWS = [
+  ['SpO₂', '88% — low', true, '94%', '97%', '98%'],
+  ['Heart rate', '122 bpm — high', true, '96 bpm', '84 bpm', '78 bpm'],
+  ['Respiratory rate', '28/min — high', true, '20/min', '17/min', '16/min'],
+  ['Blood pressure', '104/68', false, '132/84', '128/80', '126/78'],
+  ['Temperature', 'Not measured', false, '36.8 °C', '36.6 °C', '36.7 °C'],
+  ['BNP', '890 pg/mL — high', true, '210 pg/mL', '', ''],
+  ['Troponin', '62 ng/L — high', true, '', '', ''],
+  ['Lactate', '2.6 mmol/L — high', true, '', '', ''],
+  ['D-dimer', 'Not measured', false, '', '', ''],
+  ['POCUS — B-lines', 'Detected', true, 'Scattered', 'None', '']
+];
+
+const ANALYZE_STEPS = [
+  'Reading history and symptoms',
+  'Checking vital signs against thresholds',
+  'Reading laboratory results',
+  'Reading POCUS findings',
+  'Ranking possibilities and flagging gaps'
+];
+
+const VITALS = [
+  ['Heart rate', '122', 'bpm', 'High'],
+  ['SpO₂', '88', '%', 'Low'],
+  ['Respiratory rate', '28', '/min', 'High'],
+  ['Blood pressure', '104/68', 'mmHg', 'Normal'],
+  ['Temperature', '', '°C', ''],
+  ['Weight', '78', 'kg', '']
+];
+
+const LABS = [
+  ['BNP', '890 pg/mL', 'High'],
+  ['Troponin', '62 ng/L', 'High'],
+  ['Lactate', '2.6 mmol/L', 'High'],
+  ['D-dimer', '', ''],
+  ['Creatinine', '', '']
+];
+
+const POCUS_FIELDS = [
+  ['B-lines', 'Detected'],
+  ['Pleural effusion', 'Not detected'],
+  ['Consolidation', 'Not detected'],
+  ['Pleural thickening', 'Not detected'],
+  ['Pneumothorax', 'Not assessed']
+];
+
+const RANKED = [
+  ['01', 'Pulmonary edema', 'Most likely', 62,
+    'B-lines bilaterally, SpO₂ 88%, HR 122, RR 28, BNP elevated',
+    'Key investigations unavailable; the scan cannot establish normality'],
+  ['02', 'Acute cardiac injury', 'Possible', 38,
+    'Troponin elevated at 62 ng/L alongside the respiratory picture',
+    'No ECG recorded; a single troponin cannot show a trend'],
+  ['03', 'Pulmonary embolism', 'Not excluded', 34,
+    'Tachycardia and tachypnea are compatible',
+    'D-dimer not measured; nothing available can exclude it'],
+  ['04', 'Pneumothorax', 'Cannot be excluded', 12,
+    'Would explain the hypoxemia',
+    'The current examination does not assess this condition']
+];
+
+const REC_TABS = [
+  ['images', 'POCUS images'],
+  ['data', 'Measurements'],
+  ['visits', 'Visits'],
+  ['reports', 'Reports']
+];
 
 class Component extends DCLogic {
   state = {
-    screen: 'home', recTab: 'images', draft: '', busy: false, grown: false, fabOpen: false,
-    boot: null, view: null, preset: '', upload: null, previews: [],
-    form: { name: '', age: 60, sex: 'F', complaint: '', history: '', tier: 'medium',
-            tconf: 0.8, organ: 'Lung', vitals: {}, labs: {}, findings: {} },
-    messages: [{ role: 'a', text: 'Ask me anything about this encounter. I answer from the '
-      + 'computed assessment — the clinical state, the escalation triggers, the alerts, the '
-      + 'evidence and the differential as validated.' }]
+    screen: 'home',
+    recTab: 'images',
+    fabOpen: false,
+    fabSeen: false,
+    phase: 'idle',
+    stepsDone: 0,
+    draft: '',
+    messages: [
+      { role: 'a', text: "I reviewed Sarah Martin's clinical information. What would you like to know about this patient?" }
+    ]
   };
 
   componentDidMount() {
-    this.load();
     requestAnimationFrame(() => requestAnimationFrame(() => this.setState({ grown: true })));
   }
 
-  async load() {
-    const [boot, view] = await Promise.all([get('/api/bootstrap'), get('/api/view')]);
-    this.setState({ boot, view });
+  go(id) { return () => this.setState({ screen: id }); }
+
+  componentWillUnmount() { (this.timers || []).forEach(clearTimeout); }
+
+  analyze() {
+    (this.timers || []).forEach(clearTimeout);
+    this.timers = [];
+    this.setState({ phase: 'running', stepsDone: 0 });
+    const total = ANALYZE_STEPS.length;
+    for (let i = 1; i <= total; i++) {
+      this.timers.push(setTimeout(() => this.setState({ stepsDone: i }), i * 480));
+    }
+    this.timers.push(setTimeout(() => this.setState({ phase: 'done' }), total * 480 + 320));
   }
 
-  go(id) { return () => this.setState({ screen: id, fabOpen: false }); }
-  setForm(p) { this.setState(s => ({ form: Object.assign({}, s.form, p) })); }
-
-  async analyse() {
-    this.setState({ busy: true });
-    const body = Object.assign({}, this.state.form, {
-      preset: this.state.preset || null,
-      reportJson: this.state.upload ? this.state.upload.report : null
-    });
-    const view = await post('/api/analyse', body);
-    const boot = await get('/api/bootstrap');
-    this.setState({ view, boot, busy: false, screen: 'assessment',
-                    messages: this.state.messages.slice(0, 1) });
-  }
-
-  async loadPreset(key) {
-    // Analysed server-side as the CANONICAL record. Posting a partial form produced an
-    // encounter with one citable fact and thirteen absent values — a different record from the
-    // scenario it was named after, whose recorded differential was then correctly refused.
-    this.setState({ busy: true });
-    const view = await get('/api/preset?key=' + encodeURIComponent(key));
-    const boot = await get('/api/bootstrap');
-    this.setState({ preset: key, view, boot, busy: false, screen: 'assessment',
-                    messages: this.state.messages.slice(0, 1) });
-  }
-
-  async upload(files) {
-    if (!files || !files.length) return;
-    const reads = [].slice.call(files).slice(0, 2).map(f => new Promise(res => {
-      const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f);
+  push(q, key) {
+    this.setState(s => ({
+      screen: s.fabOpen ? s.screen : 'assistant',
+      draft: '',
+      messages: s.messages.concat([{ role: 'd', text: q }, { role: 'a', text: ANSWERS[key] || ANSWERS.fallback }])
     }));
-    const imgs = await Promise.all(reads);
-    this.setState({ busy: true, previews: imgs });
-    const out = await post('/api/upload', { organ: this.state.form.organ, image: imgs[0],
-                                            image2: imgs[1] || null });
-    this.setState({ upload: out, busy: false });
   }
 
-  async ask(q) {
-    const text = (q || '').trim();
-    if (!text) return;
-    this.setState(s => ({ draft: '', busy: true,
-                          messages: s.messages.concat([{ role: 'd', text }]) }));
-    const out = await post('/api/ask', { question: text });
-    this.setState(s => ({ busy: false,
-                          messages: s.messages.concat([{ role: 'a', text: out.answer }]) }));
-  }
-
-  navStyle(id, off) {
+  navStyle(id) {
     const on = this.state.screen === id;
-    return { appearance: 'none', border: 0, cursor: off ? 'not-allowed' : 'pointer',
-      textAlign: 'left', width: '100%', display: 'flex', alignItems: 'center',
-      justifyContent: 'space-between', gap: '10px', padding: '12px 16px', borderRadius: '8px',
+    return {
+      appearance: 'none', border: 0, cursor: 'pointer', textAlign: 'left', width: '100%',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+      padding: '12px 16px', borderRadius: '8px',
       background: on ? '#E9E8FB' : 'transparent',
-      color: on ? '#2E2A78' : (off ? '#B9B5EC' : '#6A6785'),
+      color: on ? '#2E2A78' : '#6A6785',
       fontWeight: on ? 700 : 500, fontSize: '14.5px',
-      boxShadow: on ? 'inset 3px 0 0 #5B54D6' : 'none', opacity: off ? 0.55 : 1 };
-  }
-
-  flagStyle(flag) {
-    const bad = flag && flag !== 'normal' && flag !== '';
-    return { fontSize: '12px', fontWeight: 700,
-             color: !flag ? '#9C99B8' : bad ? '#C13238' : '#5A7A0F' };
+      boxShadow: on ? 'inset 3px 0 0 #5B54D6' : 'none'
+    };
   }
 
   renderVals() {
-    const st = this.state, v = st.view || {}, boot = st.boot || {};
-    const has = !!v.hasEncounter;
-    const sev = v.severity || '—';
-    const t = sev === 'HIGH' ? { bg: '#FDECEC', fg: '#C13238' }
-            : sev === 'MODERATE' ? { bg: '#FFF3E0', fg: '#9A6207' }
-            : { bg: '#F0FADB', fg: '#5A7A0F' };
-    const nAlerts = (v.alerts || []).length;
-    const f = st.form;
-
-    // How much of the workup has been filled — a real count, not a fixed "3 of 5".
-    const filled = [
-      !!(f.name || f.complaint), Object.keys(f.vitals).length > 0,
-      Object.keys(f.labs).length > 0,
-      !!st.upload || Object.keys(f.findings).length > 0, has
-    ].filter(Boolean).length;
-
-    const out = {
-      ready: !!st.boot, busy: st.busy, hasEncounter: has, noEncounter: !has,
-      analyzing: st.busy, analyzed: has,
-      analyzeLabel: st.busy ? 'Analyzing…' : (has ? 'Re-analyze patient' : 'Analyze patient'),
-      filledCount: String(filled),
-      onAnalyze: () => this.analyse(),
-      emptyMessage: v.message || 'No encounter has been analysed yet.',
-
-      nav: SCREENS.map(s => {
-        const off = NEEDS.indexOf(s.id) >= 0 && !has;
-        const badge = s.id === 'alerts' && has && nAlerts ? String(nAlerts) : (s.badge || '');
-        return { label: s.label, icon: s.icon, badge: badge,
-          style: this.navStyle(s.id, off), onClick: off ? (() => {}) : this.go(s.id),
-          badgeStyle: badge ? { background: s.id === 'alerts' ? '#FDECEC' : '#E4E2F8',
-            color: s.id === 'alerts' ? '#C13238' : '#5B3CC4', borderRadius: '999px',
-            padding: '3px 9px', fontSize: '11.5px', fontWeight: 700 } : { display: 'none' } };
-      }),
-
-      // ---- patient ---------------------------------------------------------------
-      pName: (v.patient || {}).name || 'No patient',
-      pAge: (v.patient || {}).age || '—',
-      pSex: (v.patient || {}).sex || '',
-      pComplaint: (v.patient || {}).complaint || '—',
-      pOrgan: (v.patient || {}).organ || '—',
-      pId: (v.patient || {}).id || '—',
-      severity: sev, scenario: v.scenario || '—',
-      thresholdsVersion: v.thresholdsVersion || '—',
-      conclusion: v.conclusion || '',
-      escalateText: v.escalate ? 'escalation required' : 'no escalation',
-      caseQuality: v.caseQuality || '—',
-      alertCount: String(nAlerts),
-      missingCount: String((v.missing || []).length),
-      severityStyle: { background: t.bg, color: t.fg, borderRadius: '999px',
-                       padding: '5px 12px', fontSize: '12.5px', fontWeight: 700 },
-      severityFg: { color: t.fg, fontSize: '12.5px', letterSpacing: '.11em',
-                    textTransform: 'uppercase', fontWeight: 800 },
-      triggers: (v.triggers || []).map(x => ({ text: x })),
-      missing: (v.missing || []).map(m => ({ name: m })),
-      outOfScope: (v.outOfScope || []).map(x => ({ text: x })),
-      notAssessed: (v.notAssessed || []).map(o => ({ organ: o })),
-
-      // ---- workup: the form fields the design lays out ---------------------------
-      fName: f.name, fAge: String(f.age), fSex: f.sex, fComplaint: f.complaint,
-      fHistory: f.history, fOrgan: f.organ,
-      onName: e => this.setForm({ name: e.target.value }),
-      onAge: e => this.setForm({ age: parseInt(e.target.value || '0', 10) || 0 }),
-      onSex: e => this.setForm({ sex: e.target.value === 'Male' ? 'M' : 'F' }),
-      onComplaint: e => this.setForm({ complaint: e.target.value }),
-      onHistory: e => this.setForm({ history: e.target.value }),
-      onOrgan: e => this.setForm({ organ: e.target.value }),
-      onUpload: e => this.upload(e.target.files),
-
-      // The organs this deployment can actually run, from module_status. The mockup offered
-      // FAST, for which no module was ever built; an examination tab with nothing behind it is
-      // a claim that cannot be backed. A module whose weights are missing is shown, but
-      // disabled and labelled, because that is a different fact from the organ not existing.
-      organChips: Object.keys(boot.modules || {}).map(k => {
-        const m = boot.modules[k];
-        const on = f.organ.toLowerCase() === k;
-        // The schema calls it `heart`; clinicians and the design call the study cardiac.
-        const name = k === 'heart' ? 'Cardiac'
-                   : k.charAt(0).toUpperCase() + k.slice(1);
+    const v = {
+      nav: SCREENS.map(s => ({
+        label: s.label, icon: s.icon, badge: s.badge || '',
+        style: this.navStyle(s.id),
+        onClick: this.go(s.id),
+        badgeStyle: s.badge
+          ? { background: s.id === 'alerts' ? '#FDECEC' : '#E4E2F8', color: s.id === 'alerts' ? '#C13238' : '#2E2A78', borderRadius: '999px', padding: '3px 9px', fontSize: '11.5px', fontWeight: 700 }
+          : { display: 'none' }
+      })),
+      fabOpen: this.state.fabOpen,
+      fabBadge: !this.state.fabSeen,
+      fabIcon: this.state.fabOpen ? '×' : '✦',
+      fabStyle: {
+        position: 'fixed', right: '26px', bottom: '26px', zIndex: 61,
+        width: '60px', height: '60px', borderRadius: '50%',
+        appearance: 'none', border: 0, cursor: 'pointer',
+        background: this.state.fabOpen ? '#2E2A78' : '#5B54D6', color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center'
+      },
+      toggleFab: () => this.setState(s => ({ fabOpen: !s.fabOpen, fabSeen: true })),
+      messages: this.state.messages.map(m => ({
+        text: m.text,
+        rowStyle: { display: 'flex', justifyContent: m.role === 'd' ? 'flex-end' : 'flex-start' },
+        miniBubbleStyle: m.role === 'd'
+          ? { maxWidth: '84%', background: '#5B54D6', color: '#fff', padding: '11px 14px', borderRadius: '14px 14px 3px 14px', fontSize: '13.5px', lineHeight: 1.5 }
+          : { maxWidth: '88%', background: '#fff', border: '1px solid #E4E2F8', color: '#1B1A3A', padding: '11px 14px', borderRadius: '14px 14px 14px 3px', fontSize: '13.5px', lineHeight: 1.55 },
+        bubbleStyle: m.role === 'd'
+          ? { maxWidth: '74%', background: '#5B54D6', color: '#fff', padding: '14px 18px', borderRadius: '16px 16px 4px 16px', fontSize: '14.5px', lineHeight: 1.55 }
+          : { maxWidth: '78%', background: '#F4F3FD', border: '1px solid #E4E2F8', color: '#1B1A3A', padding: '14px 18px', borderRadius: '16px 16px 16px 4px', fontSize: '14.5px', lineHeight: 1.6 }
+      })),
+      suggestions: SUGGESTIONS.map(([label, key]) => ({ label, onClick: () => this.push(label, key) })),
+      timeline: TIMELINE.map(([time, title, detail, hl]) => ({
+        time, title, detail,
+        dotStyle: { width: '13px', height: '13px', borderRadius: '50%', marginTop: '5px', background: hl ? '#2E2A78' : '#fff', border: hl ? '3px solid #D9CDFF' : '3px solid #DEDCF4', display: 'block' },
+        titleStyle: { fontWeight: hl ? 800 : 600, fontSize: '15.5px', color: hl ? '#2E2A78' : '#1B1A3A' }
+      })),
+      bars: BARS.map(([label, sup, ag]) => ({
+        label: label.replace('\n', ' '),
+        barStyle: (() => {
+          const total = sup + ag;
+          const split = Math.round(sup / total * 100);
+          return {
+            width: '100%', maxWidth: '46px',
+            height: this.state.grown ? Math.max(sup, ag) + '%' : '0%',
+            transition: 'height .8s cubic-bezier(.2,.8,.25,1)',
+            background: 'linear-gradient(180deg,#5B54D6 0 ' + split + '%,#2E2A78 ' + split + '% 100%)'
+          };
+        })()
+      })),
+      heat: SATS.map(v => ({
+        style: {
+          display: 'block', aspectRatio: '1', borderRadius: '2px',
+          background: v >= 95 ? '#FADBDC' : v >= 92 ? '#F4AFB2' : v >= 90 ? '#EC8085' : '#E5484D'
+        }
+      })),
+      recordTabs: REC_TABS.map(([id, label]) => ({
+        label,
+        onClick: () => this.setState({ recTab: id }),
+        style: {
+          appearance: 'none', cursor: 'pointer', borderRadius: '8px',
+          padding: '11px 18px', fontWeight: 700, fontSize: '14px',
+          background: this.state.recTab === id ? '#5B54D6' : '#fff',
+          color: this.state.recTab === id ? '#fff' : '#6A6785',
+          border: this.state.recTab === id ? '1px solid #5B54D6' : '1px solid #DEDCF4'
+        }
+      })),
+      recImages: this.state.recTab === 'images',
+      recData: this.state.recTab === 'data',
+      recVisits: this.state.recTab === 'visits',
+      recReports: this.state.recTab === 'reports',
+      visits: VISITS.map(v => ({
+        date: v.date, reason: v.reason, meta: v.meta, outcome: v.outcome,
+        images: v.images.map((im, i) => Object.assign({}, im, { slotId: 'pocus-' + v.date.replace(/\W+/g, '') + '-' + i })), tag: v.tag,
+        onOpen: this.go('report'),
+        tagStyle: {
+          borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px', fontWeight: 700,
+          background: v.tag === 'Critical' ? '#FDECEC' : '#F0FADB',
+          color: v.tag === 'Critical' ? '#C13238' : '#5A7A0F'
+        }
+      })),
+      dataRows: DATA_ROWS.map(([name, now, flag, v2, v3, v4]) => ({
+        name, now, v2: v2 || '—', v3: v3 || '—', v4: v4 || '—',
+        nowStyle: { padding: '13px 0', fontWeight: 700, color: flag ? '#C13238' : '#1B1A3A' }
+      })),
+      filledCount: 4,
+      analyzing: this.state.phase === 'running',
+      analyzed: this.state.phase === 'done',
+      analyzeLabel: this.state.phase === 'done' ? '✦ Re-analyze' : this.state.phase === 'running' ? 'Analyzing…' : '✦ Analyze this patient',
+      onAnalyze: () => this.analyze(),
+      steps: ANALYZE_STEPS.map((label, i) => {
+        const done = i < this.state.stepsDone;
+        const active = i === this.state.stepsDone;
         return {
-          label: name + (m.runs ? '' : ' · unavailable'),
-          onClick: m.runs
-            ? () => this.setForm({ organ: k.charAt(0).toUpperCase() + k.slice(1) })
-            : (() => {}),
-          style: { appearance: 'none', border: 0, borderRadius: '999px', padding: '7px 14px',
-            fontSize: '12.5px', fontWeight: on ? 700 : 600,
-            cursor: m.runs ? 'pointer' : 'not-allowed',
-            background: on ? '#5B54D6' : '#EFEEFB',
-            color: on ? '#fff' : (m.runs ? '#6A6785' : '#B9B5EC'),
-            opacity: m.runs ? 1 : 0.6 }
+          label,
+          dotStyle: {
+            width: '11px', height: '11px', borderRadius: '50%', flex: '0 0 auto',
+            background: done ? '#C6F24E' : active ? '#5B54D6' : '#DEDCF4',
+            animation: active ? 'pulseDot 1.1s ease-in-out infinite' : 'none'
+          },
+          textStyle: { color: done || active ? '#1B1A3A' : '#9C99B8', fontWeight: active ? 700 : 500 }
         };
       }),
-
-      vitalFields: (boot.vitalKeys || []).map(k => {
-        const val = f.vitals[k.key];
-        const flag = val === undefined ? 'not measured'
-          : (val < k.min ? 'low' : val > k.max ? 'high' : 'normal');
-        return { label: k.key, unit: k.unit, value: val === undefined ? '' : String(val),
-          flag: flag, flagStyle: this.flagStyle(val === undefined ? '' : flag),
-          inputStyle: { border: '1px solid #DEDCF4', borderRadius: '10px',
-                        padding: '10px 12px', fontSize: '14.5px', background: '#FCFBFF',
-                        width: '100%' },
-          onChange: e => {
-            const x = e.target.value, nv = Object.assign({}, this.state.form.vitals);
-            if (x === '') delete nv[k.key]; else nv[k.key] = parseFloat(x);
-            this.setForm({ vitals: nv });
-          } };
-      }),
-
-      labFields: (boot.labKeys || []).map(k => {
-        const val = f.labs[k.key];
-        const flag = val === undefined ? 'not measured'
-          : (k.max !== null && val > k.max ? 'high' : 'normal');
-        return { name: k.key, value: val === undefined ? '' : String(val), flag: flag,
-          nameStyle: { fontWeight: 600, fontSize: '14px',
-                       color: val === undefined ? '#9C99B8' : '#1B1A3A' },
-          flagStyle: this.flagStyle(val === undefined ? '' : flag),
-          inputStyle: { border: '1px solid #DEDCF4', borderRadius: '10px',
-                        padding: '9px 12px', fontSize: '14px', background: '#FCFBFF',
-                        width: '100%' },
-          onChange: e => {
-            const x = e.target.value, nl = Object.assign({}, this.state.form.labs);
-            if (x === '') delete nl[k.key]; else nl[k.key] = parseFloat(x);
-            this.setForm({ labs: nl });
-          } };
-      }),
-
-      // What the module reported, once it has read an image. Before that, the row shows the
-      // finding names it screens for and says nothing has been read.
-      pocusFields: (st.upload ? st.upload.rows : (boot.lungFindings || []).map(n => ({
-          label: n.replace(/_/g, ' '), detected: false, conf: null, caption: '' })))
-        .map(r => ({
-          name: r.label,
-          value: r.conf === null || r.conf === undefined ? 'not read yet'
-                 : (r.detected ? 'Detected ' + r.conf : 'Not detected ' + r.conf),
-          nameStyle: { fontWeight: 600, fontSize: '14px' },
-          segStyle: { fontSize: '12.5px', fontWeight: 700,
-                      color: r.conf === null || r.conf === undefined ? '#9C99B8'
-                             : r.detected ? '#2E2A78' : '#6A6785' } })),
-
-      zones: (v.findings || []).slice(0, 8).map((x, i) => ({
-        label: x.label.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 3),
-        style: { aspectRatio: '1', borderRadius: '6px', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', fontWeight: 800,
-          fontSize: '13.5px', background: x.detected ? '#5B54D6' : '#C6F24E',
-          color: x.detected ? '#fff' : '#1B1A3A',
-          animation: 'riseIn .45s ' + (i * 0.05).toFixed(2) + 's cubic-bezier(.2,.7,.3,1) both' }
+      vitalFields: VITALS.map(([label, value, unit, flag]) => ({
+        label, value, unit, flag: flag || (value ? '' : 'Not measured'),
+        inputStyle: {
+          border: '1px solid ' + (flag === 'High' || flag === 'Low' ? '#F0BFC1' : '#DEDCF4'),
+          borderRadius: '8px', padding: '10px 12px', fontSize: '15px', fontWeight: 700,
+          background: flag === 'High' || flag === 'Low' ? '#FFF6F6' : '#FAFAFE', color: '#1B1A3A'
+        },
+        flagStyle: {
+          fontSize: '11.5px', fontWeight: 700,
+          color: flag === 'High' || flag === 'Low' ? '#C13238' : flag === 'Normal' ? '#5A7A0F' : '#9C99B8'
+        }
       })),
-
-      steps: (v.timeline || []).map(s => ({
-        label: s.title + ' — ' + s.detail,
-        dotStyle: { width: '9px', height: '9px', borderRadius: '50%',
-                    background: s.hl ? '#5B54D6' : '#C6F24E', display: 'block' },
-        textStyle: { fontSize: '13.5px', color: '#6A6785' } })),
-
-      // ---- imaging ---------------------------------------------------------------
-      findings: (v.findings || []).map(x => ({
-        label: x.label, caption: x.caption, conf: x.conf.toFixed(2),
-        status: x.detected ? 'Detected' : 'Not detected',
-        statusStyle: x.detected
-          ? { background: '#E4E2F8', color: '#2E2A78', borderRadius: '999px',
-              padding: '5px 12px', fontSize: '12.5px', fontWeight: 700 }
-          : { color: '#6A6785', fontSize: '13.5px' } })),
-      topFinding: v.topFinding || '—',
-      hasUpload: !!st.upload,
-      uploadSeconds: st.upload ? String(st.upload.seconds) : '',
-      uploadModel: st.upload ? (st.upload.report.model || 'the module') : '',
-      uploadScope: st.upload ? ((st.upload.report.reliability || {}).scope || '') : '',
-
-      // ---- vitals & labs as displayed elsewhere ----------------------------------
-      vitals: (v.vitals || []).map(x => ({
-        label: x.label, unit: x.unit,
-        value: x.value === null ? 'Not measured' : x.value,
-        note: x.value === null ? 'Not the same as normal' : (x.flag || ''),
-        flag: x.flag || 'not measured', flagStyle: this.flagStyle(x.flag),
-        style: x.value === null
-          ? { background: '#FAFAFE', border: '1px dashed #DCD4F7', borderRadius: '18px',
-              padding: '20px 22px' }
-          : { background: '#fff', border: '1px solid #E4E2F8', borderRadius: '18px',
-              padding: '20px 22px',
-              borderTop: '4px solid ' + (x.flag === 'normal' ? '#22A06B' : '#E5484D') },
-        valueStyle: { fontSize: x.value === null ? '20px' : '32px', fontWeight: 800,
-                      letterSpacing: '-.02em',
-                      color: x.value === null ? '#9C99B8' : '#1B1A3A' } })),
-      labs: (v.labs || []).map(x => ({
-        name: x.name, result: x.result || '—', ref: x.ref,
-        status: x.result === null ? 'Not measured' : (x.flag || ''),
-        rowStyle: { padding: '13px 0', color: x.result === null ? '#9C99B8' : '#1B1A3A' },
-        statusStyle: { borderRadius: '999px', padding: '4px 11px', fontSize: '12.5px',
-          fontWeight: 700,
-          background: x.result === null ? '#EFEEFB' : x.flag === 'normal' ? '#F0FADB' : '#FDECEC',
-          color: x.result === null ? '#5B3CC4' : x.flag === 'normal' ? '#5A7A0F' : '#C13238' } })),
-
-      // ---- the ranked differential -----------------------------------------------
-      ranked: (v.differential || []).map((d, i) => ({
-        rank: String(i + 1).padStart(2, '0'), name: d.diagnosis, tag: d.likelihood,
-        supports: (d.supporting || []).join('; ') || '—',
-        limits: ((d.limitations || []).concat(d.contradicting || [])).join('; ') || '—',
-        now: (d.supportingIds || []).join(', ') || '—',
-        titleStyle: { fontSize: i === 0 ? '22px' : '19px', fontWeight: i === 0 ? 800 : 700 },
-        cardStyle: i === 0
-          ? { border: '1px solid #DEDCF4', borderRadius: '16px', padding: '20px 22px',
-              background: '#FCFBFF', marginBottom: '16px' }
-          : { border: '1px solid #E4E2F8', borderRadius: '16px', padding: '20px 22px',
-              marginBottom: '16px' },
-        fillStyle: { height: '100%',
-          width: (d.supportingIds || []).length
-                 ? Math.min(100, (d.supportingIds || []).length * 25) + '%' : '6%',
-          background: 'linear-gradient(90deg,#5B54D6,#2E2A78)' },
-        tagStyle: { borderRadius: '999px', padding: '6px 14px', fontSize: '13px',
-                    fontWeight: 700, background: '#E4E2F8', color: '#2E2A78' } })),
-      hasDifferential: (v.differential || []).length > 0,
-      noDifferential: (v.differential || []).length === 0,
-      differentialNote: v.differentialOrigin === 'failed'
-        ? 'The model backend failed and the answer was withheld. The severity and alerts beside '
-          + 'it were computed before the model ran and are unaffected.'
-        : v.differentialOrigin === 'not_generated'
-        ? 'No differential was generated. Producing one requires a 4.9 GB language model on a '
-          + 'GPU, which is not loaded in this deployment. Everything else on screen was '
-          + 'computed here.' : '',
-      withheld: !!v.withheld,
-      validationErrors: (v.validationErrors || []).map(x => ({ text: x })),
-      warnings: (v.warnings || []).map(x => ({ text: x })),
-      evidence: (v.evidence || []).map(e => ({ id: e.id, text: e.text,
-        mark: e.cited ? '●' : '○', style: { color: e.cited ? '#1B1A3A' : '#6A6785' } })),
-      hits: (v.hits || []).map(h => ({ n: String(h.n), id: h.id, topic: h.topic,
-        score: h.score.toFixed(2), source: h.source, text: h.text })),
-      noHits: (v.hits || []).length === 0,
-
-      // ---- alerts ------------------------------------------------------------------
-      alerts: (v.alerts || []).map(a => {
-        const crit = a.severity === 'CRITICAL';
-        return { type: a.type, message: a.message,
-          kicker: crit ? 'Immediate attention' : 'Important',
-          style: { background: '#fff', borderRadius: '18px', padding: '22px 26px',
-            marginBottom: '16px', border: '1px solid ' + (crit ? '#F6CFCF' : '#F7DFB4'),
-            borderLeft: '5px solid ' + (crit ? '#E5484D' : '#F5A623') },
-          kickerStyle: { color: crit ? '#C13238' : '#9A6207', fontSize: '12.5px',
-            letterSpacing: '.11em', textTransform: 'uppercase', fontWeight: 800 } };
-      }),
-      noAlerts: (v.alerts || []).length === 0,
-
-      exams: (v.exams || []).map(e => ({ exam: e.exam, reason: e.reason,
-                                         priority: e.priority })),
-      nextStep: (v.exams || []).length ? v.exams[0].exam
-                : 'Physician review of the current findings.',
-      therapeutic: ((v.therapeutic || {}).considerations || []).map(c => ({
-        consideration: c.consideration, basis: c.basis, passage: c.passage,
-        disclaimer: c.disclaimer })),
-      noTherapeutic: !((v.therapeutic || {}).considerations || []).length,
-      therapeuticStatus: (v.therapeutic || {}).status || '',
-
-      // ---- charts: counts of cited evidence, never probabilities -------------------
-      bars: (v.bars || []).map(b => {
-        const tot = Math.max(b.sup + b.ag, 1);
-        const split = Math.round(b.sup / tot * 100);
-        const mx = Math.max.apply(null,
-          (v.bars || []).map(x => Math.max(x.sup, x.ag)).concat([1]));
-        return { label: b.label, barStyle: { width: '100%', maxWidth: '46px',
-          height: st.grown ? Math.round(Math.max(b.sup, b.ag) / mx * 100) + '%' : '0%',
-          transition: 'height .8s cubic-bezier(.2,.8,.25,1)',
-          background: 'linear-gradient(180deg,#5B54D6 0 ' + split + '%,#2E2A78 '
-                      + split + '% 100%)' } };
-      }),
-      heat: (v.evidence || []).slice(0, 28).map(e => ({
-        style: { display: 'block', aspectRatio: '1', borderRadius: '2px',
-                 background: e.cited ? '#5B54D6'
-                   : /HIGH|LOW/.test(e.text) ? '#F4AFB2' : '#E4E2F8' } })),
-
-      timeline: (v.timeline || []).map(x => ({ time: x.time, title: x.title,
-        detail: x.detail,
-        dotStyle: { width: '13px', height: '13px', borderRadius: '50%', marginTop: '5px',
-          background: x.hl ? '#5B3CC4' : '#fff',
-          border: x.hl ? '3px solid #D9CDFF' : '3px solid #DEDCF4', display: 'block' },
-        titleStyle: { fontWeight: x.hl ? 800 : 600, fontSize: '15.5px',
-                      color: x.hl ? '#2E2A78' : '#1B1A3A' } })),
-
-      reportText: v.reportText || '', generatedAt: v.generatedAt || '',
-
-      // ---- roster / session record -------------------------------------------------
-      roster: (boot.roster || []).map(r => ({ name: r.name, age: String(r.age), sex: r.sex,
-        complaint: r.complaint, tag: r.tag, severity: r.severity,
-        alerts: r.alerts + ' alert(s)',
-        initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase(),
-        onOpen: () => this.loadPreset(r.key),
-        tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
-          fontWeight: 700,
-          background: r.tag === 'Critical' ? '#FDECEC'
-                    : r.tag === 'Review' ? '#FFF3E0' : '#F0FADB',
-          color: r.tag === 'Critical' ? '#C13238'
-               : r.tag === 'Review' ? '#9A6207' : '#5A7A0F' } })),
-      visits: (boot.records || []).map(r => ({ date: r.at, reason: r.name,
-        meta: r.organ + ' · ' + r.alerts + ' alert(s)', tag: r.severity,
-        outcome: (r.findings || []).join(', ') || 'no positive finding',
-        images: [], onOpen: this.go('report'),
-        tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
-          fontWeight: 700, background: r.severity === 'HIGH' ? '#FDECEC' : '#F0FADB',
-          color: r.severity === 'HIGH' ? '#C13238' : '#5A7A0F' } })),
-      noRecords: !(boot.records || []).length,
-      dataRows: (v.vitals || []).concat(v.labs || []).map(x => ({
-        name: x.label || x.name,
-        now: x.value === null || x.result === null ? 'Not measured'
-             : String(x.value !== undefined ? x.value : x.result),
-        v2: '—', v3: '—', v4: '—',
-        nowStyle: { padding: '13px 0', fontWeight: 700,
-          color: (x.flag && x.flag !== 'normal') ? '#C13238' : '#1B1A3A' } })),
-      rosterCount: String((boot.roster || []).length),
-      sessionCount: String((boot.records || []).length),
-      criticalCount: String((boot.roster || []).filter(r => r.severity === 'HIGH').length),
-      testCount: boot.tests ? String(boot.tests) : '—',
-      modules: Object.keys(boot.modules || {}).map(k => ({ organ: k,
-        reason: boot.modules[k].reason, dot: boot.modules[k].runs ? '●' : '○' })),
-
-      // ---- assistant ---------------------------------------------------------------
-      messages: st.messages.map(m => ({ text: m.text,
-        rowStyle: { display: 'flex',
-                    justifyContent: m.role === 'd' ? 'flex-end' : 'flex-start' },
-        bubbleStyle: m.role === 'd'
-          ? { maxWidth: '74%', background: '#5B54D6', color: '#fff', padding: '14px 18px',
-              borderRadius: '16px 16px 4px 16px', fontSize: '14.5px', lineHeight: 1.55,
-              whiteSpace: 'pre-wrap' }
-          : { maxWidth: '78%', background: '#F4F3FD', border: '1px solid #E4E2F8',
-              color: '#1B1A3A', padding: '14px 18px', borderRadius: '16px 16px 16px 4px',
-              fontSize: '14.5px', lineHeight: 1.6, whiteSpace: 'pre-wrap' },
-        miniBubbleStyle: m.role === 'd'
-          ? { alignSelf: 'flex-end', background: '#5B54D6', color: '#fff',
-              padding: '9px 12px', borderRadius: '12px 12px 3px 12px', fontSize: '13px',
-              maxWidth: '85%', whiteSpace: 'pre-wrap' }
-          : { alignSelf: 'flex-start', background: '#F4F3FD', border: '1px solid #E4E2F8',
-              color: '#1B1A3A', padding: '9px 12px', borderRadius: '12px 12px 12px 3px',
-              fontSize: '13px', maxWidth: '90%', whiteSpace: 'pre-wrap' } })),
-      suggestions: SUGGESTIONS.map(label => ({ label, onClick: () => this.ask(label) })),
-      draft: st.draft,
+      labFields: LABS.map(([name, value, flag]) => ({
+        name, value, flag: flag || 'Not measured',
+        nameStyle: { fontSize: '14.5px', fontWeight: 600, color: value ? '#1B1A3A' : '#9C99B8' },
+        inputStyle: {
+          border: '1px solid ' + (flag ? '#F0BFC1' : '#DEDCF4'), borderRadius: '8px',
+          padding: '9px 11px', fontSize: '14px', fontWeight: 700,
+          background: flag ? '#FFF6F6' : '#FAFAFE', color: '#1B1A3A', width: '100%'
+        },
+        flagStyle: {
+          fontSize: '11.5px', fontWeight: 700, textAlign: 'right',
+          color: flag === 'High' ? '#C13238' : '#9C99B8'
+        }
+      })),
+      pocusFields: POCUS_FIELDS.map(([name, value]) => ({
+        name, value,
+        nameStyle: { fontWeight: 600, color: value === 'Not assessed' ? '#9C99B8' : '#1B1A3A' },
+        segStyle: {
+          borderRadius: '999px', padding: '5px 13px', fontSize: '12.5px', fontWeight: 700,
+          background: value === 'Detected' ? '#5B54D6' : value === 'Not assessed' ? '#EFEEFB' : '#F0FADB',
+          color: value === 'Detected' ? '#fff' : value === 'Not assessed' ? '#9C99B8' : '#5A7A0F'
+        }
+      })),
+      ranked: RANKED.map(([rank, name, tag, pct, supports, limits], i) => ({
+        rank, name, tag, supports, limits,
+        cardStyle: {
+          border: i === 0 ? '2px solid #5B54D6' : '1px solid #E4E2F8',
+          borderRadius: '12px', padding: '20px 22px',
+          background: i === 0 ? '#FAFAFE' : '#fff',
+          animation: 'riseIn .5s ' + (i * 0.08).toFixed(2) + 's cubic-bezier(.2,.7,.3,1) both'
+        },
+        titleStyle: { fontSize: i === 0 ? '21px' : '18px', fontWeight: 800, letterSpacing: '-.012em' },
+        tagStyle: {
+          borderRadius: '999px', padding: '6px 14px', fontSize: '12.5px', fontWeight: 800,
+          background: i === 0 ? '#5B54D6' : '#E9E8FB', color: i === 0 ? '#fff' : '#2E2A78'
+        },
+        fillStyle: {
+          width: pct + '%', height: '100%',
+          background: i === 0 ? '#5B54D6' : '#8E88E8',
+          transformOrigin: 'left', animation: 'growRight .6s ease both'
+        }
+      })),
+      zones: [
+        ['R1', 'pos'], ['R2', 'pos'], ['L1', 'pos'], ['L2', 'pos'],
+        ['R3', 'neg'], ['R4', 'neg'], ['L3', 'none'], ['L4', 'none']
+      ].map(([label, k], i) => ({
+        label,
+        style: {
+          aspectRatio: '1', borderRadius: '6px', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          fontWeight: 800, fontSize: '13.5px',
+          background: k === 'pos' ? '#5B54D6' : k === 'neg' ? '#C6F24E' : '#E4E2F8',
+          color: k === 'pos' ? '#fff' : '#1B1A3A',
+          animation: 'riseIn .45s ' + (i * 0.05).toFixed(2) + 's cubic-bezier(.2,.7,.3,1) both'
+        }
+      })),
+      draft: this.state.draft,
       onDraft: e => this.setState({ draft: e.target.value }),
-      onSubmit: e => { e.preventDefault(); this.ask(this.state.draft); },
-      askWhy: () => this.ask('Why is this the severity?'),
-      askChallenge: () => this.ask('Challenge this assessment.'),
-      askBLines: () => this.ask('What did POCUS actually see?'),
-
-      // ---- floating assistant button -----------------------------------------------
-      fabOpen: st.fabOpen,
-      fabBadge: has && nAlerts > 0,
-      fabIcon: st.fabOpen ? '×' : '✧',
-      toggleFab: () => this.setState(s => ({ fabOpen: !s.fabOpen })),
-      fabStyle: { position: 'fixed', right: '26px', bottom: '26px', width: '56px',
-        height: '56px', borderRadius: '50%', border: 0, cursor: 'pointer',
-        background: '#5B54D6', color: '#fff', fontSize: '22px', zIndex: 40,
-        boxShadow: '0 10px 26px rgba(46,42,120,.34)' },
-
-      recordTabs: [['images', 'POCUS images'], ['data', 'Measurements'],
-                   ['visits', 'Encounters'], ['reports', 'Reports']].map(([id, label]) => ({
-        label, onClick: () => this.setState({ recTab: id }),
-        style: { appearance: 'none', cursor: 'pointer', borderRadius: '8px',
-          padding: '11px 18px', fontWeight: 700, fontSize: '14px',
-          background: st.recTab === id ? '#5B54D6' : '#fff',
-          color: st.recTab === id ? '#fff' : '#6A6785',
-          border: '1px solid ' + (st.recTab === id ? '#5B54D6' : '#DEDCF4') } })),
-      recImages: st.recTab === 'images', recData: st.recTab === 'data',
-      recVisits: st.recTab === 'visits', recReports: st.recTab === 'reports'
+      onSubmit: e => {
+        e.preventDefault();
+        const q = (this.state.draft || '').trim();
+        if (q) this.push(q, 'fallback');
+      },
+      askWhy: () => this.push('Why is pulmonary edema ranked first?', 'why'),
+      askChallenge: () => this.push('Challenge this assessment.', 'challenge'),
+      askBLines: () => this.push('Explain what the detected B-lines could mean in this patient.', 'blines')
     };
-
     SCREENS.forEach(s => {
       const cap = s.id[0].toUpperCase() + s.id.slice(1);
-      out['on' + cap] = st.screen === s.id;
-      out['go' + cap] = this.go(s.id);
+      v['on' + cap] = this.state.screen === s.id;
+      v['go' + cap] = this.go(s.id);
     });
-    return out;
+    return v;
   }
 }
 </script>

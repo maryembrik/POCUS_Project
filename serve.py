@@ -478,5 +478,7 @@ app.mount("/", StaticFiles(directory=str(WEB)), name="web")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("PORT", 8000)),
-                log_level="warning")
+    port = int(os.environ.get("PORT", 8501))
+    # Plain ASCII: the Windows console defaults to cp1252 and an arrow here aborts startup.
+    print(f"POCUS-Emergency running at http://localhost:{port}")
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

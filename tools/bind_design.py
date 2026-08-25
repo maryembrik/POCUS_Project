@@ -1,0 +1,236 @@
+"""Bind a Claude Design export to the pipeline.
+
+    python tools/bind_design.py
+
+Reads the pristine export from `web/design/` and writes the bound page to `web/`. Re-run it
+after re-exporting the design; nothing here is hand-edited, so a new export costs one command
+rather than an afternoon of surgery.
+
+Two kinds of change are made, and only two:
+
+  1. The mockup's logic block is REPLACED by `web/logic.js`, which fetches from `/api/*`.
+     Everything clinical the mockup hard-coded goes with it -- the named patient, the roster,
+     the visit history, the invented counters, the pre-written chat replies.
+
+  2. Markup that displayed those constants is rewired to the bindings `logic.js` supplies.
+     Repeated blocks become `sc-for` loops; single values become `{{ }}`.
+
+Layout, palette, typography, motion and screen structure are never touched. If a replacement
+below stops matching, the tool says so loudly rather than silently producing a page that still
+shows a patient who does not exist.
+"""
+from __future__ import annotations
+
+import io
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "web" / "design" / "pocus-copilot.dc.html"
+LOGIC = ROOT / "web" / "logic.js"
+OUT = ROOT / "web" / "pocus-copilot.dc.html"
+
+applied: list[str] = []
+missed: list[str] = []
+
+
+def sub(s: str, old: str, new: str, label: str) -> str:
+    global applied, missed
+    if old in s:
+        applied.append(label)
+        return s.replace(old, new, 1)
+    missed.append(label)
+    return s
+
+
+def cut(s: str, start: str, end: str, new: str, label: str) -> str:
+    """Replace from `start` through the first `end` after it."""
+    global applied, missed
+    i = s.find(start)
+    if i < 0:
+        missed.append(label + " (start)")
+        return s
+    j = s.find(end, i + len(start))
+    if j < 0:
+        missed.append(label + " (end)")
+        return s
+    applied.append(label)
+    return s[:i] + new + s[j + len(end):]
+
+
+def main() -> int:
+    s = io.open(SRC, encoding="utf8").read()
+    logic = io.open(LOGIC, encoding="utf8").read()
+
+    # ---- 1. swap the logic block -----------------------------------------------------
+    OPEN = '<script type="text/x-dc" data-dc-script data-props="{}">'
+    i = s.find(OPEN)
+    if i < 0:
+        print("FATAL: no dc script block found in the export", file=sys.stderr)
+        return 1
+    j = s.find("</script>", i)
+    s = s[:i + len(OPEN)] + "\n" + logic + s[j:]
+    applied.append("logic block")
+
+    # ---- 2. identity, wherever the mockup wrote a name ------------------------------
+    s = sub(s, ">Sarah Martin</div>\n    <div style=\"font-size:13px;color:#6A6785\">"
+               "74 · Female · Acute breathlessness</div>",
+            ">{{ pName }}</div>\n    <div style=\"font-size:13px;color:#6A6785\">"
+            "{{ pAge }} · {{ pSex }} · {{ pComplaint }}</div>", "sidebar patient")
+    s = re.sub(r"Sarah Martin · 74 · Female · Acute breathlessness",
+               "{{ pName }} · {{ pAge }} · {{ pSex }} · {{ pComplaint }}", s)
+    s = re.sub(r"Sarah Martin · 74 · Female", "{{ pName }} · {{ pAge }} · {{ pSex }}", s)
+    s = re.sub(r"Sarah Martin · 74F", "{{ pName }} · {{ pAge }}{{ pSex }}", s)
+    s = re.sub(r"Sarah Martin · today", "{{ pName }} · encounter {{ pId }}", s)
+    s = re.sub(r">Sarah Martin<", ">{{ pName }}<", s)
+    s = re.sub(r"Continue the assessment for Sarah Martin\.",
+               "Continue the current encounter.", s)
+    s = re.sub(r"Attending: Dr\. A\. Reyes", "Encounter {{ pId }}", s)
+    s = re.sub(r"Good morning, Dr\. Reyes", "{{ pName }}", s)
+    s = re.sub(r"74 · Female · MRN [\d-]+ · Bed \d+",
+               "{{ pAge }} · {{ pSex }} · {{ pComplaint }} · session-scoped, no database", s)
+    applied.append("identity")
+
+    # ---- 3. the clinician chip names a person who does not exist --------------------
+    s = sub(s, '<div style="font-weight:600;font-size:13.5px">Dr. A. Reyes</div>'
+               '<div style="font-size:12px;color:#8A87A8">Emergency Medicine</div>',
+            '<div style="font-weight:600;font-size:13.5px">Perception modules</div>'
+            '<div style="font-size:12px;color:#8A87A8">'
+            '<sc-for list="{{ modules }}" as="m" hint-placeholder-count="3">'
+            '<span>{{ m.dot }} {{ m.organ }} </span></sc-for></div>', "clinician chip")
+
+    # ---- 4. hero counters ------------------------------------------------------------
+    TILE = ('<div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px">'
+            '<div style="font-size:28px;font-weight:800">{n}</div>'
+            '<div style="font-size:12.5px;opacity:.88">{t}</div></div>')
+    for on, ot, nn, nt in (("12", "Assessments today", "{{ rosterCount }}",
+                            "Benchmark encounters"),
+                           ("3", "Require review", "{{ sessionCount }}",
+                            "Analysed this session"),
+                           ("2", "Critical alerts", "{{ criticalCount }}", "High priority"),
+                           ("7", "Completed", "{{ testCount }}", "Safety tests passing")):
+        s = sub(s, TILE.format(n=on, t=ot), TILE.format(n=nn, t=nt), f"tile {ot}")
+
+    # ---- 5. the workup form fields must actually write somewhere --------------------
+    s = sub(s, 'Name<input value="Sarah Martin"',
+            'Name<input value="{{ fName }}" onChange="{{ onName }}"', "workup name")
+    s = sub(s, 'Age<input value="74"',
+            'Age<input value="{{ fAge }}" onChange="{{ onAge }}"', "workup age")
+    s = sub(s, 'Chief complaint<input value="Acute breathlessness"',
+            'Chief complaint<input value="{{ fComplaint }}" onChange="{{ onComplaint }}"',
+            "workup complaint")
+    s = sub(s, '<textarea style', '<textarea onChange="{{ onHistory }}" style',
+            "workup history")
+    s = re.sub(r'(<label[^>]*>Sex<select )', r'\1onChange="{{ onSex }}" ', s)
+    # the loop inputs the design lays out are display-only in the mockup
+    s = re.sub(r'(<input value="\{\{ v\.value \}\}")', r'\1 onChange="{{ v.onChange }}"', s)
+    s = re.sub(r'(<input value="\{\{ l\.value \}\}")', r'\1 onChange="{{ l.onChange }}"', s)
+    applied.append("workup inputs")
+
+    # ---- 5b. the organ chips must name the modules that exist ------------------------
+    # The mockup offers Lung / Cardiac / FAST. No FAST module was ever built, and an
+    # examination tab with nothing behind it is a claim that cannot be backed -- on the one
+    # screen whose purpose is separating "not detected" from "never examined". The chips become
+    # a loop over the organs the agent can actually run, and they select one.
+    s = cut(s, '<div style="display:flex;gap:8px;flex-wrap:wrap">\n'
+               '        <span style="background:#5B54D6;color:#fff;border-radius:999px;'
+               'padding:7px 14px;font-size:12.5px;font-weight:700">Lung</span>',
+            '>FAST</span>',
+            '<div style="display:flex;gap:8px;flex-wrap:wrap">\n'
+            '        <sc-for list="{{ organChips }}" as="o" hint-placeholder-count="3">\n'
+            '        <button type="button" onClick="{{ o.onClick }}" style="{{ o.style }}">'
+            '{{ o.label }}</button>\n        </sc-for>', "organ chips")
+
+    # ---- 6. temperature note is a fact about this encounter -------------------------
+    s = re.sub(r"Temperature is empty\. It will be recorded as not measured\.",
+               "{{ missingCount }} value(s) left blank. Each is recorded as not measured, "
+               "never as normal.", s)
+
+    # ---- 7. roster table -------------------------------------------------------------
+    s = cut(s, '<tbody>\n        <tr style="border-top:1px solid #E9E8FB">'
+               '<td style="padding:14px 0;font-weight:600"><span style="display:flex;'
+               'align-items:center;gap:11px"><image-slot id="pt-sarah-sm"',
+            "</tbody>",
+            '<tbody>\n        <sc-for list="{{ roster }}" as="r" hint-placeholder-count="5">\n'
+            '        <tr style="border-top:1px solid #E9E8FB">'
+            '<td style="padding:14px 0;font-weight:600">'
+            '<span style="display:flex;align-items:center;gap:11px">'
+            '<span style="width:30px;height:30px;border-radius:50%;background:#E4E2F8;'
+            'color:#5B3CC4;display:inline-flex;align-items:center;justify-content:center;'
+            'font-weight:800;font-size:11px;flex:0 0 auto">{{ r.initials }}</span>'
+            '{{ r.name }}</span></td><td style="padding:14px 0">{{ r.age }}</td>'
+            '<td style="padding:14px 0">{{ r.complaint }}</td>'
+            '<td style="padding:14px 0"><span style="{{ r.tagStyle }}">{{ r.tag }}</span></td>'
+            '<td style="padding:14px 0;text-align:right;color:#6A6785">{{ r.alerts }}</td>'
+            '</tr>\n        </sc-for>\n      </tbody>', "roster table")
+
+    # ---- 7b. history grid: four invented patients become the real roster -------------
+    s = cut(s, '<button type="button" onClick="{{ goRecord }}" style="text-align:left;'
+               'appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;'
+               'border-top:4px solid #E5484D',
+            '22 Aug · 11:44</span>\n    </div>',
+            '<sc-for list="{{ roster }}" as="r" hint-placeholder-count="5">\n'
+            '    <button type="button" onClick="{{ r.onOpen }}" style="text-align:left;'
+            'appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;'
+            'border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:8px;'
+            'box-shadow:0 6px 20px rgba(91,60,196,.05)">\n'
+            '      <span style="{{ r.tagStyle }}">{{ r.tag }}</span>\n'
+            '      <span style="display:flex;align-items:center;gap:12px;margin-top:6px">'
+            '<span style="width:38px;height:38px;border-radius:50%;background:#E4E2F8;'
+            'color:#5B3CC4;display:inline-flex;align-items:center;justify-content:center;'
+            'font-weight:800;font-size:13px;flex:0 0 auto">{{ r.initials }}</span>'
+            '<span style="font-weight:800;font-size:17px">{{ r.name }} · {{ r.age }}'
+            '{{ r.sex }}</span></span>\n'
+            '      <span style="font-size:14px;color:#6A6785">{{ r.complaint }}</span>\n'
+            '      <span style="font-size:13px;color:#8A87A8;margin-top:6px">'
+            '{{ r.severity }} · {{ r.alerts }}</span>\n'
+            '    </button>\n    </sc-for>', "history grid")
+
+    # ---- 7c. the lime tile counted conversations this system never had ---------------
+    s = sub(s, '<span style="font-weight:700;font-size:15.5px">▤ Clinical assistant</span>',
+            '<span style="font-weight:700;font-size:15.5px">▤ Evidence cited</span>',
+            "lime tile title")
+    s = sub(s, '<span style="font-size:36px;font-weight:800;letter-spacing:-.03em">7,198</span>'
+               '<span style="font-size:14px;opacity:.9">conversations</span>',
+            '<span style="font-size:36px;font-weight:800;letter-spacing:-.03em">'
+            '{{ alertCount }}</span>'
+            '<span style="font-size:14px;opacity:.9">alerts raised</span>', "lime tile count")
+
+    # ---- 8. patient-record stats imply a database ------------------------------------
+    ST = ('<div><div style="color:#6A6785">{k}</div><div style="font-weight:800;'
+          'font-size:18px;margin-top:3px">{v}</div></div>')
+    for k, val, nk, nv in (("Visits", "4", "Encounters", "{{ sessionCount }}"),
+                           ("POCUS studies", "7", "Benchmark", "{{ rosterCount }}"),
+                           ("Reports", "3", "Alerts", "{{ alertCount }}"),
+                           ("Last seen", "Today", "Severity", "{{ severity }}")):
+        s = sub(s, ST.format(k=k, v=val), ST.format(k=nk, v=nv), f"record stat {k}")
+    s = re.sub(r"\d+ studies · grouped by visit",
+               "session-scoped · closing the app discards it", s)
+
+    io.open(OUT, "w", encoding="utf8", newline="\n").write(s)
+
+    # ---- report ---------------------------------------------------------------------
+    print(f"wrote {OUT.relative_to(ROOT)}  ({len(s):,} chars)")
+    print(f"applied {len(applied)} rewrites")
+    if missed:
+        print(f"\n{len(missed)} DID NOT MATCH — the export has moved on and these need "
+              f"re-anchoring:")
+        for m in missed:
+            print("   -", m)
+
+    left = [m for m in ("Sarah Martin", "Dr. Reyes", "Patient B", "7,198", "MRN 4471")
+            if m in s]
+    print("\nfabricated content remaining:", ", ".join(left) if left else "none")
+
+    for tag in ("sc-for", "sc-if"):
+        o = len(re.findall(rf"<{tag}\b", s))
+        c = len(re.findall(rf"</{tag}>", s))
+        print(f"{tag}: {o} open / {c} close" + ("" if o == c else "   *** UNBALANCED ***"))
+        if o != c:
+            return 1
+    return 0 if not left else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
