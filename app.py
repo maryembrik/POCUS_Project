@@ -95,22 +95,12 @@ html,body,.stApp,[class*="css"]{{background:{BG}!important;color:{INK}!important
   font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;-webkit-font-smoothing:antialiased}}
 *{{box-sizing:border-box}} ::selection{{background:#DEDCF4}}
 h1,h2,h3,h4,h5,p,div,span,label,li,td,th{{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important}}
-/* Streamlit chrome. Only the toolbar is hidden; the HEADER ITSELF keeps its natural height,
-   because `stExpandSidebarButton` -- the control that reopens a collapsed sidebar -- lives
-   inside it. Hiding the header removed the only way back, and zeroing its height clipped the
-   button to nothing, which looked identical. Collapse the sidebar once and the navigation was
-   unreachable without a reload. The button is given the design's own styling so it reads as
-   part of the page rather than as leftover framework chrome. */
+/* Streamlit chrome. The header is collapsed because the design supplies its own; the sidebar
+   is pinned open below, so nothing needed from the header remains. */
 [data-testid="stToolbar"],[data-testid="stDecoration"],#MainMenu,footer{{display:none!important}}
-header[data-testid="stHeader"]{{background:transparent!important;box-shadow:none!important}}
-[data-testid="stExpandSidebarButton"]{{
-  display:flex!important;visibility:visible!important;opacity:1!important;z-index:1000!important}}
-[data-testid="stExpandSidebarButton"] button,
-[data-testid="stSidebarCollapseButton"] button{{
-  background:{CARD}!important;border:1px solid {BORDER}!important;border-radius:10px!important;
-  color:{NAVY}!important;box-shadow:0 4px 14px rgba(46,42,120,.16)!important;
-  width:38px!important;height:38px!important}}
-.block-container{{padding:8px 40px 72px!important;max-width:1500px}}
+header[data-testid="stHeader"]{{background:transparent!important;box-shadow:none!important;
+  height:0!important;min-height:0!important}}
+.block-container{{padding:20px 40px 72px!important;max-width:1500px}}
 
 /* ── motion (as delivered) ───────────────────────────────────────────── */
 @keyframes riseIn{{from{{opacity:0;transform:translateY(14px)}}to{{opacity:1;transform:none}}}}
@@ -130,9 +120,23 @@ header[data-testid="stHeader"]{{background:transparent!important;box-shadow:none
 .lift:hover{{transform:translateY(-3px);box-shadow:0 12px 28px rgba(46,42,120,.13)}}
 @media (prefers-reduced-motion:reduce){{*{{animation:none!important;transition:none!important}}}}
 
-/* ── sidebar ─────────────────────────────────────────────────────────── */
+/* ── sidebar ─────────────────────────────────────────────────────────────
+   Pinned open, and the collapse control removed. In the delivered design the sidebar is a
+   permanent sticky column, not a drawer, so this is the faithful behaviour rather than a
+   workaround -- but it is also the reliable one. Streamlit collapses its sidebar on a narrow
+   viewport and remembers that in the browser, and the control that reopens it lives in the
+   page header, which this stylesheet replaces. That combination stranded the navigation:
+   collapsed once, unreachable thereafter. Nothing can now close it. */
 section[data-testid="stSidebar"]{{background:{CARD}!important;border-right:1px solid {BORDER};
-  width:272px!important;min-width:272px!important}}
+  width:272px!important;min-width:272px!important;max-width:272px!important;
+  transform:none!important;visibility:visible!important;opacity:1!important;
+  margin-left:0!important;left:0!important;display:flex!important;position:sticky!important}}
+section[data-testid="stSidebar"][aria-expanded="false"]{{
+  transform:none!important;margin-left:0!important;visibility:visible!important}}
+[data-testid="stSidebarCollapseButton"],[data-testid="stExpandSidebarButton"]{{
+  display:none!important}}
+[data-testid="stSidebarContent"],[data-testid="stSidebarUserContent"]{{
+  visibility:visible!important;opacity:1!important}}
 section[data-testid="stSidebar"] > div{{padding:22px 16px}}
 section[data-testid="stSidebar"] .stButton>button{{
   width:100%;text-align:left;justify-content:flex-start;appearance:none;border:0;
@@ -255,6 +259,23 @@ table.dt td{{padding:13px 0;border-top:1px solid {RULE}}}
 """, unsafe_allow_html=True)
 
 E = html.escape
+
+
+def avatar(name: str, size: int = 30) -> str:
+    """An initials disc where the design places a patient photograph.
+
+    The design's circular slots are user-fillable placeholders for a real clinic's photographs.
+    These encounters are synthetic, and dropping a stock portrait beside one would put a face
+    to a patient who does not exist — a fabricated record with a person attached, which is
+    worse than the mock name it decorates. Initials carry the same visual weight and claim
+    nothing.
+    """
+    ini = "".join(w[0] for w in str(name).split()[:2]).upper() or "—"
+    return (f"<span style='width:{size}px;height:{size}px;border-radius:50%;flex:0 0 auto;"
+            f"background:{BORDER};color:{V700};display:inline-flex;align-items:center;"
+            f"justify-content:center;font-weight:800;font-size:{max(size // 3, 10)}px'>"
+            f"{E(ini)}</span>")
+
 
 # ══════════════════════════════════════════════════════════ benchmark encounters
 BLANK = dict(name="", age=60, sex="F", complaint="", tier="medium", tconf=0.70,
@@ -588,6 +609,30 @@ def need_encounter() -> bool:
 # ═══════════════════════════════════════════════════════════════ 1 · HOME
 if SCREEN == "home":
     crit = sum(1 for r in ROSTER if r["severity"] == "HIGH")
+
+    # The design puts a fillable "ward or team photo" here. Rather than leave an empty frame or
+    # drop in a stock photograph of a hospital that is not this one, the panel shows the most
+    # recent scan a module actually read this session — real content, produced by the system,
+    # in the place the design reserved for an image. With nothing analysed yet it stays empty
+    # and says so.
+    shot = next((r["image"] for r in reversed(st.session_state["records"]) if r["image"]), None)
+    if shot:
+        import base64
+        inner = (f"<img src='data:image/png;base64,{base64.b64encode(shot).decode()}' "
+                 f"style='width:100%;height:100%;object-fit:cover'>")
+        cap = "most recent scan read this session"
+    else:
+        inner = (f"<div style='display:flex;align-items:center;justify-content:center;"
+                 f"height:100%;font-size:12.5px;opacity:.75'>No scan analysed yet</div>")
+        cap = "a scan appears here once a module reads one"
+    hero_panel = (
+        f"<div class='drift' style='position:relative;height:130px;border-radius:16px;"
+        f"overflow:hidden;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.10)'>"
+        f"{inner}<span style='position:absolute;inset:0;pointer-events:none;"
+        f"background-image:radial-gradient(rgba(46,42,120,.5) 1px,transparent 1px);"
+        f"background-size:7px 7px;opacity:.35'></span></div>"
+        f"<div style='font-size:11.5px;opacity:.8;margin-top:-4px'>{cap}</div>")
+
     st.markdown(
         f"<div class='hero rise'><div style='max-width:560px'>"
         f"<div class='eyebrow'>Your clinical copilot</div>"
@@ -596,15 +641,17 @@ if SCREEN == "home":
         f"assessment using clinical information, vital signs, laboratory results and POCUS "
         f"findings. The assistant highlights what needs attention and what information is "
         f"missing.</p></div>"
+        f"<div style='display:flex;flex-direction:column;gap:14px;min-width:280px'>"
+        f"{hero_panel}"
         f"<div style='display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:14px;"
-        f"align-content:start;min-width:280px'>"
+        f"align-content:start'>"
         f"<div class='stat'><b>{len(ROSTER)}</b><span>Benchmark encounters</span></div>"
         f"<div class='stat'><b>{len(st.session_state['records'])}</b>"
         f"<span>Analysed this session</span></div>"
         f"<div class='stat'><b>{crit}</b><span>High priority</span></div>"
         f"<div class='stat'><b>{bench().get('total_passed', '—')}</b>"
         f"<span>Safety tests passing</span></div>"
-        f"</div></div>", unsafe_allow_html=True)
+        f"</div></div></div>", unsafe_allow_html=True)
 
     q = st.columns(4, gap="medium")
     for c, (ic, ttl, txt, cta, dest) in zip(q, [
@@ -628,7 +675,8 @@ if SCREEN == "home":
                       args=(dest,))
 
     rows = "".join(
-        f"<tr><td style='font-weight:600'>{E(r['name'])}</td><td>{r['age']}</td>"
+        f"<tr><td style='font-weight:600'><span style='display:flex;align-items:center;"
+        f"gap:11px'>{avatar(r['name'], 30)}{E(r['name'])}</span></td><td>{r['age']}</td>"
         f"<td>{E(r['complaint'])}</td>"
         f"<td><span class='tag {r['tag'][0]}'>{r['tag'][1]}</span></td>"
         f"<td style='text-align:right;color:{MUTED}'>{r['alerts']} alert(s)</td></tr>"
@@ -2167,8 +2215,9 @@ elif SCREEN == "history":
                 f"<div class='card lift rise-2' style='border-top:4px solid {top};"
                 f"margin-bottom:10px'>"
                 f"<span class='tag {r['tag'][0]}'>{r['tag'][1]}</span>"
-                f"<div style='font-weight:800;font-size:17px;margin-top:6px'>"
-                f"{E(r['name'])} · {r['age']}{r['sex'][0]}</div>"
+                f"<div style='display:flex;align-items:center;gap:12px;margin-top:6px'>"
+                f"{avatar(r['name'], 38)}<span style='font-weight:800;font-size:17px'>"
+                f"{E(r['name'])} · {r['age']}{r['sex'][0]}</span></div>"
                 f"<div style='font-size:14px;color:{MUTED};margin-top:4px'>"
                 f"{E(r['complaint'])}</div>"
                 f"<div style='font-size:13px;color:{FAINT};margin-top:8px'>"
