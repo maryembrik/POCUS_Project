@@ -69,7 +69,7 @@ stating, because they were what made the rest of this project tractable:
 \begin{enumerate}
   \item \textbf{Each agent is independently testable.} The reasoning agent can be exercised
         against a hand-written bundle with no imaging model present at all, which is how all
-        228 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
+        236 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
         no model weights.
   \item \textbf{Each decision is reproducible after the fact.} The bundle that produced a given
         output is on disk. A decision can be re-examined months later against exactly the inputs
@@ -213,14 +213,22 @@ would advertise a capability that does not exist. On a screen whose purpose is t
 
 Four things about it are worth reporting.
 
-\paragraph{The module reads the image.} For the lung, the clinician uploads a study and the
-module analyses it in the browser, on CPU, in a few seconds. What appears on screen is the
-module's own report --- which findings crossed their tuned operating points, which were
-screened for and not seen, the thresholds used and their provenance --- and none of it is
-typed in. This is the step that makes the system multimodal in operation rather than only in
-architecture. The cardiac and gallbladder weights are not held in the repository, so those
-organs report \texttt{not\_supported} and the interface asks instead what the module reported,
-labelling the difference rather than hiding it.
+\paragraph{The module reads the image.} The clinician uploads a study and the module analyses it
+in the browser, on CPU, in a few seconds. What appears on screen is the module's own report ---
+which findings crossed their tuned operating points, which were screened for and not seen, the
+thresholds used and their provenance, whether the confidence is calibrated and what ceiling the
+calibrator imposes --- and none of it is typed in. This is the step that makes the system
+multimodal in operation rather than only in architecture.
+
+All three organs do this, and the interface differs between them because the modules differ. The
+lung takes one image and reports four independent findings. The gallbladder takes one image and
+reports exactly one of five classes, since it is single-label. The cardiac module takes
+\emph{two} images, end-diastole and end-systole, because an ejection fraction is a comparison
+between them and no single still can produce one; offered one frame it says so rather than
+returning a number. Where a module cannot run at all, the interface asks instead what it
+reported and states which of the two obstacles applies --- the checkpoint being absent, or
+inference for that organ not having been extracted --- because those have different remedies and
+a single message that conflated them would be a false explanation of a true refusal.
 
 \paragraph{Absence is visible as absence.} Unticking a laboratory value moves it out of the
 evidence list and into a panel headed \emph{never measured --- no identifier exists}. The
@@ -286,10 +294,9 @@ Alongside the application, three lower-level interfaces remain, each honest abou
 \begin{itemize}
   \item \textbf{Notebooks.} The perception modules are trained in Jupyter notebooks on Colab,
         one per organ, and all reported training results were produced through them. Inference
-        for the lung module no longer depends on a notebook: it was extracted into an
-        importable module, which is what the application calls and what the test suite
-        exercises (Section~\ref{subsubsec:agent-extraction}). Cardiac and gallbladder inference
-        still runs only in the notebook, because their weights are not held in the repository.
+        no longer depends on a notebook for any organ: it was extracted into an importable
+        module, which is what the application calls and what the test suite exercises
+        (Section~\ref{subsubsec:agent-extraction}).
   \item \textbf{A command-line entry point.} \texttt{run\_case} executes a complete encounter
         end to end, with switches for the retrieval backend, the number of correction rounds
         and whether to consult the model at all. Its \texttt{-{}-dry-run} mode prints the

@@ -211,7 +211,7 @@ src/agents/
   schema.py              the contract all agents write through
   triage/                Triage Agent
   ultrasound/            Ultrasound Agent
-    agent.py               organ routing; lung inference, importable and tested
+    agent.py               organ routing; lung, cardiac and gallbladder inference
   clinical/              Clinical Reasoning Agent
     clinical_state.py      structured state, evidence enumeration
     reasoning.py           escalation policy, prompt, validators
@@ -222,7 +222,7 @@ src/agents/
     thresholds.json        every alert cutoff, versioned
     corpus/                32 sourced knowledge units
     run_case.py            five benchmark scenarios, end to end
-  tests/                 228 tests, grouped by safety property
+  tests/                 236 tests, grouped by safety property
 tools/run_regression.py  150 end-to-end checks over 10 cases
 app.py                   clinician-facing Streamlit application
 notebooks/               training, one per organ
@@ -240,7 +240,7 @@ Google Colab T4 GPUs.
 and exports both weights and calibrator. The notebooks are self-contained and were the interface
 through which every reported figure was produced.
 
-\paragraph{Reproducing the safety benchmark.} The 228 tests require no GPU, no model weights and
+\paragraph{Reproducing the safety benchmark.} The 236 tests require no GPU, no model weights and
 no dataset:
 
 \begin{verbatim}

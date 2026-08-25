@@ -263,9 +263,11 @@ Colab session could execute it, and consequently no automated test could import 
 proved that the output contract was \emph{enforced}, and could not prove that any perception
 module \emph{honoured} it. That gap was reported as a limitation of this work.
 
-It has since been closed for the lung module, whose checkpoints are held in the repository. The
-prediction code was extracted into an importable module and is now exercised by thirteen tests
-grouped under a new safety property, \emph{perception contract}.
+It has since been closed for all three organs. The prediction code was extracted into an
+importable module and is now exercised by sixteen tests grouped under a new safety property,
+\emph{perception contract}, each running real inference on the shipped checkpoints. The lung
+module was extracted first, and the cardiac and gallbladder modules followed once their
+checkpoints and calibrators were retrieved from the training runs.
 
 Two findings came out of the extraction, and both are more instructive than the extraction
 itself.
@@ -308,10 +310,47 @@ The thresholds were recovered. The Platt calibrators were not, and are genuinely
 deployed module continues to report \texttt{confidence\_calibrated: false} and emits a raw
 sigmoid output. The boundary is tuned; the number is not.
 
-The cardiac and gallbladder modules remain outside this treatment: their weights are not held in
-the repository, so the agent returns \texttt{not\_supported} for both rather than a guess. Their
-class names and clinical groups, however, now live in the same importable module as the lung
-findings, so the output contract has a single home rather than being restated in a notebook.
+\paragraph{Extracting the other two found three more defects, all of the same kind.} Cardiac and
+gallbladder inference was extracted once their checkpoints were retrieved. The gallbladder
+module transferred without incident. The cardiac module did not, and each of its three faults
+produced a plausible output rather than an error --- which is why none had been noticed.
+
+The first is a matter of arity. Ejection fraction is a \emph{comparison} between end-diastole
+and end-systole, so a single still cannot produce one. Handed one frame as both, the arithmetic
+computes a fractional change of zero and reports a normal ventricle. The interface now requires
+both frames and refuses with a stated reason rather than returning a number.
+
+The second is the serious one, and it was observed on real echocardiographic frames rather than
+hypothesised. The systolic area was not checked for zero. A frame in which the segmentation
+found no ventricle therefore entered the formula as an area of $0$, which the expression reads
+as a ventricle that has ejected \emph{all} of its volume: an ejection fraction of 100\,\%,
+banded \emph{normal}, and reported at the calibrator's maximum confidence. The direction of that
+error is what makes it serious --- a failed measurement became a reassuring one. A frame in
+which the ventricle cannot be found is a failed measurement, not a measurement of zero, and the
+module now requires both areas to be non-zero, requires at least half the augmented views to
+yield a usable pair, and treats a derived ejection fraction above 85\,\% as evidence of a
+collapsed systolic segmentation rather than of a hyperdynamic heart.
+
+The third is that calling the router without an image raised an exception. Every other
+degradation in this system arrives as a report carrying \texttt{status: "failed"}, and this one
+now does too, so the reasoning layer never has to catch an exception in order to stay correct.
+
+\paragraph{An in-domain check, now that the module can be run outside a notebook.} The cardiac
+module was evaluated against CAMUS's own recorded ejection fraction over thirty patients, using
+the dataset's designated end-diastole and end-systole volumes. Twenty-eight produced a reading,
+with a mean absolute error of 6.3 percentage points and a median of 5.2 --- consistent with the
+6.9 reported from the training run in Section~\ref{subsec:cardiac-module}. The two refusals were
+the patients with the highest true ejection fractions in the sample, where the module's upward
+bias carries the estimate past the implausibility bound. That bound was left where it was rather
+than adjusted after seeing which patients it caught, since tuning a threshold against the cases
+it fails on is how a result becomes optimistic without anyone intending it.
+
+The same run makes the generalisation gap of Section~\ref{subsec:cardiac-module} concrete. On an
+echocardiographic source outside CAMUS the module segments a left ventricle averaging 157 pixels
+against a myocardium of 954 --- an implausible ratio --- and the guards above refuse to produce a
+band from it. The refusal is the correct behaviour and is also a measurement: the module does not
+transfer, and it now declines rather than reporting a number from a segmentation it should not
+trust.
 
 % =========================================================================================
 \subsection{Lung Module}

@@ -284,7 +284,7 @@ claiming an assessment occurred while recording nothing about it is rejected.
 
 \paragraph{Safety decisions independent of the language model.} Escalation is computed from
 the structured state before the model is consulted and is unchanged by anything the model
-does. This is demonstrated rather than asserted: 228 tests exercise the safety layer with no
+does. This is demonstrated rather than asserted: 236 tests exercise the safety layer with no
 model present, and the decision was verified identical across three different backends
 including one that fails.
 
@@ -328,20 +328,28 @@ mechanisms behave as specified. It forbids any statement about how the reasoning
 perform on real presentations, and it is too small to establish that retrieval does or does
 not help.
 
-\paragraph{Two of the three per-organ inference functions are still not under test.} This
-limitation was previously total: every test built module reports directly, none imported the
-per-organ prediction code, and the suite therefore proved the contract was \emph{enforced}
-without proving that any module \emph{honoured} it.
+\paragraph{The per-organ inference functions were not under test, and now are.} This limitation
+was previously total: every test built module reports directly, none imported the per-organ
+prediction code, and the suite therefore proved the contract was \emph{enforced} without proving
+that any module \emph{honoured} it.
 
-It has been closed for the lung module, whose prediction code was extracted from the notebook
-and is now exercised by thirteen tests running real inference on the shipped checkpoints
-(Section~\ref{subsubsec:agent-extraction}). Closing it immediately exposed a defect that had
-made the module silently report every study as negative, which is the strongest available
-argument that the limitation was worth closing rather than merely declaring.
+It has been closed for all three organs, whose prediction code was extracted from the notebooks
+and is now exercised by sixteen tests running real inference on the shipped checkpoints
+(Section~\ref{subsubsec:agent-extraction}).
 
-Cardiac and gallbladder inference remains outside the suite, because their weights are not held
-in the repository. For those two modules the original statement stands: the contract is proven
-enforced, not honoured.
+The reason to report this as a result rather than as housekeeping is what closing it found. Four
+defects surfaced within the extraction, and not one of them raised an error: a decision threshold
+that silenced the lung module so that every study returned negative; an ejection fraction
+computed from a single frame; a failed systolic segmentation entering the formula as an area of
+zero and emerging as a normal ventricle at maximum confidence; and a missing image raising an
+exception instead of degrading to a failed report.
+
+Three of the four produced a \emph{reassuring} output from a broken measurement. That is the
+direction that matters in a screening system, and it is invisible to any amount of inspection ---
+each looked like a working module returning a plausible number. They became visible when the code
+became importable and a test asserted a property of it. The generalisable claim is narrow and
+worth stating: research code that cannot be imported cannot be tested, and the failures it hides
+are selected for being quiet.
 
 \subsection{Clinical Interpretation}
 \label{subsec:results-discussion}

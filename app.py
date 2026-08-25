@@ -95,22 +95,22 @@ html,body,.stApp,[class*="css"]{{background:{BG}!important;color:{INK}!important
   font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;-webkit-font-smoothing:antialiased}}
 *{{box-sizing:border-box}} ::selection{{background:#DEDCF4}}
 h1,h2,h3,h4,h5,p,div,span,label,li,td,th{{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important}}
-/* Streamlit chrome. The toolbar is hidden but the HEADER ITSELF is kept, because the control
-   that reopens a collapsed sidebar lives inside it. Hiding the header outright removed the
-   only way back: collapse the sidebar once and the navigation was unreachable without a
-   reload. The control is pinned and given the design's own styling so it is findable. */
+/* Streamlit chrome. Only the toolbar is hidden; the HEADER ITSELF keeps its natural height,
+   because `stExpandSidebarButton` -- the control that reopens a collapsed sidebar -- lives
+   inside it. Hiding the header removed the only way back, and zeroing its height clipped the
+   button to nothing, which looked identical. Collapse the sidebar once and the navigation was
+   unreachable without a reload. The button is given the design's own styling so it reads as
+   part of the page rather than as leftover framework chrome. */
 [data-testid="stToolbar"],[data-testid="stDecoration"],#MainMenu,footer{{display:none!important}}
-header[data-testid="stHeader"]{{background:transparent!important;height:0!important;
-  min-height:0!important;box-shadow:none!important}}
-[data-testid="stSidebarCollapsedControl"],[data-testid="collapsedControl"],
+header[data-testid="stHeader"]{{background:transparent!important;box-shadow:none!important}}
 [data-testid="stExpandSidebarButton"]{{
-  display:flex!important;visibility:visible!important;opacity:1!important;
-  position:fixed!important;top:14px!important;left:14px!important;z-index:1000!important}}
-[data-testid="stSidebarCollapsedControl"] button,[data-testid="collapsedControl"] button,
-[data-testid="stExpandSidebarButton"] button{{
+  display:flex!important;visibility:visible!important;opacity:1!important;z-index:1000!important}}
+[data-testid="stExpandSidebarButton"] button,
+[data-testid="stSidebarCollapseButton"] button{{
   background:{CARD}!important;border:1px solid {BORDER}!important;border-radius:10px!important;
-  color:{NAVY}!important;box-shadow:0 4px 14px rgba(46,42,120,.16)!important}}
-.block-container{{padding:26px 40px 72px!important;max-width:1500px}}
+  color:{NAVY}!important;box-shadow:0 4px 14px rgba(46,42,120,.16)!important;
+  width:38px!important;height:38px!important}}
+.block-container{{padding:8px 40px 72px!important;max-width:1500px}}
 
 /* ── motion (as delivered) ───────────────────────────────────────────── */
 @keyframes riseIn{{from{{opacity:0;transform:translateY(14px)}}to{{opacity:1;transform:none}}}}

@@ -71,7 +71,7 @@ src/agents/
     thresholds.json        every alert cutoff, versioned and auditable
     corpus/                32 knowledge units incl. one sourced protocol
     run_case.py            five benchmark scenarios, runnable end to end
-  tests/                 226 tests, grouped by the safety property each exercises
+  tests/                 236 tests, grouped by the safety property each exercises
 
 src/data_prep/           per-source manifest builders
 notebooks/               training and inference notebooks, one per organ
@@ -84,15 +84,24 @@ _docs/report/latex/      internship report
 ## Running it
 
 ```bash
-python -m src.agents.tests.run_benchmark          # 226 safety tests, no model needed
+python -m src.agents.tests.run_benchmark          # 236 safety tests, no model needed
 python -m src.agents.clinical.run_case --dry-run  # state + escalation, no model
 python tools/run_regression.py                    # 150 end-to-end checks
-streamlit run app.py                              # clinician-facing assistant
+run.bat                                           # clinician-facing assistant (Windows)
 ```
 
-`app.py` runs lung inference on CPU: a clinician uploads a scan and the module reports its own
-findings. Cardiac and gallbladder weights are not in this repository, so those organs return
-`not_supported` in the ordinary report format rather than a guess.
+On Windows, `streamlit run app.py` usually fails: Anaconda's `Scripts` directory is not on
+PATH, and `python` on PATH often resolves to the Windows Store stub, which runs nothing.
+`run.bat` finds an interpreter that actually has streamlit installed and sets
+`KMP_DUPLICATE_LIB_OK`, which this environment needs because torch and MKL each link their own
+OpenMP runtime. The equivalent by hand is
+`C:\path\to\anaconda3\python.exe -m streamlit run app.py`.
+
+All three perception modules run on CPU in the app: the clinician uploads a study and the module
+reports its own findings. The lung takes one image and reports four independent findings; the
+gallbladder takes one and reports exactly one of five classes; the cardiac module takes **two**
+frames, end-diastole and end-systole, because an ejection fraction is a comparison between them
+and no single still can produce one.
 
 `notebooks/clinical_reasoning_gpu.ipynb` runs all five scenarios on a Colab T4 in about five
 minutes. The same workload on CPU takes roughly 23 minutes **per case**.
