@@ -530,11 +530,34 @@ def main() -> int:
                'stored against the record and stay available at the next visit.</div>',
             '<label style="font-weight:700;font-size:15px;cursor:pointer;color:#5B54D6">'
             '＋ Add images to this patient'
-            '<input type="file" accept="image/*" multiple onChange="{{ onUpload }}" '
+            '<input type="file" accept="image/*" multiple onChange="{{ onRecordUpload }}" '
             'style="display:none"></label>\n'
             '      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Read by the '
-            'module now and held for this session only. There is no database behind this '
-            'screen.</div>', "record upload")
+            'module now and filed against this patient, for this session only — there is no '
+            'database behind this screen. The assessment above is not re-run: it was reached '
+            'without this study.</div>', "record upload")
+
+    # ---- 8c. the stored studies were drop targets, never the patient's images ---------
+    # The grid looped the mockup's visits and drew an `image-slot` in each cell: a slot the
+    # designer drops a picture into, which lives in the design file and never reaches the app.
+    # So a study the doctor had just uploaded and had read to them was not in the record of the
+    # patient it was read for. It loops the studies the module actually read instead.
+    s = sub(s, '<sc-for list="{{ visits }}" as="v" hint-placeholder-count="3">\n'
+               '      <div style="margin-top:26px">',
+            '<sc-for list="{{ gallery }}" as="v" hint-placeholder-count="3">\n'
+            '      <div style="margin-top:26px">', "image gallery list")
+    s = sub(s, '<image-slot id="{{ img.slotId }}" shape="rect" '
+               'placeholder="{{ img.zone }}"></image-slot>',
+            '<img src="{{ img.src }}" alt="{{ img.zone }}" style="width:100%;height:100%;'
+            'object-fit:contain;display:block;background:#141824">', "stored image")
+    s = sub(s, '<sc-for list="{{ gallery }}" as="v" hint-placeholder-count="3">',
+            '<sc-if value="{{ noImages }}" hint-placeholder-val="{{ false }}">\n'
+            '    <div style="margin-top:22px;border:1px solid #E4E2F8;border-radius:8px;'
+            'padding:20px;color:#6A6785;font-size:14.5px">No study has been read for this '
+            'patient. Uploading one on Patient workup files it here with what the module '
+            'made of it.</div>\n    </sc-if>\n'
+            '    <sc-for list="{{ gallery }}" as="v" hint-placeholder-count="3">',
+            "no stored images")
 
     io.open(OUT, "w", encoding="utf8", newline="\n").write(s)
 

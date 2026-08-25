@@ -83,7 +83,10 @@ class Component extends DCLogic {
     this.setState({ busy: true, error: '' });
     const body = Object.assign({}, this.state.form, {
       preset: this.state.preset || null,
-      reportJson: this.state.upload ? this.state.upload.report : null
+      reportJson: this.state.upload ? this.state.upload.report : null,
+      // The studies this encounter was read from, so they are filed under the patient rather
+      // than discarded once the assessment is made.
+      images: this.state.upload ? (this.state.upload.stored || []) : []
     });
     const view = await post('/api/analyse', body);
     // A rejected request used to leave the previous encounter on screen, so analysing looked
@@ -123,14 +126,33 @@ class Component extends DCLogic {
                     messages: this.state.messages.slice(0, 1) });
   }
 
+  // Every file, not the first two. Several files are several studies unless the clinician
+  // says they are frames of one acquisition.
+  readFiles(files) {
+    return Promise.all([].slice.call(files).slice(0, 8).map(f => new Promise(res => {
+      const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f);
+    })));
+  }
+
+  // Filing a study against a patient already assessed. The reading is shown with the image;
+  // the assessment is NOT re-run, because it was reached without this scan.
+  async addToRecord(files) {
+    if (!files || !files.length || !this.state.recordSel) return;
+    const rec = ((this.state.boot || {}).records || [])
+      .filter(r => r.id === this.state.recordSel)[0];
+    const imgs = await this.readFiles(files);
+    this.setState({ busy: true });
+    const up = await post('/api/upload', { organ: (rec && rec.organ) || 'Lung',
+                                           image: imgs[0], images: imgs, asClip: false });
+    const view = await post('/api/record/attach', { id: this.state.recordSel,
+                                                    images: up.stored || [] });
+    const boot = await get('/api/bootstrap');
+    this.setState({ view, boot, busy: false });
+  }
+
   async upload(files) {
     if (!files || !files.length) return;
-    // Every file, not the first two. Several files are several studies unless the clinician
-    // says they are frames of one acquisition.
-    const reads = [].slice.call(files).slice(0, 8).map(f => new Promise(res => {
-      const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f);
-    }));
-    const imgs = await Promise.all(reads);
+    const imgs = await this.readFiles(files);
     this.setState({ busy: true, previews: imgs });
     const out = await post('/api/upload', {
       organ: this.state.form.organ, image: imgs[0], images: imgs,
@@ -491,11 +513,26 @@ class Component extends DCLogic {
       visits: (boot.records || []).map(r => ({ date: r.at, reason: r.name,
         meta: r.organ + ' · ' + r.alerts + ' alert(s)', tag: r.severity,
         outcome: (r.findings || []).join(', ') || 'no positive finding',
-        images: [], onOpen: this.go('report'),
+        onOpen: this.go('report'),
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
           fontWeight: 700, background: r.severity === 'HIGH' ? '#FDECEC' : '#F0FADB',
           color: r.severity === 'HIGH' ? '#C13238' : '#5A7A0F' } })),
       noRecords: !(boot.records || []).length,
+      // The images the module read, filed under the patient they were read for. On the list
+      // this is every patient's studies; with one open it is that patient's only — the header
+      // says whose record you are in, so showing everybody's under it would misattribute them.
+      gallery: (boot.records || [])
+        .filter(r => !st.recordSel || r.id === st.recordSel)
+        .filter(r => (r.images || []).length)
+        .map(r => ({ date: r.at, reason: r.name,
+          meta: r.organ + ' · ' + r.images.length + ' stored · '
+                + ((r.findings || []).join(', ') || 'no positive finding'),
+          images: r.images.map(im => ({ src: im.src, finding: im.finding, zone: im.zone,
+                                        time: im.time + ' · ' + im.zone })) })),
+      onRecordUpload: e => this.addToRecord(e.target.files),
+      noImages: !(boot.records || [])
+        .filter(r => !st.recordSel || r.id === st.recordSel)
+        .some(r => (r.images || []).length),
       dataRows: (v.vitals || []).concat(v.labs || []).map(x => ({
         name: x.label || x.name,
         now: x.value === null || x.result === null ? 'Not measured'
@@ -561,7 +598,8 @@ class Component extends DCLogic {
         name: r.name, age: String(r.age), sex: r.sex, complaint: r.complaint, at: r.at,
         severity: r.severity, alerts: r.alerts + ' alert(s)', organ: r.organ,
         encounterId: r.encounterId,
-        findings: (r.findings || []).join(', ') || 'no positive finding',
+        findings: ((r.findings || []).join(', ') || 'no positive finding')
+                  + ((r.images || []).length ? ' · ' + r.images.length + ' image(s)' : ''),
         initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
         onOpen: this.openRecord(r.id),
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',

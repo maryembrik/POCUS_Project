@@ -488,7 +488,10 @@ input,textarea,select,button{font-family:inherit}
       <h2 style="margin:0;font-size:18px;font-weight:800">Stored POCUS images</h2>
       <span style="font-size:13.5px;color:#6A6785">session-scoped · closing the app discards it</span>
     </div>
-    <sc-for list="{{ visits }}" as="v" hint-placeholder-count="3">
+    <sc-if value="{{ noImages }}" hint-placeholder-val="{{ false }}">
+    <div style="margin-top:22px;border:1px solid #E4E2F8;border-radius:8px;padding:20px;color:#6A6785;font-size:14.5px">No study has been read for this patient. Uploading one on Patient workup files it here with what the module made of it.</div>
+    </sc-if>
+    <sc-for list="{{ gallery }}" as="v" hint-placeholder-count="3">
       <div style="margin-top:26px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding-bottom:10px;border-bottom:1px solid #E4E2F8;flex-wrap:wrap">
           <div style="font-weight:800;font-size:15px">{{ v.date }} — {{ v.reason }}</div>
@@ -497,7 +500,7 @@ input,textarea,select,button{font-family:inherit}
         <div style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:14px">
           <sc-for list="{{ v.images }}" as="img" hint-placeholder-count="3">
             <figure style="margin:0;display:flex;flex-direction:column;gap:8px">
-              <div class="lift" style="position:relative;aspect-ratio:4/3;background:#141824;border-radius:6px;overflow:hidden"><image-slot id="{{ img.slotId }}" shape="rect" placeholder="{{ img.zone }}"></image-slot><span style="position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.16) 1px,transparent 1.2px);background-size:4px 4px"></span></div>
+              <div class="lift" style="position:relative;aspect-ratio:4/3;background:#141824;border-radius:6px;overflow:hidden"><img src="{{ img.src }}" alt="{{ img.zone }}" style="width:100%;height:100%;object-fit:contain;display:block;background:#141824"><span style="position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.16) 1px,transparent 1.2px);background-size:4px 4px"></span></div>
               <figcaption style="font-size:12.5px;color:#6A6785;line-height:1.35"><span style="font-weight:700;color:#1B1A3A">{{ img.finding }}</span><br>{{ img.time }}</figcaption>
             </figure>
           </sc-for>
@@ -505,8 +508,8 @@ input,textarea,select,button{font-family:inherit}
       </div>
     </sc-for>
     <div style="margin-top:26px;border:1px dashed #DEDCF4;border-radius:8px;padding:22px;text-align:center">
-      <label style="font-weight:700;font-size:15px;cursor:pointer;color:#5B54D6">＋ Add images to this patient<input type="file" accept="image/*" multiple onChange="{{ onUpload }}" style="display:none"></label>
-      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Read by the module now and held for this session only. There is no database behind this screen.</div>
+      <label style="font-weight:700;font-size:15px;cursor:pointer;color:#5B54D6">＋ Add images to this patient<input type="file" accept="image/*" multiple onChange="{{ onRecordUpload }}" style="display:none"></label>
+      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Read by the module now and filed against this patient, for this session only — there is no database behind this screen. The assessment above is not re-run: it was reached without this study.</div>
     </div>
   </section>
   </sc-if>
@@ -1044,7 +1047,10 @@ class Component extends DCLogic {
     this.setState({ busy: true, error: '' });
     const body = Object.assign({}, this.state.form, {
       preset: this.state.preset || null,
-      reportJson: this.state.upload ? this.state.upload.report : null
+      reportJson: this.state.upload ? this.state.upload.report : null,
+      // The studies this encounter was read from, so they are filed under the patient rather
+      // than discarded once the assessment is made.
+      images: this.state.upload ? (this.state.upload.stored || []) : []
     });
     const view = await post('/api/analyse', body);
     // A rejected request used to leave the previous encounter on screen, so analysing looked
@@ -1084,14 +1090,33 @@ class Component extends DCLogic {
                     messages: this.state.messages.slice(0, 1) });
   }
 
+  // Every file, not the first two. Several files are several studies unless the clinician
+  // says they are frames of one acquisition.
+  readFiles(files) {
+    return Promise.all([].slice.call(files).slice(0, 8).map(f => new Promise(res => {
+      const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f);
+    })));
+  }
+
+  // Filing a study against a patient already assessed. The reading is shown with the image;
+  // the assessment is NOT re-run, because it was reached without this scan.
+  async addToRecord(files) {
+    if (!files || !files.length || !this.state.recordSel) return;
+    const rec = ((this.state.boot || {}).records || [])
+      .filter(r => r.id === this.state.recordSel)[0];
+    const imgs = await this.readFiles(files);
+    this.setState({ busy: true });
+    const up = await post('/api/upload', { organ: (rec && rec.organ) || 'Lung',
+                                           image: imgs[0], images: imgs, asClip: false });
+    const view = await post('/api/record/attach', { id: this.state.recordSel,
+                                                    images: up.stored || [] });
+    const boot = await get('/api/bootstrap');
+    this.setState({ view, boot, busy: false });
+  }
+
   async upload(files) {
     if (!files || !files.length) return;
-    // Every file, not the first two. Several files are several studies unless the clinician
-    // says they are frames of one acquisition.
-    const reads = [].slice.call(files).slice(0, 8).map(f => new Promise(res => {
-      const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f);
-    }));
-    const imgs = await Promise.all(reads);
+    const imgs = await this.readFiles(files);
     this.setState({ busy: true, previews: imgs });
     const out = await post('/api/upload', {
       organ: this.state.form.organ, image: imgs[0], images: imgs,
@@ -1452,11 +1477,26 @@ class Component extends DCLogic {
       visits: (boot.records || []).map(r => ({ date: r.at, reason: r.name,
         meta: r.organ + ' · ' + r.alerts + ' alert(s)', tag: r.severity,
         outcome: (r.findings || []).join(', ') || 'no positive finding',
-        images: [], onOpen: this.go('report'),
+        onOpen: this.go('report'),
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
           fontWeight: 700, background: r.severity === 'HIGH' ? '#FDECEC' : '#F0FADB',
           color: r.severity === 'HIGH' ? '#C13238' : '#5A7A0F' } })),
       noRecords: !(boot.records || []).length,
+      // The images the module read, filed under the patient they were read for. On the list
+      // this is every patient's studies; with one open it is that patient's only — the header
+      // says whose record you are in, so showing everybody's under it would misattribute them.
+      gallery: (boot.records || [])
+        .filter(r => !st.recordSel || r.id === st.recordSel)
+        .filter(r => (r.images || []).length)
+        .map(r => ({ date: r.at, reason: r.name,
+          meta: r.organ + ' · ' + r.images.length + ' stored · '
+                + ((r.findings || []).join(', ') || 'no positive finding'),
+          images: r.images.map(im => ({ src: im.src, finding: im.finding, zone: im.zone,
+                                        time: im.time + ' · ' + im.zone })) })),
+      onRecordUpload: e => this.addToRecord(e.target.files),
+      noImages: !(boot.records || [])
+        .filter(r => !st.recordSel || r.id === st.recordSel)
+        .some(r => (r.images || []).length),
       dataRows: (v.vitals || []).concat(v.labs || []).map(x => ({
         name: x.label || x.name,
         now: x.value === null || x.result === null ? 'Not measured'
@@ -1522,7 +1562,8 @@ class Component extends DCLogic {
         name: r.name, age: String(r.age), sex: r.sex, complaint: r.complaint, at: r.at,
         severity: r.severity, alerts: r.alerts + ' alert(s)', organ: r.organ,
         encounterId: r.encounterId,
-        findings: (r.findings || []).join(', ') || 'no positive finding',
+        findings: ((r.findings || []).join(', ') || 'no positive finding')
+                  + ((r.images || []).length ? ' · ' + r.images.length + ' image(s)' : ''),
         initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
         onOpen: this.openRecord(r.id),
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',

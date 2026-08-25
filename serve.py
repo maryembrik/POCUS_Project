@@ -285,6 +285,7 @@ def _view(enc: dict, a: dict) -> dict:
                   "source": h["source"], "text": h["text"]} for h in a["hits"]],
         "timeline": [{"time": f"+{m['t'] * 1000:.0f} ms", "title": m["title"],
                       "detail": m["detail"], "hl": m["hl"]} for m in a["marks"]],
+        "images": _studies_of(enc),
         "reportText": render_report(a["report"]),
         "generatedAt": a["report"]["generated_at"][:16].replace("T", " "),
         "topFinding": (f"{det[0]['label']} {det[0]['confidence']:.2f}" if det
@@ -293,7 +294,7 @@ def _view(enc: dict, a: dict) -> dict:
 
 
 def _empty_view() -> dict:
-    return {"hasEncounter": False,
+    return {"hasEncounter": False, "images": [],
             "message": "No encounter has been analysed yet. Enter a patient on New "
                        "assessment; every screen here reads a computed encounter and there "
                        "is not one yet."}
@@ -314,6 +315,12 @@ class Encounter(BaseModel):
     preset: str | None = None
     broken: bool = False
     reportJson: dict[str, Any] | None = None
+    # Identifiers of studies /api/upload has already read, so that re-opening the patient shows
+    # the images the assessment was made from. A record that lists findings but cannot produce
+    # the scan they came from is not a record of the examination. Ids rather than pixels: the
+    # reading belongs to the image the MODULE saw, and passing it back through the browser
+    # would let the two drift apart.
+    images: list[str] = []
 
 
 class Upload(BaseModel):
@@ -324,11 +331,56 @@ class Upload(BaseModel):
     asClip: bool = False             # frames of ONE acquisition, aggregated by median
 
 
+class Attach(BaseModel):
+    id: str
+    images: list[str]
+
+
 class Ask(BaseModel):
     question: str
 
 
 _last: dict[str, Any] = {}
+_studies: dict[str, dict[str, Any]] = {}     # study id -> the stored copy and its reading
+
+
+def _store_study(b64: str, organ: str, rep: dict, zone: str) -> str:
+    """Keep a study beside the reading the module made of it.
+
+    Stored at 320 px as a JPEG rather than as the uploaded file. The record grid shows it at
+    178 px, a session that holds twenty studies would otherwise carry twenty full-size images
+    through every bootstrap, and the pixels the module actually read were the 224 px tensor it
+    was resized to -- so this is a copy for the record, not the study itself, and it is labelled
+    that way on screen.
+    """
+    from PIL import Image
+
+    raw = base64.b64decode(b64.split(",", 1)[-1])
+    im = Image.open(io.BytesIO(raw)).convert("L")
+    im.thumbnail((320, 320))
+    buf = io.BytesIO()
+    im.save(buf, format="JPEG", quality=72)
+
+    det = rep.get("findings") or []
+    sid = f"IMG-{len(_studies) + 1:03d}"
+    _studies[sid] = {
+        "id": sid,
+        "src": "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode(),
+        "organ": organ.title(),
+        "zone": zone,
+        # What the module said about THIS image, not about the encounter it was folded into.
+        # A clinician scrolling the history has to be able to tell which scan carried the
+        # finding, and an unread or failed study says so rather than showing nothing.
+        "finding": (f"{det[0]['label']} {det[0]['confidence']:.2f}" if det
+                    else "no finding above threshold" if rep.get("status") == "ok"
+                    else f"not read — {rep.get('status', 'unknown')}"),
+        "time": datetime.now().strftime("%H:%M"),
+    }
+    return sid
+
+
+def _studies_of(enc: dict) -> list[dict[str, Any]]:
+    return [_studies[i] for i in (enc.get("images") or []) if i in _studies]
 
 
 def _remember(enc: dict, a: dict) -> None:
@@ -350,6 +402,7 @@ def _remember(enc: dict, a: dict) -> None:
         "alerts": len(a["support"]["alerts"]), "organ": enc.get("organ"),
         "encounterId": a["report"]["encounter_id"],
         "findings": [f["label"] for f in a["state"]["imaging"]["findings"] if f["detected"]],
+        "images": [s["id"] for s in _studies_of(enc)],
         "_enc": enc, "_a": a,
     })
 
@@ -378,9 +431,10 @@ def bootstrap() -> JSONResponse:
         "lungFindings": LUNG_FINDINGS,
         "gbClasses": GB_CLASSES,
         "organs": ["Lung", "Heart", "Gallbladder", "Not performed"],
-        "records": [{k: r[k] for k in ("id", "name", "age", "sex", "complaint", "at",
-                                       "severity", "alerts", "organ", "encounterId",
-                                       "findings")} for r in _records],
+        "records": [dict({k: r[k] for k in ("id", "name", "age", "sex", "complaint", "at",
+                                            "severity", "alerts", "organ", "encounterId",
+                                            "findings")},
+                         images=_studies_of(r["_enc"])) for r in _records],
     })
 
 
@@ -445,21 +499,35 @@ def api_upload(u: Upload) -> JSONResponse:
         else:
             rep = ultrasound_agent("heart", ed=grey(imgs[0]), es=grey(second))
         per = []
+        # Two phases of one acquisition, so they are labelled as phases rather than numbered
+        # like separate studies. image2 need not be in `imgs`.
+        shots = [(imgs[0], "end-diastole")] + ([(second, "end-systole")] if second else [])
     elif u.asClip and organ == "lung":
         # Frames of one acquisition. The lung module reduces them by MEDIAN, because repeated
         # looks at the same anatomy are not independent evidence and a mean lets one blurred
         # frame carry the result.
         rep = ultrasound_agent("lung", frames=[grey(x) for x in imgs])
         per = []
+        shots = [(x, f"frame {i + 1} of {len(imgs)}") for i, x in enumerate(imgs)]
     else:
         # SEPARATE studies. Each image is read on its own and reported on its own; nothing is
         # aggregated across them, because images of different patients are not a clip. The
         # encounter takes the first, since the clinical state holds one report per organ.
         per = [ultrasound_agent(organ, image=grey(x)) for x in imgs]
         rep = per[0]
+        shots = [(x, f"study {i + 1} of {len(imgs)}" if len(imgs) > 1 else organ.title())
+                 for i, x in enumerate(imgs)]
+
+    # Kept before anything else can go wrong with the encounter. A study that was read is part
+    # of the patient's history whether or not the doctor goes on to finish the assessment, and
+    # each image is stored against the report of THAT image -- not against the encounter's, so
+    # a second scan showing nothing cannot inherit the first one's finding.
+    stored = [_store_study(b, organ, per[i] if len(per) > 1 else rep, zone)
+              for i, (b, zone) in enumerate(shots)]
 
     return JSONResponse({
         "report": rep,
+        "stored": stored,
         "seconds": round(time.time() - t0, 1),
         "schemaErrors": S.validate_report(rep),
         "rows": rows(rep),
@@ -510,6 +578,25 @@ def api_record(id: str) -> JSONResponse:
             return JSONResponse(_view(r["_enc"], r["_a"]))
     return JSONResponse({"hasEncounter": False,
                          "message": f"no patient {id!r} in this session"}, status_code=404)
+
+
+@app.post("/api/record/attach")
+def api_attach(a: Attach) -> JSONResponse:
+    """File a study against a patient already in the list.
+
+    It does NOT re-run the assessment. The differential, alerts and severity on the record were
+    reached without this image, and quietly re-deriving them would replace what was shown to the
+    clinician at the time with something else under the same encounter identifier. The screen
+    says so beside the control.
+    """
+    for r in _records:
+        if r["id"] == a.id:
+            ids = [i for i in a.images if i in _studies]
+            r["_enc"]["images"] = (r["_enc"].get("images") or []) + ids
+            r["images"] = list(r["_enc"]["images"])
+            return JSONResponse(_view(r["_enc"], r["_a"]))
+    return JSONResponse({"hasEncounter": False,
+                         "message": f"no patient {a.id!r} in this session"}, status_code=404)
 
 
 @app.post("/api/ask")
