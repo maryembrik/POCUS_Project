@@ -65,7 +65,21 @@ GB_SCOPE = "teaching-atlas stills; no healthy class exists in the training data"
 GB_LOW_CONFIDENCE = 0.4
 
 IMG_SIZE = 224
+IMG_SIZE_SEG = 256
 IMAGENET_MEAN, IMAGENET_STD = 0.449, 0.226
+
+# The gallbladder model predicts eight fine-grained classes and MARGINALISES to the five above
+# rather than taking the argmax and mapping it. Merging the predictions scored 63.1% against
+# 57.2% for merging the labels: a case that splits its mass across cholecystitis, gangrene and
+# perforation is one confident inflammation, not three uncertain diagnoses.
+GB_TRAIN_NAMES = ["Gallstones", "Cholecystitis", "Membranous / gangrenous", "Perforation",
+                  "Polyps", "Adenomyomatosis", "Carcinoma", "Wall thickening"]
+GB_TRAIN_TO_EVAL = {0: 0, 1: 1, 2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 4}
+
+# Ejection fraction bands, and the label each becomes in a report.
+EF_FINDING = {"normal": "Normal ventricular function",
+              "reduced": "Mild-to-moderate LV dysfunction",
+              "severe": "Severe LV dysfunction"}
 
 ROOT = Path(__file__).resolve().parents[3]
 LUNG_WEIGHTS = sorted((ROOT / "Pulmonary").glob(
@@ -91,9 +105,55 @@ def _torch():
     return torch
 
 
+# Where the training notebooks write the other two modules' weights. Both are saved to Google
+# Drive from Colab and are not in this repository, so these paths normally do not exist. They
+# are probed rather than assumed so that a checkout which DOES have them reports the true
+# reason it still cannot run them.
+HEART_WEIGHTS = ROOT / "Cardiac" / "cardiac_effnet_unet_best.pth"
+HEART_CALIBRATION = ROOT / "Cardiac" / "cardiac_calibration.json"
+GB_WEIGHTS = ROOT / "Abdominal_Gallbladder" / "gallbladder_effnetb0_best.pth"
+GB_CALIBRATION = ROOT / "Abdominal_Gallbladder" / "gallbladder_calibration.json"
+
+
+def _json(path: Path) -> dict[str, Any] | None:
+    """A calibration artefact, or None if it was never exported."""
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf8"))
+    return None
+
+
+def module_status() -> dict[str, dict[str, Any]]:
+    """Whether each organ can run, and — when it cannot — which of the two reasons applies.
+
+    The distinction matters and was previously collapsed. `available()` hard-coded heart and
+    gallbladder to False, so a checkout that had downloaded their weights would still be told
+    "weights absent", which is a false explanation of a true refusal. There are two separate
+    obstacles and they have different fixes:
+
+        weights absent      the checkpoint is not on disk. Download it from the training run.
+        not implemented     the checkpoint is on disk, but inference for that organ has not
+                            been extracted from the notebook yet, so nothing here can call it.
+
+    Only the lung module has cleared both.
+    """
+    def state(weights: bool, calib: Path) -> dict[str, Any]:
+        if not weights:
+            return {"runs": False, "weights": False, "calibrated": False,
+                    "reason": "weights absent"}
+        cal = calib.exists()
+        return {"runs": True, "weights": True, "calibrated": cal,
+                "reason": "ready" if cal else "ready, uncalibrated"}
+
+    return {
+        "lung": state(bool(LUNG_WEIGHTS), LUNG_CALIBRATION),
+        "heart": state(HEART_WEIGHTS.exists(), HEART_CALIBRATION),
+        "gallbladder": state(GB_WEIGHTS.exists(), GB_CALIBRATION),
+    }
+
+
 def available() -> dict[str, bool]:
-    """Which organs this deployment can actually run."""
-    return {"lung": bool(LUNG_WEIGHTS), "heart": False, "gallbladder": False}
+    """Which organs this deployment can actually run. See `module_status` for the reason."""
+    return {k: v["runs"] for k, v in module_status().items()}
 
 
 def _build_lung_model():
@@ -250,6 +310,198 @@ def predict_lung(frames: Iterable, fold: int = 0) -> dict[str, Any]:
         model=f"effnetb0_multilabel_fold{fold}")
 
 
+# ═══════════════════════════════════════════════════════════════════ gallbladder
+def load_gallbladder():
+    if "gallbladder" in _MODELS:
+        return _MODELS["gallbladder"]
+    if not GB_WEIGHTS.exists():
+        raise FileNotFoundError(f"no gallbladder checkpoint at {GB_WEIGHTS}")
+    import torch.nn as nn
+    import torchvision
+    torch = _torch()
+    m = torchvision.models.efficientnet_b0(weights=None)
+    m.classifier[1] = nn.Linear(m.classifier[1].in_features, len(GB_TRAIN_NAMES))
+    m.load_state_dict(torch.load(GB_WEIGHTS, map_location="cpu"))
+    m.eval()
+    _MODELS["gallbladder"] = m
+    return m
+
+
+def predict_gallbladder(image) -> dict[str, Any]:
+    """One still to one of five classes.
+
+    Single-label, unlike the lung module's four independent findings. Exactly one class is
+    reported and `not_detected` stays empty: the four that lost the argmax were not screened
+    out, they simply were not the winner, and listing them as negatives would be a stronger
+    claim than the model made.
+    """
+    import numpy as np
+    torch = _torch()
+
+    model = load_gallbladder()
+    with torch.no_grad():
+        logits = model(_prep(image).unsqueeze(0)).cpu().numpy()[0]
+
+    cal = _json(GB_CALIBRATION)
+    if cal and cal.get("temperature"):
+        p8 = torch.softmax(torch.from_numpy(logits) / float(cal["temperature"]),
+                           dim=-1).numpy()
+    else:
+        p8 = torch.softmax(torch.from_numpy(logits), dim=-1).numpy()
+
+    p5 = np.zeros(len(GB_CLASSES), dtype=np.float32)
+    for t, e in GB_TRAIN_TO_EVAL.items():          # marginalise, do not argmax-then-map
+        p5[e] += p8[t]
+    c = int(p5.argmax())
+    conf = float(p5[c])
+
+    return S.make_report(
+        "gallbladder",
+        [S.make_finding(GB_CLASSES[c], conf, group=GB_GROUP[GB_CLASSES[c]])],
+        quality={"low_confidence": conf < GB_LOW_CONFIDENCE,
+                 "fine_grained": GB_TRAIN_NAMES[int(p8.argmax())]},
+        reliability={"confidence_calibrated": bool(cal),
+                     "has_normal_class": False,
+                     "modelled_findings": GB_CLASSES,
+                     "ece": (cal or {}).get("ece"),
+                     "scope": GB_SCOPE},
+        model="effnetb0_8class_marginalised")
+
+
+# ══════════════════════════════════════════════════════════════════════ cardiac
+def load_heart():
+    if "heart" in _MODELS:
+        return _MODELS["heart"]
+    if not HEART_WEIGHTS.exists():
+        raise FileNotFoundError(f"no cardiac checkpoint at {HEART_WEIGHTS}")
+    import segmentation_models_pytorch as smp
+    torch = _torch()
+    m = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=1,
+                 classes=4)
+    m.load_state_dict(torch.load(HEART_WEIGHTS, map_location="cpu"))
+    m.eval()
+    _MODELS["heart"] = m
+    return m
+
+
+def _prep_seg(image):
+    import cv2
+    import numpy as np
+    a = cv2.resize(np.asarray(image, dtype=np.float32), (IMG_SIZE_SEG, IMG_SIZE_SEG),
+                   interpolation=cv2.INTER_LINEAR)
+    if a.ndim == 3:
+        a = cv2.cvtColor(a, cv2.COLOR_RGB2GRAY)
+    if a.max() > 1.5:
+        a = a / 255.0
+    return a.astype("float32")
+
+
+def _tta(img) -> list:
+    """Eight fixed augmentations, deliberately fixed rather than random.
+
+    Confidence is the fraction of them that agree on the reported band, so a random set would
+    make the same clip yield a different number on every run.
+    """
+    import cv2
+    import numpy as np
+    h, w = img.shape
+    out = [img.copy()]
+    for ang in (3.0, -3.0):
+        M = cv2.getRotationMatrix2D((w / 2, h / 2), ang, 1.0)
+        out.append(cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR,
+                                  borderMode=cv2.BORDER_CONSTANT, borderValue=0))
+    for b in (1.05, 0.95):
+        out.append(np.clip(img * b, 0, 1))
+    for c in (1.05, 0.95):
+        m = img.mean()
+        out.append(np.clip((img - m) * c + m, 0, 1))
+    out.append(np.fliplr(img).copy())
+    return [a.astype("float32") for a in out]
+
+
+def _ef_band(ef: float) -> str:
+    return "normal" if ef >= 55 else ("reduced" if ef >= 30 else "severe")
+
+
+def predict_heart(ed_image, es_image) -> dict[str, Any]:
+    """Ejection-fraction band from two frames: end-diastole and end-systole.
+
+    EF is a comparison between the two, so one still cannot produce it -- the module segments
+    the left ventricle in each and derives the fractional change.
+
+    The area-to-volume correction matters and is not cosmetic. Raw area understates the
+    fractional change because volume scales as area^(3/2); correcting it moved MAE from 12.7
+    to 7.1 percentage points in the training run.
+    """
+    import numpy as np
+    torch = _torch()
+
+    model = load_heart()
+
+    def lv_area(a) -> float:
+        x = torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0)
+        with torch.no_grad():
+            return float((model(x).argmax(1).squeeze(0).cpu().numpy() == 1).sum())
+
+    ed, es = _prep_seg(ed_image), _prep_seg(es_image)
+    views = list(zip(_tta(ed), _tta(es)))
+    efs = []
+    for a, b in views:
+        a_ed, a_es = lv_area(a), lv_area(b)
+        # BOTH areas must be non-zero. Guarding only the diastolic one lets a systolic frame
+        # where the segmentation found nothing through as an area of zero, which the formula
+        # reads as a ventricle that ejected all of its volume: EF 100%, reported as "normal
+        # ventricular function" at the calibrator's maximum confidence. A frame where the
+        # ventricle cannot be found is a failed measurement, not a measurement of zero, and
+        # this is the direction that matters -- the invented value was reassuring.
+        if a_ed > 0 and a_es > 0:
+            r = min(max(1.0 - (a_ed - a_es) / a_ed, 1e-6), 1.0)
+            efs.append((1.0 - r ** 1.5) * 100.0)
+
+    if len(efs) < len(views) / 2:
+        # Fewer than half the augmented views yielded a usable pair. Reporting a band from the
+        # remainder would rest the reading on whichever views happened to segment.
+        return S.make_report(
+            "heart", [], status="failed",
+            quality={"lv_detected": bool(efs), "usable_views": len(efs),
+                     "views": len(views)},
+            reliability={"scope": f"left ventricle segmented in only {len(efs)} of "
+                                  f"{len(views)} views; too few for a reliable band"})
+
+    median_ef = float(np.median(efs))
+    if median_ef > 85.0:
+        # No ventricle ejects this fraction. A value here means the systolic segmentation
+        # collapsed rather than that the heart is hyperdynamic, and the honest report is that
+        # the measurement failed.
+        return S.make_report(
+            "heart", [], status="failed",
+            quality={"lv_detected": True, "implausible_ef": round(median_ef, 1)},
+            reliability={"scope": f"derived ejection fraction of {median_ef:.0f}% is "
+                                  f"physiologically implausible and indicates a failed "
+                                  f"systolic segmentation, not a hyperdynamic ventricle"})
+
+    bands = [_ef_band(e) for e in efs]
+    band = max(set(bands), key=bands.count)
+    raw = bands.count(band) / len(bands)
+
+    cal = _json(HEART_CALIBRATION)
+    conf = (float(np.interp(raw, cal["isotonic_x"], cal["isotonic_y"])) if cal else raw)
+
+    return S.make_report(
+        "heart",
+        [S.make_finding(EF_FINDING[band], conf)],
+        measurements={"ejection_fraction": round(median_ef, 1),
+                      "ef_spread_pp": round(float(np.std(efs)), 1)},
+        quality={"lv_detected": True, "tta_agreement": round(raw, 3),
+                 "usable_views": len(efs), "views": len(views)},
+        reliability={"confidence_calibrated": bool(cal),
+                     "has_normal_class": True,
+                     "confidence_ceiling": (cal or {}).get("ceiling", 1.0),
+                     "ece": (cal or {}).get("ece"),
+                     "scope": "CAMUS-like 4CH stills; EF is an area proxy, not volumetric"},
+        model="effnetb0_unet")
+
+
 def ultrasound_agent(organ: str, **kwargs) -> dict[str, Any]:
     """One entry point. An organ without a usable model returns `not_supported` in the ordinary
     format, so the reasoning layer never branches on whether a key exists."""
@@ -257,9 +509,40 @@ def ultrasound_agent(organ: str, **kwargs) -> dict[str, Any]:
     if organ not in S.ORGANS:
         raise ValueError(f"unknown organ {organ!r}; expected one of {sorted(S.ORGANS)}")
 
+    # A missing image is a caller error, but it must not reach the caller as a KeyError. Every
+    # other degradation in this system arrives as a report with `status: failed`, and this one
+    # does too, so the reasoning layer never has to catch an exception to stay correct.
+    def _no_image(what: str) -> dict[str, Any]:
+        return S.make_report(organ, [], status="failed",
+                             reliability={"scope": f"no {what} supplied"})
+
     if organ == "lung" and LUNG_WEIGHTS:
-        return predict_lung(kwargs.get("frames") or [kwargs["image"]],
-                            fold=kwargs.get("fold", 0))
+        frames = kwargs.get("frames")
+        if frames is None:
+            frames = [kwargs["image"]] if kwargs.get("image") is not None else []
+        return predict_lung(frames, fold=kwargs.get("fold", 0))
+
+    if organ == "gallbladder" and GB_WEIGHTS.exists():
+        if kwargs.get("image") is None:
+            return _no_image("image")
+        return predict_gallbladder(kwargs["image"])
+
+    if organ == "heart" and HEART_WEIGHTS.exists():
+        # EF is a comparison between end-diastole and end-systole, so one still cannot produce
+        # it. Passing a single frame as both would compute a fractional change of zero and
+        # report a normal ventricle -- an invented measurement dressed as a reading -- so the
+        # caller must supply both and is told so rather than quietly given a wrong number.
+        ed, es = kwargs.get("ed"), kwargs.get("es")
+        if ed is None or es is None:
+            frames = kwargs.get("frames") or []
+            if len(frames) >= 2:
+                ed, es = frames[0], frames[-1]
+        if ed is None or es is None:
+            return S.make_report(
+                organ, [], status="failed",
+                reliability={"scope": "ejection fraction needs two frames, end-diastole and "
+                                      "end-systole; one still cannot produce it"})
+        return predict_heart(ed, es)
 
     reason = ("weights are not present in this deployment"
               if organ in ("heart", "gallbladder") else "module not implemented")

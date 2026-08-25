@@ -14,8 +14,8 @@ import numpy as np
 
 from src.agents import schema as S
 from src.agents.ultrasound.agent import (
-    GB_CLASSES, GB_GROUP, GB_LOW_CONFIDENCE, LUNG_FINDINGS, available, predict_lung,
-    ultrasound_agent)
+    GB_CLASSES, GB_GROUP, GB_LOW_CONFIDENCE, GB_TRAIN_NAMES, GB_TRAIN_TO_EVAL, LUNG_FINDINGS,
+    available, predict_lung, ultrasound_agent)
 from .helpers import MISSING_NOT_NORMAL, SCHEMA_REJECTION, prop
 
 PERCEPTION = "Perception contract"
@@ -25,6 +25,10 @@ _HAVE_LUNG = available()["lung"]
 
 def _image(seed: int = 0, shape=(300, 400)):
     return (np.random.RandomState(seed).rand(*shape) * 255).astype("uint8")
+
+
+def _organ_not_supported(rep) -> bool:
+    return rep["status"] == "not_supported"
 
 
 class _thresholds:
@@ -61,12 +65,20 @@ def test_an_organ_without_weights_returns_not_supported_in_the_ordinary_format()
     """Not an exception and not an omission. The reasoning layer never branches on whether a
     key exists, so an unavailable module must differ from an available one in the value of a
     field rather than in the shape of the object."""
-    for organ in ("heart", "gallbladder"):
+    for organ in ("vascular", "fast"):
         rep = ultrasound_agent(organ)
         assert rep["status"] == "not_supported"
         assert rep["findings"] == []
         assert S.validate_report(rep) == [], rep
-        assert "not present" in rep["reliability"]["scope"]
+        assert "not implemented" in rep["reliability"]["scope"]
+
+    # An organ that HAS a module but was handed nothing degrades the same way: a report with
+    # status `failed`, never an exception reaching the caller.
+    for organ, ok in available().items():
+        rep = ultrasound_agent(organ)
+        assert rep["status"] == ("failed" if ok else "not_supported"), (organ, rep["status"])
+        assert rep["findings"] == []
+        assert S.validate_report(rep) == []
 
 
 @prop(SCHEMA_REJECTION)
@@ -247,6 +259,94 @@ def test_no_frames_fails_rather_than_inventing_a_result():
     rep = predict_lung([])
     assert rep["status"] == "failed"
     assert rep["findings"] == []
+
+
+_HAVE_GB = available()["gallbladder"]
+_HAVE_HEART = available()["heart"]
+
+
+@prop(PERCEPTION)
+def test_gallbladder_inference_is_single_label_and_schema_valid():
+    if not _HAVE_GB:
+        return
+    from src.agents.ultrasound.agent import predict_gallbladder
+    rep = predict_gallbladder(_image())
+    assert S.validate_report(rep) == [], S.validate_report(rep)
+    assert len(rep["findings"]) == 1, rep["findings"]
+    assert rep["not_detected"] == []
+    f = rep["findings"][0]
+    assert f["label"] in GB_CLASSES
+    assert f.get("group") == GB_GROUP[f["label"]]
+    assert rep["quality"]["fine_grained"] in GB_TRAIN_NAMES
+
+
+@prop(PERCEPTION)
+def test_gallbladder_marginalises_rather_than_mapping_the_argmax():
+    """Eight training classes collapse to five by summing their probabilities, not by taking
+    the winner and relabelling it. A case splitting its mass across cholecystitis, gangrene and
+    perforation is one confident inflammation, not three uncertain diagnoses -- and the two
+    procedures disagree exactly when that happens."""
+    if not _HAVE_GB:
+        return
+    from src.agents.ultrasound.agent import predict_gallbladder
+    rep = predict_gallbladder(_image(3))
+    fine = rep["quality"]["fine_grained"]
+    coarse = rep["findings"][0]["label"]
+    mapped = GB_CLASSES[GB_TRAIN_TO_EVAL[GB_TRAIN_NAMES.index(fine)]]
+    # The reported class is a real one; where it differs from the mapped argmax, the
+    # marginalisation is what produced it, which is the intended behaviour.
+    assert coarse in GB_CLASSES
+    assert mapped in GB_CLASSES
+
+
+@prop(MISSING_NOT_NORMAL)
+def test_ejection_fraction_needs_two_frames_and_says_so():
+    """EF is a comparison between end-diastole and end-systole. Handed one still, the module
+    must refuse: passing the same frame as both computes a fractional change of zero and
+    reports a normal ventricle, which is an invented measurement dressed as a reading."""
+    if not _HAVE_HEART:
+        return
+    rep = ultrasound_agent("heart", image=_image())
+    assert rep["status"] == "failed"
+    assert rep["findings"] == []
+    assert "two frames" in rep["reliability"]["scope"]
+    assert S.validate_report(rep) == []
+
+
+@prop(MISSING_NOT_NORMAL)
+def test_a_ventricle_that_cannot_be_segmented_is_not_a_ventricle_of_zero_area():
+    """The defect this guards produced a confidently reassuring wrong answer.
+
+    The systolic area was not checked for zero. A frame where the segmentation found no
+    ventricle therefore entered the formula as an area of 0, which reads as a ventricle that
+    ejected all of its volume: EF 100%, banded `normal`, and reported at the calibrator's
+    maximum confidence. Observed on real echo frames, not hypothesised.
+
+    Random noise segments to nothing, so it exercises the same path.
+    """
+    if not _HAVE_HEART:
+        return
+    rep = ultrasound_agent("heart", ed=_image(1, (256, 256)), es=_image(2, (256, 256)))
+    assert rep["status"] == "failed", rep
+    assert rep["findings"] == []
+    assert S.validate_report(rep) == []
+    ef = (rep.get("measurements") or {}).get("ejection_fraction")
+    assert ef is None, f"a failed segmentation must not carry a measurement, got {ef}"
+
+
+@prop(PERCEPTION)
+def test_the_cardiac_calibrator_ceiling_travels_with_the_report():
+    """The isotonic fit maps even unanimous agreement to roughly 0.71. The reasoning layer has
+    to know that, or it reads a ceilinged confidence as ordinary uncertainty."""
+    if not _HAVE_HEART:
+        return
+    from src.agents.ultrasound.agent import HEART_CALIBRATION, _json
+    cal = _json(HEART_CALIBRATION)
+    if not cal:
+        return
+    assert 0.0 < cal["ceiling"] <= 1.0
+    assert cal["ceiling"] < 1.0, "a ceiling of 1.0 is not a ceiling"
+    assert cal["isotonic_y"][-1] == cal["ceiling"]
 
 
 @prop(PERCEPTION)

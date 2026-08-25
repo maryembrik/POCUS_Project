@@ -65,6 +65,7 @@ from src.agents.clinical.run_case import SCENARIOS, build as build_scenario  # n
 from src.agents.ultrasound.agent import (  # noqa: E402
     GB_CLASSES, GB_GROUP, GB_LOW_CONFIDENCE, GB_SCOPE, LUNG_FINDINGS)
 from src.agents.ultrasound.agent import available as organs_available  # noqa: E402
+from src.agents.ultrasound.agent import module_status  # noqa: E402
 from src.agents.ultrasound.agent import ultrasound_agent  # noqa: E402
 
 FROZEN = ROOT / "models" / "clinical_reasoning_v4_final" / "results.json"
@@ -94,7 +95,21 @@ html,body,.stApp,[class*="css"]{{background:{BG}!important;color:{INK}!important
   font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;-webkit-font-smoothing:antialiased}}
 *{{box-sizing:border-box}} ::selection{{background:#DEDCF4}}
 h1,h2,h3,h4,h5,p,div,span,label,li,td,th{{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important}}
-header[data-testid="stHeader"],#MainMenu,footer{{display:none!important}}
+/* Streamlit chrome. The toolbar is hidden but the HEADER ITSELF is kept, because the control
+   that reopens a collapsed sidebar lives inside it. Hiding the header outright removed the
+   only way back: collapse the sidebar once and the navigation was unreachable without a
+   reload. The control is pinned and given the design's own styling so it is findable. */
+[data-testid="stToolbar"],[data-testid="stDecoration"],#MainMenu,footer{{display:none!important}}
+header[data-testid="stHeader"]{{background:transparent!important;height:0!important;
+  min-height:0!important;box-shadow:none!important}}
+[data-testid="stSidebarCollapsedControl"],[data-testid="collapsedControl"],
+[data-testid="stExpandSidebarButton"]{{
+  display:flex!important;visibility:visible!important;opacity:1!important;
+  position:fixed!important;top:14px!important;left:14px!important;z-index:1000!important}}
+[data-testid="stSidebarCollapsedControl"] button,[data-testid="collapsedControl"] button,
+[data-testid="stExpandSidebarButton"] button{{
+  background:{CARD}!important;border:1px solid {BORDER}!important;border-radius:10px!important;
+  color:{NAVY}!important;box-shadow:0 4px 14px rgba(46,42,120,.16)!important}}
 .block-container{{padding:26px 40px 72px!important;max-width:1500px}}
 
 /* ── motion (as delivered) ───────────────────────────────────────────── */
@@ -487,6 +502,7 @@ def seed(key: str, value) -> None:
 
 enc = st.session_state["enc"]
 AV = organs_available()
+MODULES = module_status()
 
 # Run the pipeline BEFORE the sidebar is drawn, so the severity chip and the alert badge show
 # this encounter's numbers rather than the previous rerun's. The failure toggle is therefore
@@ -536,8 +552,8 @@ with st.sidebar:
         f"letter-spacing:.09em;text-transform:uppercase;color:{V500};font-weight:700'>"
         f"Perception modules</div>" +
         "".join(f"<div style='font-size:12.5px;color:{MUTED};margin-top:6px'>"
-                f"{'●' if v else '○'} {k} — {'model loaded' if v else 'weights absent'}</div>"
-                for k, v in AV.items()) + "</div>", unsafe_allow_html=True)
+                f"{'●' if s['runs'] else '○'} {k} — {E(s['reason'])}</div>"
+                for k, s in MODULES.items()) + "</div>", unsafe_allow_html=True)
 
     st.toggle("Simulate a model failure", key="broken",
               help="Runs the pipeline for real with a backend that raises on every call. "
@@ -854,30 +870,66 @@ elif SCREEN == "pocus":
 
     with left:
         organ = st.selectbox("Organ examined", ORGANS, key="_organ")
-        up = None
-        if organ == "Lung":
-            up = st.file_uploader("Add ultrasound examination — the model reads it",
-                                  type=["png", "jpg", "jpeg", "bmp"])
-        if up is not None:
-            st.image(up, use_container_width=True)
-            if AV["lung"]:
-                if st.session_state.get("_img") != up.name:
-                    from PIL import Image
-                    import numpy as np
-                    t0 = time.time()
-                    with st.spinner("The module is analysing the image…"):
-                        rep = ultrasound_agent(
-                            "lung", image=np.array(Image.open(up).convert("L")))
-                    st.session_state["_img"] = up.name
-                    st.session_state["_rep"] = rep
-                    st.session_state["_secs"] = time.time() - t0
-                    up.seek(0)
-                    st.session_state["_imgbytes"] = up.read()
-                analysed = st.session_state.get("_rep")
-            else:
-                st.warning("No lung checkpoint in this deployment — the image cannot be "
-                           "analysed. Record below what the module reported.")
+        IMG_T = ["png", "jpg", "jpeg", "bmp"]
+        key = organ.lower()
+        runs = MODULES.get(key, {}).get("runs", False)
+
+        def _grey(f):
+            from PIL import Image
+            import numpy as np
+            f.seek(0)
+            return np.array(Image.open(f).convert("L"))
+
+        def _run(cache_key: str, fn):
+            """Analyse once per uploaded file, not once per rerun."""
+            if st.session_state.get("_img") != cache_key:
+                t0 = time.time()
+                with st.spinner("The module is analysing the image…"):
+                    st.session_state["_rep"] = fn()
+                st.session_state["_img"] = cache_key
+                st.session_state["_secs"] = time.time() - t0
+            return st.session_state.get("_rep")
+
+        if organ == "Not performed":
+            st.markdown(f"<div class='scan'><div style='display:flex;"
+                        f"justify-content:space-between'><span>No examination</span>"
+                        f"<span>—</span></div><div style='text-align:center;color:#8A90A6'>"
+                        f"No POCUS was performed for this encounter</div>"
+                        f"<div>&nbsp;</div></div>", unsafe_allow_html=True)
+        elif not runs:
+            st.warning(f"The {key} module cannot run here — {MODULES[key]['reason']}. "
+                       f"Record below what the module reported.")
+        elif organ == "Heart":
+            # EF is a comparison between two frames, so this organ takes two uploads. A single
+            # still cannot produce one, and passing the same frame twice would compute a
+            # fractional change of zero and report a normal ventricle.
+            st.caption("Ejection fraction is derived from two frames. A single still cannot "
+                       "produce one.")
+            h1, h2 = st.columns(2)
+            ed = h1.file_uploader("End-diastole", type=IMG_T, key="up_ed")
+            es = h2.file_uploader("End-systole", type=IMG_T, key="up_es")
+            if ed and es:
+                h1.image(ed, use_container_width=True)
+                h2.image(es, use_container_width=True)
+                analysed = _run(f"heart:{ed.name}:{es.name}",
+                                lambda: ultrasound_agent("heart", ed=_grey(ed),
+                                                         es=_grey(es)))
+                ed.seek(0)
+                st.session_state["_imgbytes"] = ed.read()
+            elif ed or es:
+                st.info("Both frames are needed. With only one the module reports a failed "
+                        "measurement rather than a number.")
         else:
+            up = st.file_uploader(
+                f"Add {key} examination — the model reads it", type=IMG_T, key="up_one")
+            if up is not None:
+                st.image(up, use_container_width=True)
+                analysed = _run(f"{key}:{up.name}",
+                                lambda: ultrasound_agent(key, image=_grey(up)))
+                up.seek(0)
+                st.session_state["_imgbytes"] = up.read()
+
+        if analysed is None and organ != "Not performed":
             st.markdown(f"<div class='scan'><div style='display:flex;"
                         f"justify-content:space-between'><span>{organ}</span>"
                         f"<span>No clip</span></div>"
@@ -899,23 +951,57 @@ elif SCREEN == "pocus":
                 f"<div class='row'><div style='font-weight:600;font-size:15px'>"
                 f"{E(f['label'])}</div><div style='color:{MUTED};font-size:13.5px'>"
                 f"Not detected · {f['confidence']:.2f}</div></div>"
-                for f in analysed["not_detected"]) + (
-                f"<div class='row'><div style='font-weight:600;font-size:15px;color:{GHOST}'>"
-                f"pneumothorax</div><div style='color:{GHOST};font-size:13.5px'>Not assessed"
-                f"</div></div>")
-            q = analysed["quality"]
+                for f in analysed["not_detected"])
+            if analysed["organ"] == "lung":
+                rows += (f"<div class='row'><div style='font-weight:600;font-size:15px;"
+                         f"color:{GHOST}'>pneumothorax</div>"
+                         f"<div style='color:{GHOST};font-size:13.5px'>Not assessed"
+                         f"</div></div>")
+            q, rel = analysed["quality"], analysed["reliability"]
+            if analysed["status"] != "ok":
+                rows = (f"<div class='row' style='color:{RED_D}'>Measurement failed — "
+                        f"{E(str(rel.get('scope', '')))}</div>")
+
+            # Each module declares its own limits, so the note is assembled from the report
+            # rather than written for one organ.
+            note = []
+            if rel.get("has_normal_class") is False:
+                note.append("This examination cannot establish that the organ is normal, and "
+                            "it does not assess every condition.")
+            if q.get("thresholds"):
+                note.append("Operating points " + ", ".join(
+                    f"{k} {v:.2f}" for k, v in q["thresholds"].items())
+                    + f" — the values the training run tuned, read back from "
+                      f"{q.get('thresholds_source')}.")
+            note.append("Confidence is calibrated" if rel.get("confidence_calibrated")
+                        else "Confidence is a raw sigmoid output, not a calibrated probability")
+            if rel.get("confidence_ceiling") and rel["confidence_ceiling"] < 1.0:
+                note.append(f"the calibrator ceilings confidence at "
+                            f"{rel['confidence_ceiling']:.2f}, so even unanimous agreement "
+                            f"does not read as certainty")
+            if rel.get("ece") is not None:
+                note.append(f"ECE {rel['ece']:.3f}")
+            if q.get("fine_grained"):
+                note.append(f"finest-grained class: {q['fine_grained']}")
+            if rel.get("scope") and analysed["status"] == "ok":
+                note.append(str(rel["scope"]))
+
+            meas = ""
+            if analysed.get("measurements"):
+                meas = "".join(
+                    f"<div class='row'><div style='font-weight:600;font-size:15px'>"
+                    f"{E(k.replace('_', ' '))}</div>"
+                    f"<div style='font-size:15px;font-weight:700'>{v}</div></div>"
+                    for k, v in analysed["measurements"].items())
+
             st.markdown(
                 f"<div class='card rise'><h2 class='h2'>Ultrasound findings</h2>"
                 f"<p class='sub'>Read from the uploaded examination by "
-                f"{E(analysed['model'])} in {st.session_state.get('_secs', 0):.1f}s on CPU. "
-                f"Nothing here was typed in.</p>{rows}"
-                f"<div class='note' style='margin-top:18px'>This examination cannot establish "
-                f"that the lungs are normal, and it does not assess every condition. Operating "
-                f"points "
-                f"{', '.join(f'{k} {v:.2f}' for k, v in q.get('thresholds', {}).items())} — "
-                f"the values the training run tuned, read back from "
-                f"{E(str(q.get('thresholds_source')))}. Confidence is a raw sigmoid output, "
-                f"not a calibrated probability.</div></div>", unsafe_allow_html=True)
+                f"{E(str(analysed.get('model') or 'the module'))} in "
+                f"{st.session_state.get('_secs', 0):.1f}s on CPU. Nothing here was typed in."
+                f"</p>{rows}{meas}"
+                f"<div class='note' style='margin-top:18px'>{E('. '.join(note))}.</div></div>",
+                unsafe_allow_html=True)
         else:
             st.markdown("<div class='card'><h2 class='h2'>Ultrasound findings</h2>"
                         "<p class='sub'>No image analysed. Record what the module reported — "
@@ -928,15 +1014,11 @@ elif SCREEN == "pocus":
                     b.slider(" ", 0.0, 1.0, step=0.01, key=f"c_{f}",
                              label_visibility="collapsed")
             elif organ == "Heart":
-                st.caption("Cardiac weights are not in this deployment, so the module cannot "
-                           "read an image here.")
                 a, b = st.columns([1, 2])
                 a.checkbox("severe dysfunction", key="f_sd")
                 b.slider(" ", 0.0, 1.0, step=0.01, key="c_sd", label_visibility="collapsed")
             elif organ == "Gallbladder":
-                st.caption("Gallbladder weights are not in this deployment, so the module "
-                           "cannot read an image here. It is single-label: one of five classes "
-                           "is reported, never a set.")
+                st.caption("Single-label: one of five classes is reported, never a set.")
                 st.selectbox("Reported class", GB_CLASSES, key="gb_cls")
                 st.slider("Confidence", 0.0, 1.0, step=0.01, key="gb_conf")
                 _c = st.session_state["gb_conf"]
@@ -1668,11 +1750,217 @@ elif SCREEN == "assistant":
                                      if not f["detected"]) or "none")
                         + ". "
                         + ("; ".join(state["imaging"]["out_of_scope"]) or ""))
-            return ("I can only answer from the computed assessment for this encounter — the "
-                    "clinical state, the escalation triggers, the alerts, the recommended "
-                    "examinations and the differential as validated. There is no "
-                    "conversational model in this system, so I will not compose an answer to "
-                    "a free-text clinical question. Use one of the suggestions below.")
+            return answer_free(key)
+
+        def answer_free(q: str) -> str:
+            """Answer an arbitrary typed question from the computed assessment.
+
+            This is a router over the record, not a language model. It reads the question for
+            what it is asking about and replies with what this encounter actually holds. That
+            boundary is the whole point: a fluent paragraph composed here would be a clinical
+            opinion with no evidence behind it, which is the failure the rest of the system is
+            built to prevent. Everything below is quoted from the state, the escalation
+            triggers, the alerts, the retrieved corpus or the validated differential.
+            """
+            ql = " " + q.lower().strip() + " "
+
+            def has(*words) -> bool:
+                return any(w in ql for w in words)
+
+            # ---- a specific measurement by name -------------------------------------
+            for k in list(LAB_REFERENCE) + list(VITAL_REFERENCE):
+                aliases = {k, k.replace("_", " "), k.replace("_", "-")}
+                if k == "spo2":
+                    aliases |= {"oxygen", "saturation", "sats", "o2"}
+                if k == "hr":
+                    aliases |= {"heart rate", "pulse"}
+                if k == "sbp":
+                    aliases |= {"blood pressure", "systolic"}
+                if k == "rr":
+                    aliases |= {"respiratory rate", "breathing rate"}
+                if k == "temp":
+                    aliases |= {"temperature", "fever"}
+                if not any(f" {a} " in ql or f" {a}?" in ql or f" {a}," in ql
+                           for a in aliases):
+                    continue
+                src = state.get("labs") or {}
+                ref = LAB_REFERENCE.get(k)
+                if k in VITAL_REFERENCE:
+                    src, ref = state.get("vitals") or {}, VITAL_REFERENCE[k]
+                e = src.get(k)
+                if e:
+                    bounds = (f"reference {ref.get('normal_min', '—')}–"
+                              f"{ref.get('normal_max', '—')} {ref.get('unit', '')}").strip()
+                    eid = next((x["id"] for x in build_evidence(state)
+                                if k in x["text"].lower()), None)
+                    return (f"{k} is {e['value']:g} {e['unit']} — flagged {e['flag']}. "
+                            f"{bounds}."
+                            + (f" It is citable as {eid}." if eid else ""))
+                return (f"{k} was NOT measured for this patient. That is not the same as "
+                        f"normal: it has no evidence identifier, so nothing in the assessment "
+                        f"can argue for or against a diagnosis using it. It appears in the "
+                        f"missing-information list and, if it matters for this presentation, "
+                        f"in the recommended examinations.")
+
+            # ---- intents --------------------------------------------------------------
+            if has("treat", "therapy", "therapeutic", "manage", "give ", "drug", "dose",
+                   "medication", "prescri", "fluid", "antibiotic"):
+                th = sup["therapeutic"]
+                if th["considerations"]:
+                    return ("A protocol-backed consideration is available for this "
+                            "presentation: "
+                            + "; ".join(f"{c['consideration']} (basis: {c['basis']}, "
+                                        f"{c['passage']})" for c in th["considerations"])
+                            + ". This is decision support, not a treatment instruction, and "
+                              "the decision remains yours.")
+                return (f"No therapeutic recommendation for this case. {th['status']}. "
+                        "Therapeutic suggestions are gated behind a sourced, citable protocol "
+                        "in the corpus; with none retrieved the system produces nothing rather "
+                        "than drawing on the language model's own training knowledge. It is "
+                        "decision support and does not instruct treatment.")
+            if has("suggest", "recommend", "next", "investigate", "order", "which test",
+                   "what test", "what should i do", "what do you suggest", "work up",
+                   "workup", "plan"):
+                return answer("next")
+            if has("miss", "absent", "not measured", "unavailable", "don't have",
+                   "do not have"):
+                return answer("missing")
+            if has("why", "reason", "because", "how did you", "justif"):
+                return answer("why")
+            if has("challenge", "wrong", "disagree with you", "sure", "certain",
+                   "limitation", "limit"):
+                return answer("challenge")
+            if has("alert", "critical", "danger", "urgent", "red flag", "worry"):
+                al = sup["alerts"]
+                if not al:
+                    return ("No alert fired. No measured value crossed a configured bound and "
+                            "the record shows no structural gap.")
+                return ("Alerts, each naming the bound it crossed: "
+                        + "; ".join(f"[{a['severity']}] {a['message']}" for a in al)
+                        + f". Thresholds v{sup['thresholds_version']}.")
+            if has("severity", "priority", "escalat", "how bad", "how serious", "admit",
+                   "icu", "dispos"):
+                base = answer("why")
+                if has("admit", "icu", "dispos"):
+                    base += (" Disposition is outside what this system decides: it produces a "
+                             "severity, alerts and recommended examinations, not a bed "
+                             "decision.")
+                return base
+            if has("pocus", "ultrasound", "scan", "image", "b-line", "b line", "finding",
+                   "detect", "see"):
+                return answer("findings")
+            if has("differential", "diagnos", "cause", "what could", "what might",
+                   "possib"):
+                if not diff:
+                    return ("No differential was produced for this encounter. "
+                            + ("The model backend failed and the answer was withheld; the "
+                               "severity and alerts beside it were computed before the model "
+                               "ran." if A["origin"] == "failed" else
+                               "Generating one needs a 4.9 GB model on a GPU, which is not "
+                               "loaded here. Load a benchmark encounter unedited to see one "
+                               "recorded from the GPU run."))
+                return ("Ranked: " + "; ".join(
+                    f"{i}. {d.get('diagnosis')} ({d.get('likelihood')})"
+                    for i, d in enumerate(diff, 1))
+                    + ". Offered for consideration — this is not a diagnosis.")
+            if has("support", "evidence for", "argue for", "in favour", "in favor"):
+                return answer("support")
+            if has("against", "exclude", "rule out", "contradict"):
+                lim = state["imaging"]["out_of_scope"]
+                against = "; ".join(
+                    f"{d.get('diagnosis')}: " + "; ".join(d.get("contradicting") or ["—"])
+                    for d in diff) or "nothing was cited against any entry"
+                return (f"Cited against: {against}. What the imaging cannot exclude: "
+                        + ("; ".join(lim) if lim else "no scope limit was declared")
+                        + ". A finding the module does not model cannot be ruled out by it, "
+                          "whatever else the scan shows.")
+            if has("summar", "overview", "tell me about", "who is", "recap"):
+                return answer("summary")
+            if has("confiden", "calibrat", "reliab", "trust", "accurate", "threshold",
+                   "cutoff"):
+                rel = ((enc.get("report") or {}).get("reliability") or {})
+                bits = []
+                if rel:
+                    bits.append("calibrated" if rel.get("confidence_calibrated")
+                                else "confidence is a RAW sigmoid output, not a calibrated "
+                                     "probability — the decision boundary is tuned, the number "
+                                     "is not")
+                    if rel.get("scope"):
+                        bits.append(f"scope: {rel['scope']}")
+                bits.append(f"alert thresholds are v{sup['thresholds_version']} and are "
+                            "configuration for a prototype, not a validated scoring system")
+                bits.append("none of this has been validated against patient outcomes")
+                return " · ".join(bits).capitalize() + "."
+            if has("conflict", "disagree"):
+                c = state.get("conflicts") or []
+                return ("The agents disagree: " + "; ".join(c) +
+                        ". The system surfaces the disagreement rather than resolving it."
+                        ) if c else "The agents do not disagree on this encounter."
+            if has("protocol", "guideline", "source", "reference", "citation", "corpus",
+                   "retriev", "paper"):
+                if not A["hits"]:
+                    return ("No passage cleared the 0.10 relevance floor for this encounter, "
+                            "so the answer is not marked guideline-grounded. Below the floor "
+                            "the system reports nothing rather than the best of a bad set.")
+                return "Retrieved: " + "; ".join(
+                    f"[{h['n']}] {h['topic']} ({h['score']:.2f}) — {h['source']}"
+                    for h in A["hits"])
+            if has("scenario", "route", "routed", "pathway"):
+                return (f"Routed as {sup['scenario']['label']}. Routing selects which "
+                        f"modalities are expected and which protocol topic is looked up; it is "
+                        f"matched on the presenting complaint by fixed cues, not by a model.")
+            if has("quality", "complete", "enough"):
+                q_ = state.get("case_quality") or {}
+                return (f"Case quality is graded {q_.get('grade')}. "
+                        + ("Reasons: " + "; ".join(q_.get("reasons") or []) if q_.get("reasons")
+                           else "No quality concern was recorded."))
+            if has("evidence", "cite", "identifier"):
+                ev = build_evidence(state)
+                used = {i for d in diff for i in (d.get("supporting_ids") or [])}
+                return (f"{len(ev)} citable fact(s), {len(used)} cited by the model: "
+                        + "; ".join(f"{e['id']} {e['text']}" for e in ev))
+            if has("how long", "how fast", "time", "latency", "speed"):
+                return ("Stage timings for this encounter: "
+                        + "; ".join(f"{m['title']} +{m['t'] * 1000:.0f} ms"
+                                    for m in A["marks"]))
+            if has("vital", "observation"):
+                v = state.get("vitals") or {}
+                return ("Vitals recorded: " + "; ".join(
+                    f"{k} {e['value']:g} {e['unit']} ({e['flag']})" for k, e in v.items())
+                    + (f". Never measured: {', '.join(state['missing']['vitals'])}."
+                       if state["missing"]["vitals"] else "")) if v else \
+                    "No vital sign was recorded for this patient."
+            if has("lab", "blood", "biolog"):
+                lb = state.get("labs") or {}
+                return ("Laboratory values: " + "; ".join(
+                    f"{k} {e['value']:g} {e['unit']} ({e['flag']})" for k, e in lb.items())
+                    + (f". Never measured: {', '.join(state['missing']['labs'])}."
+                       if state["missing"]["labs"] else "")) if lb else \
+                    ("No laboratory value was recorded. Not measured is not normal: "
+                     + ", ".join(state["missing"]["labs"]) + " all have no identifier.")
+
+            # ---- a diagnosis named in the question -----------------------------------
+            for d in diff:
+                nm = str(d.get("diagnosis", "")).lower()
+                if nm and (nm in ql or any(w in ql for w in nm.split() if len(w) > 5)):
+                    return (f"{d.get('diagnosis')} — {d.get('likelihood')} likelihood. "
+                            f"Cited for it: "
+                            + "; ".join(d.get("supporting") or ["—"])
+                            + ". Against: " + "; ".join(d.get("contradicting") or ["—"])
+                            + ". Limits: " + "; ".join(d.get("limitations") or ["—"]) + ".")
+
+            # ---- nothing matched -----------------------------------------------------
+            return (
+                "I could not map that to anything in this encounter's record, and I will not "
+                "compose a clinical opinion that has no evidence behind it — that is the "
+                "failure this system is built to prevent.\n\n"
+                "I can answer, from what was actually computed: any named vital or laboratory "
+                "value and whether it was measured at all; what is missing; the alerts and the "
+                "bound each crossed; the severity and why; the escalation triggers; what POCUS "
+                "saw and what it cannot exclude; the differential and the evidence cited for "
+                "and against each entry; the retrieved sources; the scenario routing; case "
+                "quality; calibration and thresholds; and the stage timings.\n\n"
+                "Ask in those terms and you will get the record, not a guess.")
 
         C, Sd = st.columns([1.9, 1], gap="large")
         with C:
@@ -1718,8 +2006,12 @@ elif SCREEN == "assistant":
                                      placeholder="Ask about this patient…")
                 if fc[1].form_submit_button("➤", type="primary", use_container_width=True) \
                         and q.strip():
-                    st.session_state["msgs"] += [{"r": "d", "t": q.strip()},
-                                                 {"r": "a", "t": "ASK:fallback"}]
+                    # The typed question is answered from this encounter's record. It is
+                    # stored resolved rather than as a key, because the answer belongs to the
+                    # question that was asked.
+                    st.session_state["msgs"] += [
+                        {"r": "d", "t": q.strip()},
+                        {"r": "a", "t": answer_free(q.strip())}]
                     st.rerun()
 
         with Sd:
