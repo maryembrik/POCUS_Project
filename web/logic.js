@@ -109,7 +109,8 @@ class Component extends DCLogic {
     return async () => {
       this.setState({ busy: true });
       const view = await get('/api/record?id=' + encodeURIComponent(id));
-      this.setState({ view, recordSel: id, busy: false, recTab: 'images' });
+      // Also opened from the home table, so it carries the screen with it.
+      this.setState({ view, recordSel: id, busy: false, recTab: 'images', screen: 'record' });
     };
   }
 
@@ -498,18 +499,23 @@ class Component extends DCLogic {
 
       reportText: v.reportText || '', generatedAt: v.generatedAt || '',
 
-      // ---- roster / session record -------------------------------------------------
-      roster: (boot.roster || []).map(r => ({ name: r.name, age: String(r.age), sex: r.sex,
-        complaint: r.complaint, tag: r.tag, severity: r.severity,
+      // ---- the home table and the history grid list PATIENTS ------------------------
+      // They used to list the project's five benchmark encounters, which are fixtures the
+      // test suite runs, not people anybody assessed here. Shown under "Recent assessments"
+      // beside a tile reading "0 analysed this session", they read as this doctor's patients.
+      // Both screens list the encounters actually analysed in this session, and say so when
+      // there are none. The benchmark still runs -- in the suite, where it belongs.
+      roster: (boot.records || []).map(r => ({ name: r.name, age: String(r.age), sex: r.sex,
+        complaint: r.complaint, tag: r.severity, severity: r.severity,
         alerts: r.alerts + ' alert(s)',
-        initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase(),
-        onOpen: () => this.loadPreset(r.key),
+        initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
+        onOpen: this.openRecord(r.id),
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
           fontWeight: 700,
-          background: r.tag === 'Critical' ? '#FDECEC'
-                    : r.tag === 'Review' ? '#FFF3E0' : '#F0FADB',
-          color: r.tag === 'Critical' ? '#C13238'
-               : r.tag === 'Review' ? '#9A6207' : '#5A7A0F' } })),
+          background: r.severity === 'HIGH' ? '#FDECEC'
+                    : r.severity === 'MODERATE' ? '#FFF3E0' : '#F0FADB',
+          color: r.severity === 'HIGH' ? '#C13238'
+               : r.severity === 'MODERATE' ? '#9A6207' : '#5A7A0F' } })),
       visits: (boot.records || []).map(r => ({ date: r.at, reason: r.name,
         meta: r.organ + ' · ' + r.alerts + ' alert(s)', tag: r.severity,
         outcome: (r.findings || []).join(', ') || 'no positive finding',
@@ -540,10 +546,19 @@ class Component extends DCLogic {
         v2: '—', v3: '—', v4: '—',
         nowStyle: { padding: '13px 0', fontWeight: 700,
           color: (x.flag && x.flag !== 'normal') ? '#C13238' : '#1B1A3A' } })),
-      rosterCount: String((boot.roster || []).length),
+      // Every counter reads this session. A tile counting benchmark fixtures sat beside one
+      // reading "0 analysed this session", which is how five test cases came to look like
+      // five patients waiting to be seen.
       sessionCount: String((boot.records || []).length),
-      criticalCount: String((boot.roster || []).filter(r => r.severity === 'HIGH').length),
+      studyCount: String((boot.records || [])
+        .reduce((n, r) => n + (r.images || []).length, 0)),
+      criticalCount: String((boot.records || []).filter(r => r.severity === 'HIGH').length),
       testCount: boot.tests ? String(boot.tests) : '—',
+      noRoster: !(boot.records || []).length,
+      assistantLine: (boot.records || []).length
+        ? (boot.records || []).length + ' case(s) assessed in this session are open for review.'
+        : 'Nothing assessed yet. The assistant answers from a computed encounter, so there is '
+          + 'nothing for it to read until you analyse one.',
       modules: Object.keys(boot.modules || {}).map(k => ({ organ: k,
         reason: boot.modules[k].reason, dot: boot.modules[k].runs ? '●' : '○' })),
 

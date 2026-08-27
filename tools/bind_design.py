@@ -141,10 +141,10 @@ def main() -> int:
     TILE = ('<div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px">'
             '<div style="font-size:28px;font-weight:800">{n}</div>'
             '<div style="font-size:12.5px;opacity:.88">{t}</div></div>')
-    for on, ot, nn, nt in (("12", "Assessments today", "{{ rosterCount }}",
-                            "Benchmark encounters"),
-                           ("3", "Require review", "{{ sessionCount }}",
-                            "Analysed this session"),
+    for on, ot, nn, nt in (("12", "Assessments today", "{{ sessionCount }}",
+                            "Patients this session"),
+                           ("3", "Require review", "{{ studyCount }}",
+                            "POCUS studies read"),
                            ("2", "Critical alerts", "{{ criticalCount }}", "High priority"),
                            ("7", "Completed", "{{ testCount }}", "Safety tests passing")):
         s = sub(s, TILE.format(n=on, t=ot), TILE.format(n=nn, t=nt), f"tile {ot}")
@@ -417,7 +417,12 @@ def main() -> int:
             '<td style="padding:14px 0">{{ r.complaint }}</td>'
             '<td style="padding:14px 0"><span style="{{ r.tagStyle }}">{{ r.tag }}</span></td>'
             '<td style="padding:14px 0;text-align:right;color:#6A6785">{{ r.alerts }}</td>'
-            '</tr>\n        </sc-for>\n      </tbody>', "roster table")
+            '</tr>\n        </sc-for>\n'
+            '        <sc-if value="{{ noRoster }}" hint-placeholder-val="{{ false }}">\n'
+            '        <tr style="border-top:1px solid #E9E8FB"><td colspan="5" '
+            'style="padding:18px 0;color:#6A6785;font-size:14.5px">No patient has been '
+            'assessed in this session. Open Patient workup to enter one.</td></tr>\n'
+            '        </sc-if>\n      </tbody>', "roster table")
 
     # ---- 7b. history grid: four invented patients become the real roster -------------
     s = cut(s, '<button type="button" onClick="{{ goRecord }}" style="text-align:left;'
@@ -439,7 +444,21 @@ def main() -> int:
             '      <span style="font-size:14px;color:#6A6785">{{ r.complaint }}</span>\n'
             '      <span style="font-size:13px;color:#8A87A8;margin-top:6px">'
             '{{ r.severity }} · {{ r.alerts }}</span>\n'
-            '    </button>\n    </sc-for>', "history grid")
+            '    </button>\n    </sc-for>\n'
+            '    <sc-if value="{{ noRoster }}" hint-placeholder-val="{{ false }}">\n'
+            '    <div style="background:#fff;border:1px solid #E4E2F8;border-radius:18px;'
+            'padding:22px 24px;color:#6A6785;font-size:14.5px">Nothing has been assessed in '
+            'this session yet. There is no database behind this screen: closing the app '
+            'discards it.</div>\n    </sc-if>', "history grid")
+
+    # ---- 7b2. the assistant strip announced cases that did not exist -----------------
+    # "3 previous cases are waiting for your review" survived every earlier pass because the
+    # fabrication check looks for the mockup's patient, not for its numbers. A fixed count of
+    # waiting cases is the same fault as the roster was: it invents work for the clinician.
+    s = sub(s, '<div style="font-size:13.5px;color:#6A6785">3 previous cases are waiting '
+               'for your review.</div>',
+            '<div style="font-size:13.5px;color:#6A6785">{{ assistantLine }}</div>',
+            "assistant strip")
 
     # ---- 7c. the lime tile counted conversations this system never had ---------------
     s = sub(s, '<span style="font-weight:700;font-size:15.5px">▤ Clinical assistant</span>',
@@ -517,7 +536,7 @@ def main() -> int:
     ST = ('<div><div style="color:#6A6785">{k}</div><div style="font-weight:800;'
           'font-size:18px;margin-top:3px">{v}</div></div>')
     for k, val, nk, nv in (("Visits", "4", "Encounters", "{{ sessionCount }}"),
-                           ("POCUS studies", "7", "Benchmark", "{{ rosterCount }}"),
+                           ("POCUS studies", "7", "POCUS studies", "{{ studyCount }}"),
                            ("Reports", "3", "Alerts", "{{ alertCount }}"),
                            ("Last seen", "Today", "Severity", "{{ severity }}")):
         s = sub(s, ST.format(k=k, v=val), ST.format(k=nk, v=nv), f"record stat {k}")

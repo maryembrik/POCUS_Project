@@ -409,17 +409,14 @@ def _remember(enc: dict, a: dict) -> None:
 
 @app.get("/api/bootstrap")
 def bootstrap() -> JSONResponse:
+    # The five benchmark encounters are no longer sent. They are fixtures the test suite runs,
+    # and listing them under "Recent assessments" beside a tile reading "0 analysed this
+    # session" presented five test cases as five patients waiting to be seen. Every screen now
+    # lists only encounters analysed here. They were also re-analysed on EVERY bootstrap --
+    # five full pipeline runs per page load and after every assessment -- for a table nobody
+    # could act on. `/api/preset` still serves them by key for the recorded-differential path.
     bench = json.loads(BENCH.read_text(encoding="utf8")) if BENCH.exists() else {}
-    roster = []
-    for key, c in CASES.items():
-        enc = dict(c, frozen_key=key, report=None, not_assessed=list(c["unassessed"]))
-        a = analyse(enc)
-        roster.append({"key": key, "name": c["name"], "age": c["age"], "sex": c["sex"],
-                       "complaint": c["complaint"], "tag": c["tag"],
-                       "severity": a["support"]["severity"]["severity"],
-                       "alerts": len(a["support"]["alerts"])})
     return JSONResponse({
-        "roster": roster,
         "modules": module_status(),
         "tests": bench.get("total_passed"),
         "vitalKeys": [{"key": k, "unit": v["unit"], "min": v["normal_min"],
