@@ -123,6 +123,42 @@ def test_a_gap_in_the_record_is_not_rendered_as_a_negative_result():
 
 
 @prop(I18N)
+def test_the_conclusion_states_the_same_facts_in_both_languages():
+    """The line a busy reader acts on. It is built by fixed rules from the report rather than
+    generated, so that it cannot say something the rest of the report does not -- and the
+    French is built by the same rules from the same fields, for the same reason.
+
+    Checked on the facts that can be compared without comparing prose: the same severity, the
+    same count of critical alerts, the same escalation, the same unassessed organs.
+    """
+    from src.agents.clinical.report import build_report
+    from src.agents.clinical.reasoning import reason
+
+    i18n.reset_untranslated()
+    for name in SCENARIOS:
+        state = build(name)
+        esc = escalation_decision(state)
+        result = reason(state, llm_fn=None)
+        sup = decision_support(state, esc, None)
+        result["decision_support"] = sup
+        rep = build_report(state, result, sup)
+        en, fr = rep["conclusion"], i18n.conclusion(rep)
+
+        crit = len([a for a in sup["alerts"] if a["severity"] == "CRITICAL"])
+        if crit:
+            assert f"{crit} critical alert(s)" in en
+            assert f"{crit} alerte(s) critique(s)" in fr
+        if esc["escalate"]:
+            assert "ESCALATED" in en and "ESCALADE" in fr
+        else:
+            assert "No escalation trigger" in en and "Aucun déclencheur" in fr
+        for organ in state["imaging"].get("organs_not_assessed") or []:
+            assert organ in en, f"{organ} missing from the English conclusion"
+            assert i18n.organ(organ) in fr, f"{organ} missing from the French conclusion"
+    assert i18n.untranslated() == [], i18n.untranslated()
+
+
+@prop(I18N)
 def test_an_unknown_message_is_reported_rather_than_silently_passed():
     """The failure mode must be loud. An unrecognised trigger is recorded, not hidden."""
     i18n.reset_untranslated()

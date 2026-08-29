@@ -63,7 +63,7 @@ input,textarea,select,button{font-family:inherit}
     <div style="width:40px;height:40px;border-radius:12px;background:#5B54D6;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px">P</div>
     <div>
       <div style="font-weight:800;font-size:15.5px;letter-spacing:-.01em">POCUS-Emergency</div>
-      <div style="font-size:12px;color:#8A87A8">Clinical Copilot</div>
+      <div style="font-size:12px;color:#8A87A8">Copilote clinique</div>
     </div>
   </div>
 
@@ -80,7 +80,7 @@ input,textarea,select,button{font-family:inherit}
   </nav>
 
   <div style="margin-top:auto;background:#EFEEFB;border-radius:16px;padding:16px 18px">
-    <div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#8E88E8;font-weight:700">Current patient</div>
+    <div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#8E88E8;font-weight:700">Patient en cours</div>
     <div style="margin-top:8px;font-weight:700;font-size:15px">{{ pName }}</div>
     <div style="font-size:13px;color:#6A6785">{{ pAge }} · {{ pSex }} · {{ pComplaint }}</div>
     <div style="margin-top:12px"><span style="{{ severityStyle }}">● {{ severity }}</span></div>
@@ -88,7 +88,7 @@ input,textarea,select,button{font-family:inherit}
 
   <div style="display:flex;align-items:center;gap:11px;padding:0 8px 4px">
     <div style="width:34px;height:34px;border-radius:50%;background:#E4E2F8;display:flex;align-items:center;justify-content:center;font-weight:700;color:#2E2A78;font-size:13px">AR</div>
-    <div style="line-height:1.25"><div style="font-weight:600;font-size:13.5px">Perception modules</div><div style="font-size:12px;color:#8A87A8"><sc-for list="{{ modules }}" as="m" hint-placeholder-count="3"><span>{{ m.dot }} {{ m.organ }} </span></sc-for></div></div>
+    <div style="line-height:1.25"><div style="font-weight:600;font-size:13.5px">Modules de perception</div><div style="font-size:12px;color:#8A87A8"><sc-for list="{{ modules }}" as="m" hint-placeholder-count="3"><span>{{ m.dot }} {{ m.organ }} </span></sc-for></div></div>
   </div>
 </aside>
 
@@ -97,14 +97,14 @@ input,textarea,select,button{font-family:inherit}
 <header style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 40px;background:#2E2A78;border-bottom:1px solid #2E2A78;position:sticky;top:0;z-index:5">
   <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:0">
     <div style="flex:1;max-width:420px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:11px 18px;color:#C9C6EE;font-size:14px">
-      <span style="display:flex;gap:10px;align-items:center"><span>⌕</span><span>Search patients, findings, reports…</span></span>
+      <span style="display:flex;gap:10px;align-items:center"><span>⌕</span><span>Rechercher patients, signes, rapports…</span></span>
       <span style="color:#B4ACC8">⚙</span>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
     <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);color:#C6F24E;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:700"><span class="livedot">●</span> {{ assistantReady }}</div>
     <a href="{{ otherLangHref }}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:700;text-decoration:none">{{ otherLangLabel }}</a>
-    <button type="button" onClick="{{ goWorkup }}" style="appearance:none;border:0;cursor:pointer;background:#C6F24E;color:#1B1A3A;font-weight:700;font-size:14px;padding:11px 18px;border-radius:999px" style-hover="filter:brightness(1.06)">+ New assessment</button>
+    <button type="button" onClick="{{ goWorkup }}" style="appearance:none;border:0;cursor:pointer;background:#C6F24E;color:#1B1A3A;font-weight:700;font-size:14px;padding:11px 18px;border-radius:999px" style-hover="filter:brightness(1.06)">+ Nouvelle évaluation</button>
   </div>
 </header>
 
@@ -114,21 +114,21 @@ input,textarea,select,button{font-family:inherit}
 <div style="display:flex;flex-direction:column;gap:26px">
   <section style="background:#5B54D6;border-radius:24px;padding:38px 40px;color:#fff;display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;">
     <div style="max-width:560px">
-      <div style="font-size:13px;letter-spacing:.1em;text-transform:uppercase;opacity:.82;font-weight:700">Your clinical copilot</div>
+      <div style="font-size:13px;letter-spacing:.1em;text-transform:uppercase;opacity:.82;font-weight:700">Votre copilote clinique</div>
       <h1 style="margin:12px 0 10px;font-size:36px;line-height:1.12;letter-spacing:-.02em;font-weight:800">{{ pName }}</h1>
-      <p style="margin:0;font-size:16px;line-height:1.55;opacity:.92;text-wrap:pretty">Start a new clinical assessment using clinical information, vital signs, laboratory results and POCUS findings. The assistant highlights what needs attention and what information is missing.</p>
+      <p style="margin:0;font-size:16px;line-height:1.55;opacity:.92;text-wrap:pretty">Démarrez une évaluation clinique à partir des informations cliniques, des constantes, des résultats biologiques et de l’échographie. L’assistant met en évidence ce qui demande attention et ce qui manque.</p>
       <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
-        <button type="button" onClick="{{ goWorkup }}" style="appearance:none;border:0;cursor:pointer;background:#fff;color:#2E2A78;font-weight:700;font-size:14.5px;padding:13px 22px;border-radius:12px">+ New patient assessment</button>
-        <button type="button" onClick="{{ goAssistant }}" style="appearance:none;cursor:pointer;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.45);color:#fff;font-weight:700;font-size:14.5px;padding:13px 22px;border-radius:12px">Ask the assistant</button>
+        <button type="button" onClick="{{ goWorkup }}" style="appearance:none;border:0;cursor:pointer;background:#fff;color:#2E2A78;font-weight:700;font-size:14.5px;padding:13px 22px;border-radius:12px">+ Évaluer un nouveau patient</button>
+        <button type="button" onClick="{{ goAssistant }}" style="appearance:none;cursor:pointer;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.45);color:#fff;font-weight:700;font-size:14.5px;padding:13px 22px;border-radius:12px">Interroger l’assistant</button>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;min-width:280px;align-items:stretch">
       <div class="drift" style="position:relative;height:130px;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.35)"><image-slot id="home-hero" shape="rect" placeholder="Ward or team photo"></image-slot><span style="position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(rgba(46,42,120,.5) 1px,transparent 1.2px);background-size:4px 4px;mix-blend-mode:multiply;opacity:.5"></span></div>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:14px;align-content:start">
-      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ sessionCount }}</div><div style="font-size:12.5px;opacity:.88">Patients this session</div></div>
-      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ studyCount }}</div><div style="font-size:12.5px;opacity:.88">POCUS studies read</div></div>
-      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ criticalCount }}</div><div style="font-size:12.5px;opacity:.88">High priority</div></div>
-      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ testCount }}</div><div style="font-size:12.5px;opacity:.88">Safety tests passing</div></div>
+      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ sessionCount }}</div><div style="font-size:12.5px;opacity:.88">Patients cette session</div></div>
+      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ studyCount }}</div><div style="font-size:12.5px;opacity:.88">Examens POCUS lus</div></div>
+      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ criticalCount }}</div><div style="font-size:12.5px;opacity:.88">Priorité haute</div></div>
+      <div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px"><div style="font-size:28px;font-weight:800">{{ testCount }}</div><div style="font-size:12.5px;opacity:.88">Tests de sécurité réussis</div></div>
       </div>
     </div>
   </section>
@@ -136,39 +136,39 @@ input,textarea,select,button{font-family:inherit}
   <section class="rise-3" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:20px">
     <button type="button" onClick="{{ goWorkup }}" style="text-align:left;appearance:none;cursor:pointer;border:1px solid #E4E2F8;background:#fff;border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(46,42,120,.05)" style-hover="border-color:#B9B5EC">
       <span style="width:40px;height:40px;border-radius:12px;background:#EFEEFB;display:flex;align-items:center;justify-content:center;font-size:19px">🩺</span>
-      <span style="font-weight:700;font-size:16.5px;margin-top:6px">Start an assessment</span>
-      <span style="font-size:13.5px;color:#6A6785">Enter a new patient and analyze the case.</span>
-      <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Start →</span>
+      <span style="font-weight:700;font-size:16.5px;margin-top:6px">Démarrer une évaluation</span>
+      <span style="font-size:13.5px;color:#6A6785">Saisir un nouveau patient et analyser le cas.</span>
+      <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Démarrer →</span>
     </button>
     <button type="button" onClick="{{ goAssessment }}" style="text-align:left;appearance:none;cursor:pointer;border:1px solid #E4E2F8;background:#fff;border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(46,42,120,.05)" style-hover="border-color:#B9B5EC">
       <span style="width:40px;height:40px;border-radius:12px;background:#EFEEFB;display:flex;align-items:center;justify-content:center;font-size:19px">🧠</span>
-      <span style="font-weight:700;font-size:16.5px;margin-top:6px">Review a case</span>
-      <span style="font-size:13.5px;color:#6A6785">Continue the current encounter.</span>
-      <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Open case →</span>
+      <span style="font-weight:700;font-size:16.5px;margin-top:6px">Revoir un cas</span>
+      <span style="font-size:13.5px;color:#6A6785">Poursuivre la prise en charge en cours.</span>
+      <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Ouvrir le cas →</span>
     </button>
     <button type="button" onClick="{{ goAssistant }}" style="text-align:left;appearance:none;cursor:pointer;border:1px solid #E4E2F8;background:#fff;border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(46,42,120,.05)" style-hover="border-color:#B9B5EC">
       <span style="width:40px;height:40px;border-radius:12px;background:#EFEEFB;display:flex;align-items:center;justify-content:center;font-size:19px">💬</span>
-      <span style="font-weight:700;font-size:16.5px;margin-top:6px">Ask the assistant</span>
-      <span style="font-size:13.5px;color:#6A6785">Discuss the case in plain language.</span>
-      <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Open assistant →</span>
+      <span style="font-weight:700;font-size:16.5px;margin-top:6px">Interroger l’assistant</span>
+      <span style="font-size:13.5px;color:#6A6785">Discuter du cas en langage courant.</span>
+      <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Ouvrir l’assistant →</span>
     </button>
     <button type="button" onClick="{{ goReport }}" style="text-align:left;appearance:none;cursor:pointer;border:1px solid #E4E2F8;background:#fff;border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(46,42,120,.05)" style-hover="border-color:#B9B5EC">
       <span style="width:40px;height:40px;border-radius:12px;background:#EFEEFB;display:flex;align-items:center;justify-content:center;font-size:19px">📄</span>
-      <span style="font-weight:700;font-size:16.5px;margin-top:6px">Generate a report</span>
-      <span style="font-size:13.5px;color:#6A6785">Create a standardized clinical summary.</span>
-      <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Reports →</span>
+      <span style="font-weight:700;font-size:16.5px;margin-top:6px">Générer un rapport</span>
+      <span style="font-size:13.5px;color:#6A6785">Créer un compte rendu clinique standardisé.</span>
+      <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Rapports →</span>
     </button>
   </section>
 
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:20px;padding:26px 28px;box-shadow:0 4px 14px rgba(46,42,120,.05)">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:20px;flex-wrap:wrap">
-      <h2 style="margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em">Recent assessments</h2>
-      <button type="button" onClick="{{ goHistory }}" style="appearance:none;border:0;background:none;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px">View all →</button>
+      <h2 style="margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em">Évaluations de cette session</h2>
+      <button type="button" onClick="{{ goHistory }}" style="appearance:none;border:0;background:none;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px">Tout afficher →</button>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-top:18px;font-size:14.5px">
       <thead>
         <tr style="text-align:left;color:#8A87A8;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase">
-          <th style="padding:0 0 12px;font-weight:700">Patient</th><th style="padding:0 0 12px;font-weight:700">Age</th><th style="padding:0 0 12px;font-weight:700">Reason</th><th style="padding:0 0 12px;font-weight:700">Status</th><th style="padding:0 0 12px;font-weight:700;text-align:right">Time</th>
+          <th style="padding:0 0 12px;font-weight:700">Patient</th><th style="padding:0 0 12px;font-weight:700">Âge</th><th style="padding:0 0 12px;font-weight:700">Motif</th><th style="padding:0 0 12px;font-weight:700">Statut</th><th style="padding:0 0 12px;font-weight:700;text-align:right">Heure</th>
         </tr>
       </thead>
       <tbody>
@@ -176,7 +176,7 @@ input,textarea,select,button{font-family:inherit}
         <tr style="border-top:1px solid #E9E8FB"><td style="padding:14px 0;font-weight:600"><span style="display:flex;align-items:center;gap:11px"><span style="width:30px;height:30px;border-radius:50%;background:#E4E2F8;color:#5B3CC4;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex:0 0 auto">{{ r.initials }}</span>{{ r.name }}</span></td><td style="padding:14px 0">{{ r.age }}</td><td style="padding:14px 0">{{ r.complaint }}</td><td style="padding:14px 0"><span style="{{ r.tagStyle }}">{{ r.tag }}</span></td><td style="padding:14px 0;text-align:right;color:#6A6785">{{ r.alerts }}</td></tr>
         </sc-for>
         <sc-if value="{{ noRoster }}" hint-placeholder-val="{{ false }}">
-        <tr style="border-top:1px solid #E9E8FB"><td colspan="5" style="padding:18px 0;color:#6A6785;font-size:14.5px">No patient has been assessed in this session. Open Patient workup to enter one.</td></tr>
+        <tr style="border-top:1px solid #E9E8FB"><td colspan="5" style="padding:18px 0;color:#6A6785;font-size:14.5px">Aucun patient n’a été évalué durant cette session. Ouvrez « Saisie du patient » pour en saisir un.</td></tr>
         </sc-if>
       </tbody>
     </table>
@@ -185,9 +185,9 @@ input,textarea,select,button{font-family:inherit}
   <section style="background:#EFEEFB;border-radius:20px;padding:22px 26px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
     <div style="display:flex;gap:14px;align-items:center">
       <span style="width:38px;height:38px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px">✨</span>
-      <div><div style="font-weight:700;font-size:15.5px">Clinical assistant</div><div style="font-size:13.5px;color:#6A6785">{{ assistantLine }}</div></div>
+      <div><div style="font-weight:700;font-size:15.5px">Assistant clinique</div><div style="font-size:13.5px;color:#6A6785">{{ assistantLine }}</div></div>
     </div>
-    <button type="button" onClick="{{ goHistory }}" style="appearance:none;border:1px solid #B9B5EC;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">Review cases →</button>
+    <button type="button" onClick="{{ goHistory }}" style="appearance:none;border:1px solid #B9B5EC;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">Revoir les cas →</button>
   </section>
 </div>
 </sc-if>
@@ -196,8 +196,8 @@ input,textarea,select,button{font-family:inherit}
 <div style="display:flex;flex-direction:column;gap:22px;max-width:1240px">
   <div class="rise" style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
     <div>
-      <h1 style="margin:0;font-size:33px;font-weight:800;letter-spacing:-.022em">Patient workup</h1>
-      <p style="margin:8px 0 0;color:#6A6785;font-size:15.5px;max-width:70ch;text-wrap:pretty">Enter everything you have on one page — history, vital signs, laboratory results and POCUS. Then analyze. Anything left blank is recorded as not provided, never as normal.</p>
+      <h1 style="margin:0;font-size:33px;font-weight:800;letter-spacing:-.022em">Saisie du patient</h1>
+      <p style="margin:8px 0 0;color:#6A6785;font-size:15.5px;max-width:70ch;text-wrap:pretty">Saisissez tout ce dont vous disposez sur une seule page — anamnèse, constantes, biologie et échographie — puis analysez. Tout champ laissé vide est enregistré comme non renseigné, jamais comme normal.</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <span style="background:#E9E8FB;color:#2E2A78;border-radius:999px;padding:8px 15px;font-size:13px;font-weight:700">{{ filledCount }} of 5 sections filled<sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}"><span style="display:block;margin-top:6px;color:#C13238;font-weight:700;font-size:12.5px;max-width:46ch">{{ error }}</span></sc-if></span>
@@ -209,27 +209,27 @@ input,textarea,select,button{font-family:inherit}
 
     <section class="rise" style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:24px 26px;display:flex;flex-direction:column;gap:18px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:14px">
-        <h2 style="margin:0;font-size:16.5px;font-weight:800">1 · Patient &amp; history</h2>
+        <h2 style="margin:0;font-size:16.5px;font-weight:800">1 · Patient et anamnèse</h2>
         <image-slot id="wk-photo" shape="circle" style="width:40px;height:40px;flex:0 0 auto" placeholder="Photo"></image-slot>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px">
-        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Name<input value="{{ fName }}" onChange="{{ onName }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"></label>
-        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Age<input value="{{ fAge }}" onChange="{{ onAge }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"></label>
-        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Sex<select onChange="{{ onSex }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"><option>Female</option><option>Male</option></select></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Nom<input value="{{ fName }}" onChange="{{ onName }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Âge<input value="{{ fAge }}" onChange="{{ onAge }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Sexe<select onChange="{{ onSex }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;background:#FAFAFE"><option>Femme</option><option>Homme</option></select></label>
       </div>
-      <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Chief complaint<input value="{{ fComplaint }}" onChange="{{ onComplaint }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:11px 12px;font-size:15px;font-weight:600;background:#FAFAFE"></label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Motif de consultation<input value="{{ fComplaint }}" onChange="{{ onComplaint }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:11px 12px;font-size:15px;font-weight:600;background:#FAFAFE"></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <span style="background:#E4E2F8;color:#2E2A78;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700">Dyspnea</span>
-        <span style="background:#E4E2F8;color:#2E2A78;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700">Fatigue</span>
-        <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600">+ Fever</span>
-        <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600">+ Chest pain</span>
-        <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600">+ Cough</span>
+        <span style="background:#E4E2F8;color:#2E2A78;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700">Dyspnée</span>
+        <span style="background:#E4E2F8;color:#2E2A78;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700">Asthénie</span>
+        <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600">+ Fièvre</span>
+        <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600">+ Douleur thoracique</span>
+        <span style="background:#EFEEFB;color:#6A6785;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600">+ Toux</span>
       </div>
-      <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Medical history &amp; medications<textarea onChange="{{ onHistory }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;min-height:64px;resize:vertical;background:#FAFAFE" value="{{ fHistory }}" onChange="{{ onHistory }}" placeholder="{{ historyPlaceholder }}"></textarea></label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">Antécédents et traitements<textarea onChange="{{ onHistory }}" style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;font-size:14.5px;min-height:64px;resize:vertical;background:#FAFAFE" value="{{ fHistory }}" onChange="{{ onHistory }}" placeholder="{{ historyPlaceholder }}"></textarea></label>
     </section>
 
     <section class="rise-2" style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:24px 26px;display:flex;flex-direction:column;gap:16px">
-      <h2 style="margin:0;font-size:16.5px;font-weight:800">2 · Vital signs</h2>
+      <h2 style="margin:0;font-size:16.5px;font-weight:800">2 · Constantes</h2>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px">
         <sc-for list="{{ vitalFields }}" as="v" hint-placeholder-count="6">
           <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#6A6785">{{ v.label }}<input value="{{ v.value }}" onChange="{{ v.onChange }}" placeholder="{{ v.unit }}" style="{{ v.inputStyle }}"><span style="{{ v.flagStyle }}">{{ v.flag }}</span></label>
@@ -240,8 +240,8 @@ input,textarea,select,button{font-family:inherit}
 
     <section class="rise-3" style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:24px 26px;display:flex;flex-direction:column;gap:16px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px">
-        <h2 style="margin:0;font-size:16.5px;font-weight:800">3 · Laboratory</h2>
-        <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:12.5px;padding:8px 13px;border-radius:8px">+ Add test</button>
+        <h2 style="margin:0;font-size:16.5px;font-weight:800">3 · Biologie</h2>
+        <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:12.5px;padding:8px 13px;border-radius:8px">+ Ajouter un examen</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:11px">
         <sc-for list="{{ labFields }}" as="l" hint-placeholder-count="5">
@@ -255,7 +255,7 @@ input,textarea,select,button{font-family:inherit}
     </section>
 
     <section class="rise-4" style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:24px 26px;display:flex;flex-direction:column;gap:16px">
-      <h2 style="margin:0;font-size:16.5px;font-weight:800">4 · POCUS</h2>
+      <h2 style="margin:0;font-size:16.5px;font-weight:800">4 · Échographie (POCUS)</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <sc-for list="{{ organChips }}" as="o" hint-placeholder-count="3">
         <button type="button" onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
@@ -283,15 +283,15 @@ input,textarea,select,button{font-family:inherit}
 
   <section class="rise" style="background:#2E2A78;border-radius:14px;padding:26px 30px;color:#fff;display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;align-items:center">
     <div style="max-width:62ch">
-      <div style="font-weight:800;font-size:18px">5 · Analyze</div>
-      <p style="margin:8px 0 0;font-size:14.5px;opacity:.86;text-wrap:pretty">The assistant reads everything on this page at once and returns a ranked assessment with what supports it, what limits confidence, and what is missing.</p>
+      <div style="font-weight:800;font-size:18px">5 · Analyser</div>
+      <p style="margin:8px 0 0;font-size:14.5px;opacity:.86;text-wrap:pretty">L’assistant lit l’ensemble de cette page en une fois et renvoie une évaluation hiérarchisée : ce qui l’étaye, ce qui limite la confiance, et ce qui manque.</p>
     </div>
     <button type="button" onClick="{{ onAnalyze }}" style="appearance:none;border:0;cursor:pointer;background:#C6F24E;color:#1B1A3A;font-weight:800;font-size:15px;padding:15px 28px;border-radius:999px">{{ analyzeLabel }}</button>
   </section>
 
   <sc-if value="{{ analyzing }}" hint-placeholder-val="{{ false }}">
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:30px 32px;display:flex;flex-direction:column;gap:14px">
-    <div style="font-weight:800;font-size:17px">Analyzing this patient…</div>
+    <div style="font-weight:800;font-size:17px">Analyse de ce patient…</div>
     <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
       <div style="display:flex;gap:12px;align-items:center;font-size:14.5px">
         <span style="{{ s.dotStyle }}"></span><span style="{{ s.textStyle }}">{{ s.label }}</span>
@@ -307,16 +307,16 @@ input,textarea,select,button{font-family:inherit}
         <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">{{ severity }} clinical priority</div>
         <p style="margin:8px 0 0;font-size:16px;max-width:70ch;text-wrap:pretty">{{ conclusion }}</p>
       </div>
-      <button type="button" onClick="{{ goAlerts }}" style="appearance:none;border:1px solid #E9B4B4;background:#fff;cursor:pointer;color:#C13238;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:999px">Review alerts →</button>
+      <button type="button" onClick="{{ goAlerts }}" style="appearance:none;border:1px solid #E9B4B4;background:#fff;cursor:pointer;color:#C13238;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:999px">Voir les alertes →</button>
     </section>
 
     <section class="rise-2" style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:28px 30px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:20px;flex-wrap:wrap">
         <div>
-          <h2 style="margin:0;font-size:21px;font-weight:800;letter-spacing:-.015em">Assessment</h2>
-          <p style="margin:6px 0 0;font-size:13.5px;color:#6A6785">Offered for consideration. This is not a diagnosis.</p>
+          <h2 style="margin:0;font-size:21px;font-weight:800;letter-spacing:-.015em">Évaluation</h2>
+          <p style="margin:6px 0 0;font-size:13.5px;color:#6A6785">Proposé à titre indicatif. Ceci n’est pas un diagnostic.</p>
         </div>
-        <button type="button" onClick="{{ goReport }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:999px">Generate report</button>
+        <button type="button" onClick="{{ goReport }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:999px">Générer le rapport</button>
       </div>
 
       <div style="margin-top:22px;display:flex;flex-direction:column;gap:14px">
@@ -329,11 +329,11 @@ input,textarea,select,button{font-family:inherit}
             <div style="margin-top:12px;height:8px;background:#E9E8FB;border-radius:5px;overflow:hidden"><div style="{{ r.fillStyle }}"></div></div>
             <div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px">
               <div>
-                <div style="font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:#5A7A0F;font-weight:800">Supports</div>
+                <div style="font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:#5A7A0F;font-weight:800">En faveur</div>
                 <div style="margin-top:7px;font-size:14px;color:#1B1A3A">{{ r.supports }}</div>
               </div>
               <div>
-                <div style="font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:#9A6207;font-weight:800">Limits confidence</div>
+                <div style="font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:#9A6207;font-weight:800">Limite la confiance</div>
                 <div style="margin-top:7px;font-size:14px;color:#6A6785">{{ r.limits }}</div>
               </div>
             </div>
@@ -344,8 +344,8 @@ input,textarea,select,button{font-family:inherit}
 
     <section class="rise-3" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
       <div style="background:#fff;border:1px solid #E4E2F8;border-radius:14px;padding:24px 26px">
-        <h3 style="margin:0 0 6px;font-size:16.5px;font-weight:800">What would clarify this case</h3>
-        <p style="margin:0 0 14px;font-size:13.5px;color:#6A6785">Not measured does not mean normal.</p>
+        <h3 style="margin:0 0 6px;font-size:16.5px;font-weight:800">Ce qui clarifierait ce cas</h3>
+        <p style="margin:0 0 14px;font-size:13.5px;color:#6A6785">Non mesuré ne veut pas dire normal.</p>
         <div style="display:flex;flex-direction:column;gap:10px">
           <sc-for list="{{ exams }}" as="e" hint-placeholder-count="3">
           <div style="display:flex;gap:12px;padding:13px 15px;background:#FFF8EC;border-radius:10px"><span style="color:#E08A00">●</span><div><div style="font-weight:700;font-size:14.5px">{{ e.exam }} ({{ e.priority }})</div><div style="font-size:13px;color:#6A6785">{{ e.reason }}</div></div></div>
@@ -356,9 +356,9 @@ input,textarea,select,button{font-family:inherit}
         </div>
       </div>
       <div style="background:#C6F24E;border-radius:14px;padding:24px 26px;color:#1B1A3A;display:flex;flex-direction:column;gap:12px">
-        <div style="font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:800">Suggested next step</div>
+        <div style="font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:800">Étape suivante suggérée</div>
         <p style="margin:0;font-size:19px;font-weight:800;line-height:1.35;text-wrap:pretty">{{ nextStep }}</p>
-        <button type="button" onClick="{{ goAssistant }}" style="margin-top:auto;appearance:none;border:0;cursor:pointer;background:#1B1A3A;color:#fff;font-weight:700;font-size:14px;padding:12px 20px;border-radius:999px;align-self:flex-start">Ask the assistant →</button>
+        <button type="button" onClick="{{ goAssistant }}" style="margin-top:auto;appearance:none;border:0;cursor:pointer;background:#1B1A3A;color:#fff;font-weight:700;font-size:14px;padding:12px 20px;border-radius:999px;align-self:flex-start">Interroger l’assistant →</button>
       </div>
     </section>
   </div>
@@ -381,22 +381,22 @@ input,textarea,select,button{font-family:inherit}
       <div class="drift" style="position:absolute;right:22px;top:22px;bottom:22px;width:170px"><image-slot id="dx-illus" shape="rounded" radius="14" placeholder="Illustration"></image-slot></div>
     </div>
     <div style="background:#C6F24E;border-radius:10px;padding:26px 30px;color:#1B1A3A">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px"><span style="font-weight:700;font-size:15.5px">▤ Evidence cited</span><span style="opacity:.7">⋮</span></div>
-      <div style="margin-top:24px;display:flex;align-items:baseline;gap:9px"><span style="font-size:36px;font-weight:800;letter-spacing:-.03em">{{ alertCount }}</span><span style="font-size:14px;opacity:.9">alerts raised</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px"><span style="font-weight:700;font-size:15.5px">▤ Éléments de preuve cités</span><span style="opacity:.7">⋮</span></div>
+      <div style="margin-top:24px;display:flex;align-items:baseline;gap:9px"><span style="font-size:36px;font-weight:800;letter-spacing:-.03em">{{ alertCount }}</span><span style="font-size:14px;opacity:.9">alertes déclenchées</span></div>
       <div style="margin-top:18px;display:flex;gap:7px"><span style="flex:5;height:6px;background:#2E2A78;border-radius:3px"></span><span style="flex:1;height:6px;background:rgba(46,42,120,.28);border-radius:3px"></span><span style="flex:1;height:6px;background:rgba(46,42,120,.28);border-radius:3px"></span></div>
     </div>
   </section>
 
   <section class="rise-2" style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:28px 30px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
-      <h2 style="margin:0;font-size:21px;font-weight:800;letter-spacing:-.015em">▦ Differential diagnosis — supporting vs against</h2>
+      <h2 style="margin:0;font-size:21px;font-weight:800;letter-spacing:-.015em">▦ Diagnostic différentiel — en faveur / en défaveur</h2>
       <div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
         <div style="display:flex;gap:16px;font-size:12.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase">
-          <span style="display:flex;gap:8px;align-items:center"><span style="width:11px;height:11px;background:#5B54D6"></span>Supporting</span>
-          <span style="display:flex;gap:8px;align-items:center"><span style="width:11px;height:11px;background:#2E2A78"></span>Against</span>
+          <span style="display:flex;gap:8px;align-items:center"><span style="width:11px;height:11px;background:#5B54D6"></span>En faveur</span>
+          <span style="display:flex;gap:8px;align-items:center"><span style="width:11px;height:11px;background:#2E2A78"></span>En défaveur</span>
         </div>
         <div style="display:flex;border:1px solid #DEDCF4;border-radius:4px;overflow:hidden;font-size:13px;font-weight:700">
-          <span style="padding:9px 16px;background:#1B1A3A;color:#fff">24H</span><span style="padding:9px 16px;border-left:1px solid #DEDCF4;color:#6A6785">7D</span><span style="padding:9px 16px;border-left:1px solid #DEDCF4;color:#6A6785">ALL</span>
+          <span style="padding:9px 16px;background:#1B1A3A;color:#fff">24H</span><span style="padding:9px 16px;border-left:1px solid #DEDCF4;color:#6A6785">7D</span><span style="padding:9px 16px;border-left:1px solid #DEDCF4;color:#6A6785">TOUT</span>
         </div>
       </div>
     </div>
@@ -411,32 +411,32 @@ input,textarea,select,button{font-family:inherit}
         </sc-for>
       </div>
     </div>
-    <p style="margin:20px 0 0;font-size:13.5px;color:#6A6785;text-wrap:pretty">Bars show how strongly the recorded findings support or argue against each possibility. Ranges stay wide where investigations are unavailable.</p>
+    <p style="margin:20px 0 0;font-size:13.5px;color:#6A6785;text-wrap:pretty">Les barres indiquent la force avec laquelle les éléments recueillis soutiennent ou contredisent chaque hypothèse. Les fourchettes restent larges lorsque des examens manquent.</p>
   </section>
 
   <section class="rise-3" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:20px">
     <div class="lift" style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:24px 26px">
-      <div style="display:flex;justify-content:space-between"><span style="font-weight:700;font-size:15px;color:#2E2A78">⌁ Top match</span><span style="color:#C2BED0">⋮</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-weight:700;font-size:15px;color:#2E2A78">⌁ Hypothèse principale</span><span style="color:#C2BED0">⋮</span></div>
       <div style="margin-top:18px;border:3px solid #5B54D6;padding:20px 14px;text-align:center;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase">{{ topDiagnosis }}</div>
       <div style="margin-top:18px;font-size:19px;font-weight:800">{{ topLikelihood }}</div>
       <div style="margin-top:8px;font-size:12.5px;color:#6A6785;line-height:1.5">{{ topBasis }}</div>
     </div>
     <div class="lift" style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:24px 26px">
-      <div style="display:flex;justify-content:space-between"><span style="font-weight:700;font-size:15px;color:#C6F24E">✛ Heart rate</span><span style="color:#C2BED0">⋮</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-weight:700;font-size:15px;color:#C6F24E">✛ Fréquence cardiaque</span><span style="color:#C2BED0">⋮</span></div>
       <div style="margin-top:20px;height:92px;display:flex;align-items:flex-end;gap:7px">
         <span style="flex:1;height:34%;background:#E8F9BE"></span><span style="flex:1;height:48%;background:#E8F9BE"></span><span style="flex:1;height:62%;background:#D6F58C"></span><span style="flex:1;height:100%;background:#C6F24E"></span><span style="flex:1;height:70%;background:#D6F58C"></span><span style="flex:1;height:44%;background:#E8F9BE"></span><span style="flex:1;height:28%;background:#F2FCDD"></span>
       </div>
       <div style="margin-top:18px;display:flex;align-items:baseline;gap:6px"><span style="font-size:32px;font-weight:800;letter-spacing:-.03em">122</span><span style="font-size:15px;color:#6A6785">bpm</span></div>
     </div>
     <div class="lift" style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:24px 26px">
-      <div style="display:flex;justify-content:space-between"><span style="font-weight:700;font-size:15px;color:#E5484D">〜 Oxygen saturation</span><span style="color:#C2BED0">⋮</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-weight:700;font-size:15px;color:#E5484D">〜 Saturation en oxygène</span><span style="color:#C2BED0">⋮</span></div>
       <div style="margin-top:20px;display:grid;grid-template-columns:repeat(7,1fr);gap:5px">
         <sc-for list="{{ heat }}" as="h" hint-placeholder-count="28"><span style="{{ h.style }}"></span></sc-for>
       </div>
       <div style="margin-top:18px;display:flex;align-items:baseline;gap:6px"><span style="font-size:32px;font-weight:800;letter-spacing:-.03em">88</span><span style="font-size:15px;color:#6A6785">%</span></div>
     </div>
     <button type="button" onClick="{{ goWorkup }}" style="appearance:none;cursor:pointer;background:#E9E8FB;border:0;border-radius:10px;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#2E2A78;min-height:180px">
-      <span style="font-size:26px">＋</span><span style="font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase">Add measurement</span>
+      <span style="font-size:26px">＋</span><span style="font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase">Ajouter une mesure</span>
     </button>
   </section>
 </div>
@@ -450,7 +450,7 @@ input,textarea,select,button{font-family:inherit}
     <p style="margin:6px 0 0;color:#6A6785;font-size:15px">{{ patientCount }} assessed this session. Open one to see its case, findings, differential, timeline and report. There is no database behind this screen: closing the app discards it.</p>
   </div>
   <sc-if value="{{ noPatients }}" hint-placeholder-val="{{ false }}">
-  <div style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px;color:#6A6785;font-size:15px">No patient has been assessed yet. Open Patient workup, enter what you have and analyse the case.</div>
+  <div style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px;color:#6A6785;font-size:15px">Aucun patient n’a encore été évalué. Ouvrez « Saisie du patient », renseignez ce dont vous disposez et analysez le cas.</div>
   </sc-if>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
     <sc-for list="{{ patients }}" as="p" hint-placeholder-count="4">
@@ -465,7 +465,7 @@ input,textarea,select,button{font-family:inherit}
 </div>
 </sc-if>
 <sc-if value="{{ recordOpen }}" hint-placeholder-val="{{ true }}">
-<button type="button" onClick="{{ backToList }}" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#5B3CC4;font-weight:700;font-size:13.5px;padding:9px 15px;border-radius:9px;margin-bottom:16px">← All patients</button>
+<button type="button" onClick="{{ backToList }}" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#5B3CC4;font-weight:700;font-size:13.5px;padding:9px 15px;border-radius:9px;margin-bottom:16px">← Tous les patients</button>
 
 <div style="display:flex;flex-direction:column;gap:20px">
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px;display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;align-items:center">
@@ -477,10 +477,10 @@ input,textarea,select,button{font-family:inherit}
       </div>
     </div>
     <div style="display:flex;gap:28px;flex-wrap:wrap;font-size:13.5px">
-      <div><div style="color:#6A6785">Encounters</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ recEncounters }}</div></div>
-      <div><div style="color:#6A6785">POCUS studies</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ recStudies }}</div></div>
-      <div><div style="color:#6A6785">Alerts</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ alertCount }}</div></div>
-      <div><div style="color:#6A6785">Severity</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ severity }}</div></div>
+      <div><div style="color:#6A6785">Prises en charge</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ recEncounters }}</div></div>
+      <div><div style="color:#6A6785">Examens POCUS</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ recStudies }}</div></div>
+      <div><div style="color:#6A6785">Alertes</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ alertCount }}</div></div>
+      <div><div style="color:#6A6785">Sévérité</div><div style="font-weight:800;font-size:18px;margin-top:3px">{{ severity }}</div></div>
     </div>
   </section>
 
@@ -493,11 +493,11 @@ input,textarea,select,button{font-family:inherit}
   <sc-if value="{{ recImages }}" hint-placeholder-val="{{ true }}">
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:20px;flex-wrap:wrap">
-      <h2 style="margin:0;font-size:18px;font-weight:800">Stored POCUS images</h2>
-      <span style="font-size:13.5px;color:#6A6785">session-scoped · closing the app discards it</span>
+      <h2 style="margin:0;font-size:18px;font-weight:800">Images POCUS enregistrées</h2>
+      <span style="font-size:13.5px;color:#6A6785">limité à la session · la fermeture de l’application efface tout</span>
     </div>
     <sc-if value="{{ noImages }}" hint-placeholder-val="{{ false }}">
-    <div style="margin-top:22px;border:1px solid #E4E2F8;border-radius:8px;padding:20px;color:#6A6785;font-size:14.5px">No study has been read for this patient. Uploading one on Patient workup files it here with what the module made of it.</div>
+    <div style="margin-top:22px;border:1px solid #E4E2F8;border-radius:8px;padding:20px;color:#6A6785;font-size:14.5px">Aucun examen n’a été lu pour ce patient. En téléverser un depuis « Saisie du patient » le classe ici avec ce que le module en a conclu.</div>
     </sc-if>
     <sc-for list="{{ gallery }}" as="v" hint-placeholder-count="3">
       <div style="margin-top:26px">
@@ -516,18 +516,18 @@ input,textarea,select,button{font-family:inherit}
       </div>
     </sc-for>
     <div style="margin-top:26px;border:1px dashed #DEDCF4;border-radius:8px;padding:22px;text-align:center">
-      <label style="font-weight:700;font-size:15px;cursor:pointer;color:#5B54D6">＋ Add images to this patient<input type="file" accept="image/*" multiple onChange="{{ onRecordUpload }}" style="display:none"></label>
-      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Read by the module now and filed against this patient, for this session only — there is no database behind this screen. The assessment above is not re-run: it was reached without this study.</div>
+      <label style="font-weight:700;font-size:15px;cursor:pointer;color:#5B54D6">＋ Ajouter des images à ce patient<input type="file" accept="image/*" multiple onChange="{{ onRecordUpload }}" style="display:none"></label>
+      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Lu par le module maintenant et classé au dossier de ce patient, pour cette session uniquement — il n’y a pas de base de données derrière cet écran. L’évaluation ci-dessus n’est pas relancée : elle a été établie sans cet examen.</div>
     </div>
   </section>
   </sc-if>
 
   <sc-if value="{{ recData }}" hint-placeholder-val="{{ true }}">
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px">
-    <h2 style="margin:0 0 18px;font-size:18px;font-weight:800">Stored measurements — all visits</h2>
+    <h2 style="margin:0 0 18px;font-size:18px;font-weight:800">Mesures enregistrées</h2>
     <div style="overflow:auto">
       <table style="width:100%;border-collapse:collapse;font-size:14.5px;min-width:560px">
-        <thead><tr style="text-align:left;color:#6A6785;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase"><th style="padding:0 0 12px;font-weight:700">Measurement</th><th style="padding:0 0 12px;font-weight:700">Today</th><th style="padding:0 0 12px;font-weight:700">{{ visitCol2 }}</th><th style="padding:0 0 12px;font-weight:700">{{ visitCol3 }}</th><th style="padding:0 0 12px;font-weight:700">{{ visitCol4 }}</th></tr></thead>
+        <thead><tr style="text-align:left;color:#6A6785;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase"><th style="padding:0 0 12px;font-weight:700">Mesure</th><th style="padding:0 0 12px;font-weight:700">Aujourd’hui</th><th style="padding:0 0 12px;font-weight:700">{{ visitCol2 }}</th><th style="padding:0 0 12px;font-weight:700">{{ visitCol3 }}</th><th style="padding:0 0 12px;font-weight:700">{{ visitCol4 }}</th></tr></thead>
         <tbody>
           <sc-for list="{{ dataRows }}" as="r" hint-placeholder-count="8">
             <tr style="border-top:1px solid #E9E8FB">
@@ -541,13 +541,13 @@ input,textarea,select,button{font-family:inherit}
         </tbody>
       </table>
     </div>
-    <p style="margin:18px 0 0;font-size:13.5px;color:#6A6785">Blank cells mean the measurement was not taken at that visit. Not measured does not mean normal.</p>
+    <p style="margin:18px 0 0;font-size:13.5px;color:#6A6785">Une case vide signifie que la mesure n’a pas été prise. Non mesuré ne veut pas dire normal.</p>
   </section>
   </sc-if>
 
   <sc-if value="{{ recVisits }}" hint-placeholder-val="{{ true }}">
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px;display:flex;flex-direction:column;gap:14px">
-    <h2 style="margin:0 0 4px;font-size:18px;font-weight:800">Visit history</h2>
+    <h2 style="margin:0 0 4px;font-size:18px;font-weight:800">Historique des prises en charge</h2>
     <sc-for list="{{ visits }}" as="v" hint-placeholder-count="4">
       <div style="border:1px solid #E4E2F8;border-left:4px solid #5B54D6;border-radius:8px;padding:18px 22px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center">
         <div>
@@ -556,7 +556,7 @@ input,textarea,select,button{font-family:inherit}
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <span style="{{ v.tagStyle }}">{{ v.tag }}</span>
-          <button type="button" onClick="{{ v.onOpen }}" style="appearance:none;cursor:pointer;background:#fff;border:1px solid #DEDCF4;border-radius:8px;padding:9px 15px;font-weight:700;font-size:13px;color:#2E2A78">Open report →</button>
+          <button type="button" onClick="{{ v.onOpen }}" style="appearance:none;cursor:pointer;background:#fff;border:1px solid #DEDCF4;border-radius:8px;padding:9px 15px;font-weight:700;font-size:13px;color:#2E2A78">Ouvrir le rapport →</button>
         </div>
       </div>
     </sc-for>
@@ -565,18 +565,18 @@ input,textarea,select,button{font-family:inherit}
 
   <sc-if value="{{ recReports }}" hint-placeholder-val="{{ true }}">
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px">
-    <h2 style="margin:0 0 18px;font-size:18px;font-weight:800">Stored reports</h2>
+    <h2 style="margin:0 0 18px;font-size:18px;font-weight:800">Rapports enregistrés</h2>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
       <sc-for list="{{ patientReports }}" as="r" hint-placeholder-count="3">
       <button type="button" onClick="{{ r.onOpen }}" style="text-align:left;appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;border-radius:8px;padding:20px 22px;display:flex;flex-direction:column;gap:7px">
         <span style="font-size:12.5px;color:#6A6785;font-weight:700">{{ r.at }}</span>
         <span style="font-weight:800;font-size:16px">{{ r.complaint }}</span>
         <span style="font-size:13.5px;color:#6A6785">{{ r.summary }}</span>
-        <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Open →</span>
+        <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Ouvrir →</span>
       </button>
       </sc-for>
       <sc-if value="{{ oneReportOnly }}" hint-placeholder-val="{{ false }}">
-      <div style="background:#fff;border:1px solid #E4E2F8;border-radius:8px;padding:20px 22px;color:#6A6785;font-size:13.5px">This session holds no earlier encounter for this patient. There is no database behind this screen: it shows what was assessed here, not a medical history.</div>
+      <div style="background:#fff;border:1px solid #E4E2F8;border-radius:8px;padding:20px 22px;color:#6A6785;font-size:13.5px">Cette session ne contient aucune prise en charge antérieure pour ce patient. Il n’y a pas de base de données derrière cet écran : il montre ce qui a été évalué ici, pas un dossier médical.</div>
       </sc-if>
     </div>
   </section>
@@ -589,10 +589,10 @@ input,textarea,select,button{font-family:inherit}
 <div style="display:flex;flex-direction:column;gap:24px">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
     <div>
-      <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Clinical assessment</h1>
+      <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Évaluation clinique</h1>
       <p style="margin:0;color:#6A6785;font-size:15.5px">{{ pName }} · {{ pAge }} · {{ pSex }} · {{ pComplaint }}</p>
     </div>
-    <button type="button" onClick="{{ goReport }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:14.5px;padding:12px 22px;border-radius:12px;">Generate clinical report</button>
+    <button type="button" onClick="{{ goReport }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:14.5px;padding:12px 22px;border-radius:12px;">Générer le compte rendu</button>
   </div>
 
   <section class="alertpulse rise" style="background:#FFF1F1;border:1px solid #F6CFCF;border-left:5px solid #E5484D;border-radius:18px;padding:20px 24px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center">
@@ -600,18 +600,18 @@ input,textarea,select,button{font-family:inherit}
       <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">{{ severity }} clinical priority</div>
       <p style="margin:8px 0 0;font-size:16px;max-width:70ch;text-wrap:pretty">{{ conclusion }}</p>
     </div>
-    <button type="button" onClick="{{ goAlerts }}" style="appearance:none;border:1px solid #E9B4B4;background:#fff;cursor:pointer;color:#C13238;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">Review alerts →</button>
+    <button type="button" onClick="{{ goAlerts }}" style="appearance:none;border:1px solid #E9B4B4;background:#fff;cursor:pointer;color:#C13238;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">Voir les alertes →</button>
   </section>
 
   <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;align-items:start">
     <div style="background:#fff;border:1px solid #E4E2F8;border-radius:20px;padding:26px 28px;box-shadow:0 4px 14px rgba(46,42,120,.05)">
-      <h2 style="margin:0 0 4px;font-size:17px;font-weight:800">What the assistant sees</h2>
-      <p style="margin:0 0 18px;font-size:13.5px;color:#6A6785">The information available for this patient.</p>
+      <h2 style="margin:0 0 4px;font-size:17px;font-weight:800">Ce que l’assistant voit</h2>
+      <p style="margin:0 0 18px;font-size:13.5px;color:#6A6785">Les informations disponibles pour ce patient.</p>
 
-      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Symptoms</div>
+      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Symptômes</div>
       <div style="margin:8px 0 18px;font-size:14.5px">{{ pComplaint }}</div>
 
-      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Vital signs</div>
+      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Constantes</div>
       <div style="margin:10px 0 18px;display:flex;flex-direction:column;gap:9px;font-size:14.5px">
         <sc-for list="{{ vitals }}" as="v" hint-placeholder-count="5"><div style="display:flex;justify-content:space-between"><span>{{ v.label }} {{ v.value }} {{ v.unit }}</span><span style="{{ v.flagStyle }}">{{ v.flag }}</span></div></sc-for>
       </div>
@@ -619,7 +619,7 @@ input,textarea,select,button{font-family:inherit}
       <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">POCUS</div>
       <div style="margin:8px 0 18px;font-size:14.5px"><sc-for list="{{ findings }}" as="f" hint-placeholder-count="4"><div>{{ f.label }} — {{ f.status }} ({{ f.conf }})</div></sc-for><sc-for list="{{ notAssessed }}" as="o" hint-placeholder-count="1"><div style="color:#C13238;font-weight:700">{{ o.organ }} — not assessed</div></sc-for></div>
 
-      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Laboratory</div>
+      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Biologie</div>
       <div style="margin:10px 0 0;display:flex;flex-direction:column;gap:9px;font-size:14.5px">
         <sc-for list="{{ labs }}" as="l" hint-placeholder-count="8"><div style="display:flex;justify-content:space-between"><span>{{ l.name }} {{ l.result }}</span><span style="{{ l.statusStyle }}">{{ l.status }}</span></div></sc-for>
       </div>
@@ -627,8 +627,8 @@ input,textarea,select,button{font-family:inherit}
 
     <div style="display:flex;flex-direction:column;gap:20px">
       <div style="background:#fff;border:1px solid #E4E2F8;border-radius:20px;padding:26px 28px;box-shadow:0 4px 14px rgba(46,42,120,.05)">
-        <h2 style="margin:0 0 4px;font-size:17px;font-weight:800">Differential assessment</h2>
-        <p style="margin:0 0 20px;font-size:13.5px;color:#6A6785">Offered for consideration. This is not a diagnosis.</p>
+        <h2 style="margin:0 0 4px;font-size:17px;font-weight:800">Évaluation différentielle</h2>
+        <p style="margin:0 0 20px;font-size:13.5px;color:#6A6785">Proposé à titre indicatif. Ceci n’est pas un diagnostic.</p>
 
         <sc-for list="{{ ranked }}" as="r" hint-placeholder-count="3">
         <article style="{{ r.cardStyle }}">
@@ -638,12 +638,12 @@ input,textarea,select,button{font-family:inherit}
           </div>
           <div style="margin-top:14px;height:8px;border-radius:6px;background:#E4E2F8;overflow:hidden"><div style="{{ r.fillStyle }}"></div></div>
           <div style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:22px">
-            <div><div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#5A7A0F;font-weight:800">Why it is considered</div><p style="margin:10px 0 0;font-size:14px">{{ r.supports }}</p><div style="margin-top:8px;font-size:12.5px;color:#8A87A8">cited as {{ r.now }}</div></div>
-            <div><div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#9A6207;font-weight:800">What limits confidence</div><p style="margin:10px 0 0;font-size:14px;color:#6A6785">{{ r.limits }}</p></div>
+            <div><div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#5A7A0F;font-weight:800">Pourquoi cette hypothèse</div><p style="margin:10px 0 0;font-size:14px">{{ r.supports }}</p><div style="margin-top:8px;font-size:12.5px;color:#8A87A8">cited as {{ r.now }}</div></div>
+            <div><div style="font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#9A6207;font-weight:800">Ce qui limite la confiance</div><p style="margin:10px 0 0;font-size:14px;color:#6A6785">{{ r.limits }}</p></div>
           </div>
           <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
-            <button type="button" onClick="{{ askWhy }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">Why?</button>
-            <button type="button" onClick="{{ askChallenge }}" style="appearance:none;border:1px solid #B9B5EC;background:#fff;cursor:pointer;color:#5B3CC4;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">Challenge this assessment</button>
+            <button type="button" onClick="{{ askWhy }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">Pourquoi ?</button>
+            <button type="button" onClick="{{ askChallenge }}" style="appearance:none;border:1px solid #B9B5EC;background:#fff;cursor:pointer;color:#5B3CC4;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:11px">Contester cette évaluation</button>
           </div>
         </article>
         </sc-for>
@@ -655,13 +655,13 @@ input,textarea,select,button{font-family:inherit}
       </div>
 
       <div style="background:#fff;border:1px solid #E4E2F8;border-radius:20px;padding:26px 28px;box-shadow:0 4px 14px rgba(46,42,120,.05)">
-        <h2 style="margin:0 0 4px;font-size:17px;font-weight:800">What would help clarify this case?</h2>
-        <p style="margin:0 0 18px;font-size:13.5px;color:#6A6785">These tests were not performed. Their absence does not mean they are normal.</p>
+        <h2 style="margin:0 0 4px;font-size:17px;font-weight:800">Qu’est-ce qui clarifierait ce cas ?</h2>
+        <p style="margin:0 0 18px;font-size:13.5px;color:#6A6785">Ces examens n’ont pas été réalisés. Leur absence ne signifie pas qu’ils sont normaux.</p>
         <div style="display:flex;flex-direction:column;gap:12px">
           <sc-for list="{{ exams }}" as="e" hint-placeholder-count="3"><div style="display:flex;gap:14px;padding:14px 16px;background:#FFF8EC;border-radius:14px;margin-bottom:12px"><span style="color:#E08A00;font-size:15px">●</span><div><div style="font-weight:700;font-size:15px">{{ e.exam }}</div><div style="font-size:13.5px;color:#6A6785">{{ e.reason }}</div></div></div></sc-for>
         </div>
         <div style="margin-top:20px;padding-top:18px;border-top:1px solid #E9E8FB">
-          <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Suggested next step</div>
+          <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Étape suivante suggérée</div>
           <p style="margin:8px 0 0;font-size:18px;font-weight:700;line-height:1.35;text-wrap:pretty">{{ nextStep }}</p>
         </div>
       </div>
@@ -670,10 +670,10 @@ input,textarea,select,button{font-family:inherit}
 
   <section style="background:#2E2A78;border-radius:20px;padding:26px 30px;color:#fff;display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;align-items:center">
     <div style="max-width:60ch">
-      <div style="font-weight:800;font-size:18px">✨ Ask the clinical assistant</div>
-      <p style="margin:8px 0 0;font-size:14.5px;opacity:.92">Discuss this case in plain language — what supports the leading possibility, what argues against it, what is still missing.</p>
+      <div style="font-weight:800;font-size:18px">✨ Interroger l’assistant clinique</div>
+      <p style="margin:8px 0 0;font-size:14.5px;opacity:.92">Discutez du cas en langage courant : ce qui soutient l’hypothèse principale, ce qui s’y oppose, et ce qui manque encore.</p>
     </div>
-    <button type="button" onClick="{{ goAssistant }}" style="appearance:none;border:0;cursor:pointer;background:#fff;color:#2E2A78;font-weight:800;font-size:14.5px;padding:13px 22px;border-radius:12px">Open assistant</button>
+    <button type="button" onClick="{{ goAssistant }}" style="appearance:none;border:0;cursor:pointer;background:#fff;color:#2E2A78;font-weight:800;font-size:14.5px;padding:13px 22px;border-radius:12px">Ouvrir l’assistant</button>
   </section>
 </div>
 </sc-if>
@@ -682,10 +682,10 @@ input,textarea,select,button{font-family:inherit}
 <div style="display:flex;flex-direction:column;gap:22px;max-width:1000px">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
     <div>
-      <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Clinical alerts</h1>
+      <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Alertes cliniques</h1>
       <p style="margin:0;color:#6A6785;font-size:15.5px">{{ alertHeadline }}</p>
     </div>
-    <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">Acknowledge non-critical</button>
+    <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">Acquitter les non critiques</button>
   </div>
 
   <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="4">
@@ -694,33 +694,33 @@ input,textarea,select,button{font-family:inherit}
     <h2 style="margin:10px 0 6px;font-size:21px;font-weight:800">{{ a.type }}</h2>
     <p style="margin:0;font-size:15px;color:#6A6785">{{ a.message }}</p>
     <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
-      <button type="button" onClick="{{ goAssessment }}" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:10px 18px;border-radius:11px">Review patient</button>
+      <button type="button" onClick="{{ goAssessment }}" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:10px 18px;border-radius:11px">Revoir le patient</button>
     </div>
   </section>
   </sc-for>
   <sc-if value="{{ noAlerts }}" hint-placeholder-val="{{ false }}">
   <section style="background:#F0FADB;border:1px solid #D5E8A8;border-left:5px solid #5A7A0F;border-radius:18px;padding:22px 26px">
-    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#5A7A0F;font-weight:800">No alert</div>
-    <p style="margin:10px 0 0;font-size:15px;color:#6A6785">No measured value crossed a configured bound and the record shows no structural gap.</p>
+    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#5A7A0F;font-weight:800">Aucune alerte</div>
+    <p style="margin:10px 0 0;font-size:15px;color:#6A6785">Aucune valeur mesurée n’a franchi une borne configurée et le dossier ne présente aucune lacune structurelle.</p>
   </section>
   </sc-if>
   <sc-if value="{{ hasEncounter }}" hint-placeholder-val="{{ true }}">
   <section style="background:#fff;border:1px solid #DEDCF4;border-left:5px solid #7C5CFC;border-radius:18px;padding:22px 26px">
-    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#5B3CC4;font-weight:800">Escalation triggers</div>
-    <h2 style="margin:10px 0 10px;font-size:21px;font-weight:800">Evaluated before the model runs</h2>
+    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#5B3CC4;font-weight:800">Déclencheurs d’escalade</div>
+    <h2 style="margin:10px 0 10px;font-size:21px;font-weight:800">Évalués avant l’exécution du modèle</h2>
     <sc-for list="{{ triggers }}" as="t" hint-placeholder-count="3"><div style="font-size:15px;color:#6A6785;padding:4px 0">{{ t.text }}</div></sc-for>
   </section>
   </sc-if>
 
   <section style="background:#fff;border:1px solid #DEDCF4;border-left:5px solid #8E88E8;border-radius:18px;padding:22px 26px">
-    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#2E2A78;font-weight:800">Information missing</div>
-    <h2 style="margin:10px 0 10px;font-size:21px;font-weight:800">Important investigations have not been performed</h2>
+    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#2E2A78;font-weight:800">Informations manquantes</div>
+    <h2 style="margin:10px 0 10px;font-size:21px;font-weight:800">Des examens importants n’ont pas été réalisés</h2>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <sc-for list="{{ missingChips }}" as="m" hint-placeholder-count="3"><span style="background:#EFEEFB;color:#2E2A78;border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:700">{{ m.name }}</span></sc-for>
       <sc-if value="{{ noMissing }}" hint-placeholder-val="{{ false }}"><span style="font-size:13.5px;color:#6A6785">{{ noMissingNote }}</span></sc-if>
     </div>
-    <p style="margin:14px 0 0;font-size:15px;color:#6A6785">These tests have not been performed. They should not be interpreted as normal.</p>
-    <button type="button" onClick="{{ goAssessment }}" style="margin-top:16px;appearance:none;border:1px solid #B9B5EC;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:10px 18px;border-radius:11px">View missing information →</button>
+    <p style="margin:14px 0 0;font-size:15px;color:#6A6785">Ces examens n’ont pas été réalisés. Ils ne doivent pas être interprétés comme normaux.</p>
+    <button type="button" onClick="{{ goAssessment }}" style="margin-top:16px;appearance:none;border:1px solid #B9B5EC;background:#fff;cursor:pointer;color:#2E2A78;font-weight:700;font-size:13.5px;padding:10px 18px;border-radius:11px">Voir les informations manquantes →</button>
   </section>
 </div>
 </sc-if>
@@ -731,7 +731,7 @@ input,textarea,select,button{font-family:inherit}
     <div style="padding:20px 26px;border-bottom:1px solid #F1EDFF;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
       <div style="display:flex;gap:13px;align-items:center">
         <span style="width:40px;height:40px;border-radius:12px;background:#5B54D6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px">✨</span>
-        <div><div style="font-weight:800;font-size:16px">Clinical assistant</div><div style="font-size:13px;color:#6A6785">I'm here to help you review this case.</div></div>
+        <div><div style="font-weight:800;font-size:16px">Assistant clinique</div><div style="font-size:13px;color:#6A6785">Je suis là pour vous aider à revoir ce cas.</div></div>
       </div>
       <div style="display:inline-flex;align-items:center;gap:8px;background:#F0FADB;color:#5A7A0F;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700">● {{ assistantPatient }}</div>
     </div>
@@ -759,18 +759,18 @@ input,textarea,select,button{font-family:inherit}
 
   <div style="display:flex;flex-direction:column;gap:18px;flex:1 1 280px;min-width:0">
     <div style="background:#fff;border:1px solid #E4E2F8;border-radius:20px;padding:22px 24px">
-      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Patient context</div>
-      <p style="margin:10px 0 0;font-size:13.5px;color:#6A6785;text-wrap:pretty">The assistant keeps everything entered during this encounter, so you don't need to repeat the patient information.</p>
+      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8E88E8;font-weight:800">Contexte du patient</div>
+      <p style="margin:10px 0 0;font-size:13.5px;color:#6A6785;text-wrap:pretty">L’assistant conserve tout ce qui a été saisi pour cette prise en charge ; vous n’avez pas à répéter les informations du patient.</p>
       <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;font-size:13.5px">
-        <div style="display:flex;justify-content:space-between"><span style="color:#6A6785">Vitals</span><span style="font-weight:700">{{ ctxVitals }}</span></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:#6A6785">Laboratory</span><span style="font-weight:700">{{ ctxLabs }}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#6A6785">Constantes</span><span style="font-weight:700">{{ ctxVitals }}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#6A6785">Biologie</span><span style="font-weight:700">{{ ctxLabs }}</span></div>
         <div style="display:flex;justify-content:space-between"><span style="color:#6A6785">POCUS</span><span style="font-weight:700">{{ ctxPocus }}</span></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:#6A6785">Assessment</span><span style="font-weight:700">{{ ctxGenerated }}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#6A6785">Évaluation</span><span style="font-weight:700">{{ ctxGenerated }}</span></div>
       </div>
     </div>
     <div style="background:#EFEEFB;border-radius:20px;padding:22px 24px">
-      <div style="font-weight:800;font-size:15px">Reminder</div>
-      <p style="margin:8px 0 0;font-size:13.5px;color:#463A6B;text-wrap:pretty">The assistant provides clinical decision support. It does not make a diagnosis, and responsibility for the decision rests with you.</p>
+      <div style="font-weight:800;font-size:15px">Rappel</div>
+      <p style="margin:8px 0 0;font-size:13.5px;color:#463A6B;text-wrap:pretty">L’assistant fournit une aide à la décision clinique. Il ne pose pas de diagnostic, et la responsabilité de la décision vous revient.</p>
     </div>
   </div>
 </div>
@@ -779,7 +779,7 @@ input,textarea,select,button{font-family:inherit}
 <sc-if value="{{ onTimeline }}" hint-placeholder-val="{{ true }}">
 <div style="display:flex;flex-direction:column;gap:24px;max-width:900px">
   <div>
-    <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Patient clinical timeline</h1>
+    <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Chronologie clinique du patient</h1>
     <p style="margin:0;color:#6A6785;font-size:15.5px">{{ pName }} · encounter {{ pId }}</p>
   </div>
 
@@ -799,7 +799,7 @@ input,textarea,select,button{font-family:inherit}
   </section>
 
   <section style="background:#fff;border:1px solid #DEDCF4;border-left:5px solid #8E88E8;border-radius:18px;padding:24px 28px">
-    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#2E2A78;font-weight:800">One encounter, computed once</div>
+    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#2E2A78;font-weight:800">Une prise en charge, calculée une fois</div>
     <p style="margin:10px 0 0;font-size:15.5px;line-height:1.6">{{ timelineNote }}</p>
   </section>
 </div>
@@ -808,44 +808,44 @@ input,textarea,select,button{font-family:inherit}
 <sc-if value="{{ onReport }}" hint-placeholder-val="{{ true }}">
 <div style="display:flex;flex-direction:column;gap:22px;max-width:920px">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap">
-    <h1 style="margin:0;font-size:32px;font-weight:800;letter-spacing:-.02em">Clinical assessment report</h1>
+    <h1 style="margin:0;font-size:32px;font-weight:800;letter-spacing:-.02em">Compte rendu d’évaluation clinique</h1>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#6A6785;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:11px">🖨 Print</button>
-      <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#6A6785;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:11px">📄 Export PDF</button>
-      <button type="button" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">💾 Save to record</button>
+      <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#6A6785;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:11px">🖨 Imprimer</button>
+      <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#6A6785;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:11px">📄 Exporter en PDF</button>
+      <button type="button" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">💾 Enregistrer au dossier</button>
     </div>
   </div>
 
   <article style="background:#fff;border:1px solid #E4E2F8;border-radius:22px;padding:44px 52px;box-shadow:0 10px 30px rgba(46,42,120,.09)">
     <header style="display:flex;justify-content:space-between;gap:24px;padding-bottom:20px;border-bottom:2px solid #E4E2F8;flex-wrap:wrap">
       <div>
-        <div style="font-weight:800;font-size:20px">Clinical assessment</div>
+        <div style="font-weight:800;font-size:20px">Évaluation clinique</div>
         <div style="font-size:13.5px;color:#6A6785;margin-top:4px">Emergency Department · {{ generatedAt }}</div>
       </div>
       <div style="text-align:right;font-size:13.5px;color:#6A6785">{{ pName }} · {{ pAge }} · {{ pSex }}<br>Encounter {{ pId }}</div>
     </header>
 
     <section style="margin-top:26px">
-      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Chief complaint</div>
+      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Motif de consultation</div>
       <p style="margin:8px 0 0;font-size:16px">{{ pComplaint }}</p>
     </section>
 
     <section style="margin-top:24px">
-      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Clinical summary</div>
+      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Synthèse clinique</div>
       <p style="margin:8px 0 0;font-size:16px;line-height:1.6;text-wrap:pretty">{{ conclusion }}</p>
     </section>
 
     <section style="margin-top:24px">
-      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Clinical findings</div>
+      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Données cliniques</div>
       <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:22px;font-size:15.5px">
         <div>
-          <div style="font-weight:700;margin-bottom:8px">Vital signs</div>
+          <div style="font-weight:700;margin-bottom:8px">Constantes</div>
           <div style="display:flex;flex-direction:column;gap:6px">
             <sc-for list="{{ vitals }}" as="v" hint-placeholder-count="5"><div>{{ v.label }} {{ v.value }} {{ v.unit }} — {{ v.flag }}</div></sc-for>
           </div>
         </div>
         <div>
-          <div style="font-weight:700;margin-bottom:8px">POCUS &amp; laboratory</div>
+          <div style="font-weight:700;margin-bottom:8px">POCUS et biologie</div>
           <div style="display:flex;flex-direction:column;gap:6px">
             <sc-for list="{{ findings }}" as="f" hint-placeholder-count="4"><div>{{ f.label }} — {{ f.status }} ({{ f.conf }})</div></sc-for><sc-for list="{{ labs }}" as="l" hint-placeholder-count="8"><div>{{ l.name }} {{ l.result }} — {{ l.status }}</div></sc-for>
           </div>
@@ -854,25 +854,25 @@ input,textarea,select,button{font-family:inherit}
     </section>
 
     <section style="margin-top:24px">
-      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Differential</div>
+      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Diagnostic différentiel</div>
       <ol style="margin:10px 0 0;padding-left:22px;font-size:16px;display:flex;flex-direction:column;gap:6px">
         <sc-for list="{{ ranked }}" as="r" hint-placeholder-count="3"><li>{{ r.name }} — {{ r.tag }} likelihood</li></sc-for>
       </ol>
     </section>
 
     <section style="margin-top:24px;background:#FFF8EC;border-radius:14px;padding:18px 22px">
-      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#9A6207;font-weight:800">Important limitations</div>
+      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#9A6207;font-weight:800">Limites importantes</div>
       <ul style="margin:10px 0 0;padding-left:20px;font-size:15.5px;display:flex;flex-direction:column;gap:6px;color:#6A4C0C">
-        <sc-for list="{{ missing }}" as="m" hint-placeholder-count="3"><li>{{ m.name }} was not obtained at the time of assessment</li></sc-for><sc-for list="{{ outOfScope }}" as="o" hint-placeholder-count="2"><li>{{ o.text }}</li></sc-for><li>Not measured does not mean normal</li>
+        <sc-for list="{{ missing }}" as="m" hint-placeholder-count="3"><li>{{ m.name }} was not obtained at the time of assessment</li></sc-for><sc-for list="{{ outOfScope }}" as="o" hint-placeholder-count="2"><li>{{ o.text }}</li></sc-for><li>Non mesuré ne veut pas dire normal</li>
       </ul>
     </section>
 
     <section style="margin-top:24px">
-      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Recommended next step</div>
+      <div style="font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:#8E88E8;font-weight:800">Étape suivante recommandée</div>
       <p style="margin:8px 0 0;font-size:18px;font-weight:700;line-height:1.4;text-wrap:pretty">{{ nextStep }}</p>
     </section>
 
-    <footer style="margin-top:32px;padding-top:18px;border-top:1px solid #E4E2F8;font-size:13.5px;color:#8A87A8;text-wrap:pretty">AI-assisted clinical assessment. Requires physician review. This report is clinical decision support and does not constitute a diagnosis.</footer>
+    <footer style="margin-top:32px;padding-top:18px;border-top:1px solid #E4E2F8;font-size:13.5px;color:#8A87A8;text-wrap:pretty">Évaluation clinique assistée par IA. Nécessite une relecture médicale. Ce compte rendu est une aide à la décision et ne constitue pas un diagnostic.</footer>
   </article>
 </div>
 </sc-if>
@@ -880,18 +880,18 @@ input,textarea,select,button{font-family:inherit}
 <sc-if value="{{ onHistory }}" hint-placeholder-val="{{ true }}">
 <div style="display:flex;flex-direction:column;gap:22px;max-width:1080px">
   <div>
-    <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">My clinical assessments</h1>
+    <h1 style="margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.02em">Mes évaluations cliniques</h1>
     <p style="margin:0;color:#6A6785;font-size:15.5px">{{ historyLine }}</p>
   </div>
 
   <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center">
     <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <span style="background:#2E2A78;color:#fff;border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:700">All</span>
-      <span style="background:#fff;border:1px solid #DEDCF4;color:#6A6785;border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600">Critical</span>
-      <span style="background:#fff;border:1px solid #DEDCF4;color:#6A6785;border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600">Review</span>
-      <span style="background:#fff;border:1px solid #DEDCF4;color:#6A6785;border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600">Completed</span>
+      <span style="background:#2E2A78;color:#fff;border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:700">Toutes</span>
+      <span style="background:#fff;border:1px solid #DEDCF4;color:#6A6785;border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600">Critiques</span>
+      <span style="background:#fff;border:1px solid #DEDCF4;color:#6A6785;border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600">À revoir</span>
+      <span style="background:#fff;border:1px solid #DEDCF4;color:#6A6785;border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600">Terminées</span>
     </div>
-    <div style="background:#fff;border:1px solid #DEDCF4;border-radius:12px;padding:10px 15px;color:#9C99B8;font-size:14px;min-width:240px">⌕ Search patient…</div>
+    <div style="background:#fff;border:1px solid #DEDCF4;border-radius:12px;padding:10px 15px;color:#9C99B8;font-size:14px;min-width:240px">⌕ Rechercher un patient…</div>
   </div>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(288px,1fr));gap:18px">
@@ -904,7 +904,7 @@ input,textarea,select,button{font-family:inherit}
     </button>
     </sc-for>
     <sc-if value="{{ noRoster }}" hint-placeholder-val="{{ false }}">
-    <div style="background:#fff;border:1px solid #E4E2F8;border-radius:18px;padding:22px 24px;color:#6A6785;font-size:14.5px">Nothing has been assessed in this session yet. There is no database behind this screen: closing the app discards it.</div>
+    <div style="background:#fff;border:1px solid #E4E2F8;border-radius:18px;padding:22px 24px;color:#6A6785;font-size:14.5px">Rien n’a encore été évalué durant cette session. Il n’y a pas de base de données derrière cet écran : la fermeture de l’application efface tout.</div>
     </sc-if>
   </div>
 </div>
@@ -919,7 +919,7 @@ input,textarea,select,button{font-family:inherit}
     <div style="display:flex;gap:11px;align-items:center">
       <span style="width:34px;height:34px;border-radius:10px;background:#C6F24E;color:#1B1A3A;display:flex;align-items:center;justify-content:center;font-size:16px">✦</span>
       <div style="line-height:1.35;min-width:0">
-        <div style="font-weight:800;font-size:14.5px;white-space:nowrap">Clinical assistant</div>
+        <div style="font-weight:800;font-size:14.5px;white-space:nowrap">Assistant clinique</div>
         <div style="font-size:12px;opacity:.78">{{ pName }} · {{ pAge }}{{ pSex }}</div>
       </div>
     </div>
@@ -965,7 +965,7 @@ input,textarea,select,button{font-family:inherit}
 // script runs rather than swapped afterwards. `T` is used only for chrome written in this
 // file; every clinical sentence is rendered in French by src/agents/i18n.py from the same
 // computed fields, so it cannot drift from the English record.
-const LANG = (typeof window !== 'undefined' && window.LANG) || 'en';
+const LANG = 'fr';
 const FR = LANG === 'fr';
 const T = (en, fr) => (FR ? fr : en);
 

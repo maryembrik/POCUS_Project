@@ -295,6 +295,70 @@ def limit(text: str) -> str:
     return _miss(s)
 
 
+def conclusion(report: dict[str, Any]) -> str:
+    """The conclusion paragraph, assembled in French by the SAME rules as the English.
+
+    This is the line a busy reader acts on. It is built by fixed rules from the report rather
+    than generated, precisely so that it cannot say something the rest of the report does not
+    -- and the French is built by those same rules from those same fields, for the same
+    reason. Translating the finished English sentence would put a second author between the
+    record and the clinician.
+
+    Model finding labels are left as they are. "b lines" is the name of the class the network
+    was trained on, not a phrase; the sentence around it carries the meaning.
+    """
+    sev = report["decision_support"]["severity"]
+    esc = report["safety"]["escalation"] or {}
+    p = report["pocus"]
+    parts: list[str] = []
+
+    parts.append(f"Présentation : {scenario(report['context'].get('scenario', 'Unclassified'))}"
+                 f", évaluée à une sévérité {severity(sev['severity'])}.")
+
+    if p["detected"]:
+        found = ", ".join(f"{d['finding']} ({organ(d['organ'])}, {_num(d['confidence'])})"
+                          for d in p["detected"])
+        parts.append(f"L'échographie au lit du patient a détecté : {found}.")
+    elif p["screened_not_detected"]:
+        parts.append(f"L'échographie a recherché {len(p['screened_not_detected'])} signe(s) "
+                     f"et n'en a détecté aucun ; cela n'exclut pas une pathologie que les "
+                     f"modèles ne représentent pas.")
+    else:
+        parts.append("Aucun signe échographique n'est enregistré.")
+
+    if p["not_assessed"]:
+        parts.append(f"NON EXPLORÉ : {organs(p['not_assessed'])} — attendu pour cette "
+                     f"présentation et jamais examiné.")
+
+    crit = [a for a in report["decision_support"]["alerts"] if a["severity"] == "CRITICAL"]
+    if crit:
+        parts.append(f"{len(crit)} alerte(s) critique(s) : "
+                     + "; ".join(alert(a) for a in crit) + ".")
+
+    if report["reasoning"]["withheld"]:
+        parts.append("Le diagnostic différentiel a été RETENU : le raisonnement généré n'a "
+                     "pas passé la validation contre le dossier.")
+    elif report["reasoning"]["differential"]:
+        top = report["reasoning"]["differential"][0]
+        band = {"high": "élevée", "moderate": "modérée", "low": "faible"}
+        parts.append(f"Hypothèse principale : {top.get('diagnosis')} (vraisemblance "
+                     f"{band.get(str(top.get('likelihood')).lower(), top.get('likelihood'))}).")
+
+    if esc.get("escalate"):
+        parts.append(f"ESCALADE — {len(esc.get('triggers') or [])} déclencheur(s) ; "
+                     f"orientation {esc.get('route')}.")
+    else:
+        parts.append("Aucun déclencheur d'escalade ; le cas peut être traité directement.")
+
+    high = [r for r in report["decision_support"]["additional_examinations"]
+            if r["priority"] == "HIGH"]
+    if high:
+        parts.append("Le plus informatif ensuite : "
+                     + ", ".join(exam_name(r["exam"]) for r in high[:3]) + ".")
+
+    return " ".join(parts)
+
+
 def scenario(label: str) -> str:
     # Not `.get(label, _miss(label))`: Python evaluates a default eagerly, so that recorded
     # every scenario as untranslated even when it had a French form. The coverage test caught

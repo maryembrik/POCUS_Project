@@ -39,7 +39,7 @@ from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from src.agents import schema as S  # noqa: E402
+from src.agents import i18n, schema as S  # noqa: E402
 from src.agents.assistant import answer as assistant_answer  # noqa: E402
 from src.agents.clinical.clinical_state import (  # noqa: E402
     LAB_REFERENCE, VITAL_REFERENCE, build_clinical_state, build_evidence)
@@ -214,7 +214,7 @@ def analyse(enc: dict, broken: bool = False) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════ shaping for the design
-def _view(enc: dict, a: dict) -> dict:
+def _view(enc: dict, a: dict, lang: str = "en") -> dict:
     """Everything the design's template binds, computed rather than invented."""
     state, sup, esc = a["state"], a["support"], a["esc"]
     diff = (a["result"].get("differential") or {}).get("differential") or []
@@ -243,31 +243,61 @@ def _view(enc: dict, a: dict) -> dict:
              "sup": len(d.get("supporting_ids") or []),
              "ag": len(d.get("contradicting") or [])} for d in diff]
 
+    # French is rendered from the SAME computed fields, never from the English sentence, so a
+    # French screen cannot state something the English record does not. The English strings
+    # remain what the tests assert and what the archived report is built from.
+    fr = lang == "fr"
+
     return {
         "hasEncounter": True,
-        "patient": {"name": enc.get("name") or "Unnamed patient", "age": enc.get("age"),
+        "lang": lang,
+        "patient": {"name": enc.get("name") or ("Patient sans nom" if fr
+                                                else "Unnamed patient"),
+                    "age": enc.get("age"),
                     "sex": enc.get("sex"), "complaint": enc.get("complaint") or "—",
-                    "organ": enc.get("organ"), "id": a["report"]["encounter_id"]},
-        "severity": sup["severity"]["severity"],
+                    "organ": (i18n.organ(enc.get("organ", "")).title() if fr
+                              else enc.get("organ")),
+                    "id": a["report"]["encounter_id"]},
+        "severity": i18n.severity(sup["severity"]["severity"]) if fr
+                    else sup["severity"]["severity"],
+        "severityKey": sup["severity"]["severity"],
         "severityReasons": sup["severity"]["reasons"],
-        "scenario": sup["scenario"]["label"],
+        "scenario": i18n.scenario(sup["scenario"]["label"]) if fr
+                    else sup["scenario"]["label"],
         "thresholdsVersion": str(sup["thresholds_version"]),
         "escalate": esc["escalate"],
-        "triggers": esc["triggers"],
-        "conclusion": a["report"]["conclusion"],
+        "triggers": [i18n.trigger(t) for t in esc["triggers"]] if fr else esc["triggers"],
+        "conclusion": i18n.conclusion(a["report"]) if fr else a["report"]["conclusion"],
         "vitals": vitals,
         "labs": labs,
         "findings": [{"label": f["label"], "caption": finding_caption(f, f["organ"]),
                       "conf": round(f["confidence"], 2), "detected": f["detected"]}
                      for f in state["imaging"]["findings"]],
-        "notAssessed": state["imaging"]["organs_not_assessed"],
-        "outOfScope": state["imaging"]["out_of_scope"],
-        "missing": state["missing"]["labs"] + state["missing"]["vitals"],
-        "conflicts": state.get("conflicts") or [],
-        "caseQuality": (state.get("case_quality") or {}).get("grade"),
-        "alerts": [{"severity": x["severity"], "type": x["type"].replace("_", " ").title(),
-                    "message": x["message"]} for x in sup["alerts"]],
-        "exams": sup["additional_examinations"],
+        "notAssessed": ([i18n.organ(o) for o in state["imaging"]["organs_not_assessed"]] if fr
+                        else state["imaging"]["organs_not_assessed"]),
+        "outOfScope": ([i18n.limit(x) for x in state["imaging"]["out_of_scope"]] if fr
+                       else state["imaging"]["out_of_scope"]),
+        "missing": ([i18n.measure(m) for m in
+                     state["missing"]["labs"] + state["missing"]["vitals"]] if fr
+                    else state["missing"]["labs"] + state["missing"]["vitals"]),
+        "conflicts": ([i18n.conflict(c) for c in (state.get("conflicts") or [])] if fr
+                      else state.get("conflicts") or []),
+        "caseQuality": (i18n.GRADE.get((state.get("case_quality") or {}).get("grade"))
+                        if fr else (state.get("case_quality") or {}).get("grade")),
+        "alerts": [{"severity": i18n.LEVEL.get(x["severity"], x["severity"]) if fr
+                                else x["severity"],
+                    # The key stays English so the interface can compare on it. A CRITICAL
+                    # alert must render as critical whatever language it is displayed in.
+                    "severityKey": x["severity"],
+                    "type": i18n.alert_type(x["type"]) if fr
+                            else x["type"].replace("_", " ").title(),
+                    "message": i18n.alert(x) if fr else x["message"]}
+                   for x in sup["alerts"]],
+        "exams": ([{"exam": i18n.exam_name(x["exam"]),
+                    "priority": i18n.PRIORITY.get(x["priority"], x["priority"]),
+                    "reason": i18n.exam_reason(x["reason"])}
+                   for x in sup["additional_examinations"]] if fr
+                  else sup["additional_examinations"]),
         "therapeutic": sup["therapeutic"],
         "differential": [{"diagnosis": d.get("diagnosis"), "likelihood": d.get("likelihood"),
                           "supporting": d.get("supporting") or [],
@@ -409,7 +439,7 @@ def _remember(enc: dict, a: dict) -> None:
 
 
 @app.get("/api/bootstrap")
-def bootstrap() -> JSONResponse:
+def bootstrap(lang: str = "en") -> JSONResponse:
     # The five benchmark encounters are no longer sent. They are fixtures the test suite runs,
     # and listing them under "Recent assessments" beside a tile reading "0 analysed this
     # session" presented five test cases as five patients waiting to be seen. Every screen now
@@ -429,15 +459,23 @@ def bootstrap() -> JSONResponse:
         "lungFindings": LUNG_FINDINGS,
         "gbClasses": GB_CLASSES,
         "organs": ["Lung", "Heart", "Gallbladder", "Not performed"],
+        # `severityKey` is the English key the interface compares on; `severity` is what it
+        # displays. Keeping both means a French page can count high-severity patients without
+        # matching on a translated word, which is the kind of comparison that breaks silently
+        # in one language and not the other.
         "records": [dict({k: r[k] for k in ("id", "name", "age", "sex", "complaint", "at",
-                                            "severity", "alerts", "organ", "encounterId",
-                                            "findings")},
+                                            "alerts", "organ", "encounterId", "findings")},
+                         severityKey=r["severity"],
+                         severity=(i18n.severity(r["severity"]) if lang == "fr"
+                                   else r["severity"]),
+                         organ=(i18n.organ(r["organ"] or "").title() if lang == "fr"
+                                else r["organ"]),
                          images=_studies_of(r["_enc"])) for r in _records],
     })
 
 
 @app.post("/api/analyse")
-def api_analyse(e: Encounter) -> JSONResponse:
+def api_analyse(e: Encounter, lang: str = "en") -> JSONResponse:
     enc = e.model_dump()
     preset = enc.pop("preset", None)
     broken = enc.pop("broken", False)
@@ -460,7 +498,7 @@ def api_analyse(e: Encounter) -> JSONResponse:
     _last.clear()
     _last.update(enc=enc, a=a)
     _remember(enc, a)
-    return JSONResponse(_view(enc, a))
+    return JSONResponse(_view(enc, a, lang))
 
 
 @app.post("/api/upload")
@@ -546,7 +584,7 @@ def api_upload(u: Upload) -> JSONResponse:
 
 
 @app.get("/api/preset")
-def api_preset(key: str, broken: bool = False) -> JSONResponse:
+def api_preset(key: str, broken: bool = False, lang: str = "en") -> JSONResponse:
     """Analyse a benchmark encounter as the canonical record, not as a partial form.
 
     Posting only the patient's name and letting the rest default produced an encounter with
@@ -563,17 +601,17 @@ def api_preset(key: str, broken: bool = False) -> JSONResponse:
     _last.clear()
     _last.update(enc=enc, a=a)
     _remember(enc, a)
-    return JSONResponse(_view(enc, a))
+    return JSONResponse(_view(enc, a, lang))
 
 
 @app.get("/api/record")
-def api_record(id: str) -> JSONResponse:
+def api_record(id: str, lang: str = "en") -> JSONResponse:
     """Re-open a patient from the list, exactly as their encounter was assessed."""
     for r in _records:
         if r["id"] == id:
             _last.clear()
             _last.update(enc=r["_enc"], a=r["_a"])
-            return JSONResponse(_view(r["_enc"], r["_a"]))
+            return JSONResponse(_view(r["_enc"], r["_a"], lang))
     return JSONResponse({"hasEncounter": False,
                          "message": f"no patient {id!r} in this session"}, status_code=404)
 
@@ -592,13 +630,13 @@ def api_attach(a: Attach) -> JSONResponse:
             ids = [i for i in a.images if i in _studies]
             r["_enc"]["images"] = (r["_enc"].get("images") or []) + ids
             r["images"] = list(r["_enc"]["images"])
-            return JSONResponse(_view(r["_enc"], r["_a"]))
+            return JSONResponse(_view(r["_enc"], r["_a"], lang))
     return JSONResponse({"hasEncounter": False,
                          "message": f"no patient {a.id!r} in this session"}, status_code=404)
 
 
 @app.post("/api/ask")
-def api_ask(a: Ask) -> JSONResponse:
+def api_ask(a: Ask, lang: str = "en") -> JSONResponse:
     if not _last:
         return JSONResponse({"answer": "No encounter has been analysed yet, so there is "
                                        "nothing to answer from. Analyse a patient first."})
@@ -606,15 +644,27 @@ def api_ask(a: Ask) -> JSONResponse:
 
 
 @app.get("/api/view")
-def api_view() -> JSONResponse:
+def api_view(lang: str = "en") -> JSONResponse:
     if not _last:
         return JSONResponse(_empty_view())
-    return JSONResponse(_view(_last["enc"], _last["a"]))
+    return JSONResponse(_view(_last["enc"], _last["a"], lang))
 
 
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(WEB / "pocus-copilot.dc.html", headers=_NO_STORE)
+
+
+@app.get("/fr")
+def index_fr() -> FileResponse:
+    """The same interface, built in French at bind time rather than translated at runtime.
+
+    A page per language: the language is settled before any script runs, and both pages are
+    checked by the same balance and coverage checks. The clinical text inside it is rendered
+    by src/agents/i18n.py from the same computed fields as the English, so a French screen
+    cannot state something the English record does not.
+    """
+    return FileResponse(WEB / "pocus-copilot.fr.dc.html", headers=_NO_STORE)
 
 
 app.mount("/", StaticFiles(directory=str(WEB)), name="web")

@@ -26,10 +26,25 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fr_ui  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "web" / "design" / "pocus-copilot.dc.html"
 LOGIC = ROOT / "web" / "logic.js"
 OUT = ROOT / "web" / "pocus-copilot.dc.html"
+OUT_FR = ROOT / "web" / "pocus-copilot.fr.dc.html"
+
+def _visible_strings(html: str) -> list[str]:
+    """Every distinct piece of text the page can display, in document order."""
+    body = re.sub('<(script|style)[^>]*>.*?</\\1>', "", html, flags=re.S)
+    seen: list[str] = []
+    for t in re.findall(r">([^<>{}]+)<", body):
+        t = t.strip()
+        if t and re.search(r"[A-Za-z]{3}", t) and t not in seen:
+            seen.append(t)
+    return seen
+
 
 applied: list[str] = []
 missed: list[str] = []
@@ -371,8 +386,7 @@ def main() -> int:
     # Three fixed sections: a compromised oxygenation, a set of abnormal vitals and three
     # missing tests. They appeared whatever the patient's values were -- a gallbladder study
     # with no oxygen saturation recorded still announced SpO2 88%.
-    s = re.sub(r"\d+ alerts require physician attention",
-               "{{ alertCount }} alert(s) require physician attention", s)
+    s = re.sub(r"\d+ alerts require physician attention", "{{ alertHeadline }}", s)
     s = cut(s, '<section style="background:#fff;border:1px solid #F6CFCF;'
                'border-left:5px solid #E5484D;border-radius:18px;padding:22px 26px">\n'
                '    <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;'
@@ -493,6 +507,108 @@ def main() -> int:
             "{{ diagnosisLine }}", "diagnosis header")
     s = sub(s, "✦ 23 suggestions", "✦ {{ examCount }}", "suggestion count")
     s = sub(s, "⚠ 8 anomalies", "⚠ {{ anomalyCount }}", "anomaly count")
+
+    # ---- 7b4. a revision of an assessment that was never revised ---------------------
+    # The Timeline carried "Assessment updated -- Previously: Pulmonary edema, Moderate ->
+    # Now: Moderate-high -- Why: Troponin 62 ng/L now available". A narrated change of mind,
+    # with a diagnosis, two likelihoods and a reason, none of it derived. Nothing in this
+    # system revises an assessment in place: re-analysing produces a NEW encounter, which is
+    # deliberate, because a record that rewrites itself cannot be compared with what was shown
+    # at the time. The screen says that instead of dramatising a revision.
+    s = cut(s, '<div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;'
+               'color:#2E2A78;font-weight:800">Assessment updated</div>',
+            "added to the differential</li></ul>\n    </div>",
+            '<div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;'
+            'color:#2E2A78;font-weight:800">One encounter, computed once</div>\n'
+            '    <p style="margin:10px 0 0;font-size:15.5px;line-height:1.6">'
+            '{{ timelineNote }}</p>', "timeline revision")
+
+    # ---- 7b5. the assistant announced a patient who was not on screen ----------------
+    # "● 74F — acute breathlessness" was fixed text in the chat header. With a 71-year-old
+    # open it stated her age wrongly, in the one panel whose whole claim is that it answers
+    # from this encounter and invents nothing.
+    s = sub(s, '● 74F — acute breathlessness', '● {{ assistantPatient }}', "assistant patient")
+
+    # ---- 7b5b. the panel claiming to hold the encounter held four fixed numbers ------
+    # "Vitals 4 recorded · Laboratory 3 of 5 · POCUS Lung · 2 clips · Assessment generated
+    # 09:15", under a paragraph promising the assistant keeps everything entered for this
+    # encounter. The one panel asserting that nothing needs repeating was itself repeating a
+    # mockup.
+    for label, old, new in (("Vitals", "4 recorded", "{{ ctxVitals }}"),
+                            ("Laboratory", "3 of 5", "{{ ctxLabs }}"),
+                            ("POCUS", "Lung · 2 clips", "{{ ctxPocus }}"),
+                            ("Assessment", "Generated 09:15", "{{ ctxGenerated }}")):
+        s = sub(s, f'<span style="color:#6A6785">{label}</span>'
+                   f'<span style="font-weight:700">{old}</span>',
+                f'<span style="color:#6A6785">{label}</span>'
+                f'<span style="font-weight:700">{new}</span>', f"context {label}")
+
+    # ---- 7b5c. the history box came PRE-FILLED with somebody else's comorbidities ----
+    # The textarea's default content was "Hypertension, prior heart failure. On furosemide,
+    # ramipril." -- not a placeholder, actual content, submitted with the encounter unless the
+    # clinician noticed and cleared it. Every patient entered on this screen carried invented
+    # comorbidities and two invented drugs into their record. It is bound and empty, with the
+    # example demoted to a placeholder, where text is visibly not a value.
+    s = sub(s, 'min-height:64px;resize:vertical;background:#FAFAFE">'
+               'Hypertension, prior heart failure. On furosemide, ramipril.</textarea>',
+            'min-height:64px;resize:vertical;background:#FAFAFE" value="{{ fHistory }}" '
+            'onChange="{{ onHistory }}" placeholder="{{ historyPlaceholder }}"></textarea>',
+            "history textarea")
+
+    # ---- 7b5d. three investigations chosen by the mockup ----------------------------
+    # "D-dimer — may contribute to assessing pulmonary embolism", "Creatinine — could guide
+    # treatment and renal contribution", "Temperature — would help weigh an infective cause",
+    # then "Obtain the missing high-priority investigations and reassess the respiratory
+    # status". Fixed text under the heading "What would clarify this case", which is a clinical
+    # recommendation for whichever patient was open. The support module ranks the real ones
+    # with the reason each was ranked; those are shown.
+    s = cut(s, '<div style="display:flex;gap:12px;padding:13px 15px;background:#FFF8EC;'
+               'border-radius:10px"><span style="color:#E08A00">●</span><div>'
+               '<div style="font-weight:700;font-size:14.5px">D-dimer</div>',
+            "Would help weigh an infective cause.</div></div></div>",
+            '<sc-for list="{{ exams }}" as="e" hint-placeholder-count="3">\n'
+            '          <div style="display:flex;gap:12px;padding:13px 15px;'
+            'background:#FFF8EC;border-radius:10px"><span style="color:#E08A00">●</span>'
+            '<div><div style="font-weight:700;font-size:14.5px">{{ e.exam }} '
+            '({{ e.priority }})</div><div style="font-size:13px;color:#6A6785">'
+            '{{ e.reason }}</div></div></div>\n          </sc-for>\n'
+            '          <sc-if value="{{ noExams }}" hint-placeholder-val="{{ false }}">\n'
+            '          <div style="padding:13px 15px;font-size:13.5px;color:#6A6785">'
+            '{{ noExamsNote }}</div>\n          </sc-if>', "clarify list")
+
+    s = sub(s, "Obtain the missing high-priority investigations and reassess the "
+               "respiratory status.", "{{ nextStep }}", "clarify next step")
+
+    # ---- 7b5e. three chips naming the tests the mockup thought were missing ----------
+    # Under the heading "Important investigations have not been performed", on the ALERTS
+    # screen, a fixed D-dimer / Creatinine / Temperature. For a patient who had all three and
+    # was missing others, it named the wrong ones, in the place a clinician looks to see what
+    # is absent -- the exact fact the system is built to keep straight.
+    s = cut(s, '<span style="background:#EFEEFB;color:#2E2A78;border-radius:999px;'
+               'padding:6px 14px;font-size:13.5px;font-weight:700">D-dimer</span>',
+            '>Temperature</span>',
+            '<sc-for list="{{ missingChips }}" as="m" hint-placeholder-count="3">'
+            '<span style="background:#EFEEFB;color:#2E2A78;border-radius:999px;'
+            'padding:6px 14px;font-size:13.5px;font-weight:700">{{ m.name }}</span>'
+            '</sc-for>\n      <sc-if value="{{ noMissing }}" '
+            'hint-placeholder-val="{{ false }}">'
+            '<span style="font-size:13.5px;color:#6A6785">{{ noMissingNote }}</span>'
+            '</sc-if>', "missing chips")
+
+    # ---- 7b7. the language switch ---------------------------------------------------
+    # A link, not a control with state: each language is its own page, built and checked at
+    # bind time, so switching is a navigation rather than a re-render. It sits in the top bar
+    # beside the assistant chip, which is the first place a clinician who cannot read the
+    # screen will look.
+    s = sub(s, '<span class="livedot">●</span> Assistant ready</div>',
+            '<span class="livedot">●</span> {{ assistantReady }}</div>\n'
+            '    <a href="{{ otherLangHref }}" style="display:inline-flex;align-items:center;'
+            'gap:6px;background:rgba(255,255,255,.14);color:#fff;border-radius:999px;'
+            'padding:7px 13px;font-size:13px;font-weight:700;text-decoration:none">'
+            '{{ otherLangLabel }}</a>', "language switch")
+
+    # ---- 7b6. a caseload nobody had ------------------------------------------------
+    s = sub(s, "12 assessments · 3 require review", "{{ historyLine }}", "history count")
 
     # ---- 7c. the lime tile counted conversations this system never had ---------------
     s = sub(s, '<span style="font-weight:700;font-size:15.5px">▤ Clinical assistant</span>',
@@ -651,6 +767,35 @@ def main() -> int:
             "no stored images")
 
     io.open(OUT, "w", encoding="utf8", newline="\n").write(s)
+
+    # ---- 9. the same page in French --------------------------------------------------
+    # A second page rather than a runtime translation: it is checked by the same balance and
+    # fabrication checks as the English one, costs nothing to serve, and the language is
+    # settled before any script runs instead of being swapped afterwards.
+    #
+    # The coverage check is the point. A sentence added to the design and forgotten here would
+    # reach a French-speaking clinician in English, which is the failure this exists to
+    # prevent, so an uncovered string fails the build rather than shipping quietly.
+    visible = _visible_strings(s)
+    uncovered = fr_ui.assert_covered(visible)
+    # The constant itself, not an injected <script>: the export has no plain script tag to
+    # inject into, so the first attempt silently left the French page running in English --
+    # every clinical string translated by the server, every nav label still English.
+    fr = fr_ui.translate(s)
+    old_lang = "const LANG = (typeof window !== 'undefined' && window.LANG) || 'en';"
+    if old_lang not in fr:
+        print("FATAL: the LANG constant moved; the French page would run in English",
+              file=sys.stderr)
+        return 1
+    fr = fr.replace(old_lang, "const LANG = 'fr';")
+    io.open(OUT_FR, "w", encoding="utf8", newline="\n").write(fr)
+    print(f"wrote {OUT_FR.relative_to(ROOT)}  ({len(fr):,} chars)")
+    print(f"french coverage: {len(visible) - len(uncovered)}/{len(visible)} visible strings")
+    if uncovered:
+        print(f"\n{len(uncovered)} STRING(S) WITH NO FRENCH FORM:")
+        for u in uncovered:
+            print("   -", u[:100])
+        return 1
 
     # ---- report ---------------------------------------------------------------------
     print(f"wrote {OUT.relative_to(ROOT)}  ({len(s):,} chars)")

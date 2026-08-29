@@ -1,23 +1,39 @@
 // Replaces the mockup's constants. Everything clinical comes from /api/*; only nav labels and
 // empty-state copy live here, because those are interface chrome rather than patient data.
+
+// The language is stamped into the page at bind time, so the interface is chosen before any
+// script runs rather than swapped afterwards. `T` is used only for chrome written in this
+// file; every clinical sentence is rendered in French by src/agents/i18n.py from the same
+// computed fields, so it cannot drift from the English record.
+const LANG = (typeof window !== 'undefined' && window.LANG) || 'en';
+const FR = LANG === 'fr';
+const T = (en, fr) => (FR ? fr : en);
+
 const SCREENS = [
-  { id: 'home', label: 'Home', icon: '⌂' },
-  { id: 'workup', label: 'Patient workup', icon: '✎' },
-  { id: 'diagnosis', label: 'Diagnosis', icon: '✳' },
-  { id: 'record', label: 'Patient record', icon: '▣' },
-  { id: 'assessment', label: 'Assessment', icon: '✦', badge: 'AI' },
-  { id: 'alerts', label: 'Alerts', icon: '⚠' },
-  { id: 'assistant', label: 'Clinical assistant', icon: '✧' },
-  { id: 'timeline', label: 'Timeline', icon: '◷' },
-  { id: 'report', label: 'Report', icon: '▤' },
-  { id: 'history', label: 'History', icon: '⟲' }
+  { id: 'home', label: T('Home', 'Accueil'), icon: '⌂' },
+  { id: 'workup', label: T('Patient workup', 'Saisie du patient'), icon: '✎' },
+  { id: 'diagnosis', label: T('Diagnosis', 'Diagnostic'), icon: '✳' },
+  { id: 'record', label: T('Patient record', 'Dossier patient'), icon: '▣' },
+  { id: 'assessment', label: T('Assessment', 'Évaluation'), icon: '✦', badge: 'IA' },
+  { id: 'alerts', label: T('Alerts', 'Alertes'), icon: '⚠' },
+  { id: 'assistant', label: T('Clinical assistant', 'Assistant clinique'), icon: '✧' },
+  { id: 'timeline', label: T('Timeline', 'Chronologie'), icon: '◷' },
+  { id: 'report', label: T('Report', 'Rapport'), icon: '▤' },
+  { id: 'history', label: T('History', 'Historique'), icon: '⟲' }
 ];
 
 // Screens that read a computed encounter. Without one they have nothing to show, so the nav
 // marks them rather than letting a click land on an empty page and read as a broken button.
 const NEEDS = ['diagnosis', 'assessment', 'alerts', 'assistant', 'timeline', 'report'];
 
-const SUGGESTIONS = [
+const SUGGESTIONS = FR ? [
+  'Quels signes soutiennent la principale hypothèse ?',
+  'Quelles informations manquent ?',
+  'Qu’a réellement vu l’échographie ?',
+  'Résume ce patient.',
+  'Que dois-je faire maintenant ?',
+  'Conteste cette évaluation.'
+] : [
   'What findings support the leading entry?',
   'What information is missing?',
   'What did POCUS actually see?',
@@ -26,10 +42,13 @@ const SUGGESTIONS = [
   'Challenge this assessment.'
 ];
 
-const post = (u, b) => fetch(u, { method: 'POST',
+// The language rides on every request, so the server renders the clinical text in the same
+// language as the page that asked for it.
+const _lang = u => u + (u.indexOf('?') < 0 ? '?' : '&') + 'lang=' + LANG;
+const post = (u, b) => fetch(_lang(u), { method: 'POST',
   headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
   .then(r => r.json());
-const get = u => fetch(u).then(r => r.json());
+const get = u => fetch(_lang(u)).then(r => r.json());
 
 class Component extends DCLogic {
   state = {
@@ -116,9 +135,12 @@ class Component extends DCLogic {
     // like it had analysed somebody else. Say so instead.
     if (!view || !view.hasEncounter) {
       this.setState({ busy: false,
-        error: 'That encounter could not be analysed: '
-               + (view && view.detail ? JSON.stringify(view.detail) : 'the server rejected it')
-               + '. Nothing on screen has changed.' });
+        error: T('That encounter could not be analysed: ',
+                 'Cette prise en charge n’a pas pu être analysée : ')
+               + (view && view.detail ? JSON.stringify(view.detail)
+                  : T('the server rejected it', 'le serveur l’a rejetée'))
+               + T('. Nothing on screen has changed.',
+                   '. Rien n’a changé à l’écran.') });
       return;
     }
     const boot = await get('/api/bootstrap');
@@ -246,8 +268,13 @@ class Component extends DCLogic {
     const st = this.state, v = st.view || {}, boot = st.boot || {};
     const has = !!v.hasEncounter;
     const sev = v.severity || '—';
-    const t = sev === 'HIGH' ? { bg: '#FDECEC', fg: '#C13238' }
-            : sev === 'MODERATE' ? { bg: '#FFF3E0', fg: '#9A6207' }
+    // Compared on the untranslated key. Matching the DISPLAYED word meant a French screen
+    // painted every severity the same colour, because "ÉLEVÉE" is not "HIGH" -- a comparison
+    // that breaks in one language and not the other, silently, in the colour a clinician
+    // reads before any word.
+    const sevKey = v.severityKey || v.severity || '—';
+    const t = sevKey === 'HIGH' ? { bg: '#FDECEC', fg: '#C13238' }
+            : sevKey === 'MODERATE' ? { bg: '#FFF3E0', fg: '#9A6207' }
             : { bg: '#F0FADB', fg: '#5A7A0F' };
     const nAlerts = (v.alerts || []).length;
     const f = st.form;
@@ -262,10 +289,10 @@ class Component extends DCLogic {
     const out = {
       ready: !!st.boot, busy: st.busy, hasEncounter: has, noEncounter: !has,
       analyzing: st.busy, analyzed: has,
-      analyzeLabel: st.busy ? 'Analyzing…' : (has ? 'Re-analyze patient' : 'Analyze patient'),
+      analyzeLabel: st.busy ? T('Analyzing…', 'Analyse en cours…') : (has ? T('Re-analyze patient', 'Réanalyser le patient') : T('Analyze patient', 'Analyser le patient')),
       filledCount: String(filled),
       onAnalyze: () => this.analyse(),
-      analyseLabel: st.busy ? 'Reading the study…' : '✦ Analyze patient',
+      analyseLabel: st.busy ? T('Reading the study…', 'Lecture de l’examen…') : T('✦ Analyze patient', '✦ Analyser le patient'),
       emptyMessage: v.message || 'No encounter has been analysed yet.',
 
       nav: SCREENS.map(s => {
@@ -288,9 +315,14 @@ class Component extends DCLogic {
       severity: sev, scenario: v.scenario || '—',
       thresholdsVersion: v.thresholdsVersion || '—',
       conclusion: v.conclusion || '',
-      escalateText: v.escalate ? 'escalation required' : 'no escalation',
+      escalateText: v.escalate ? T('escalation required', 'escalade requise') : T('no escalation', 'pas d’escalade'),
       caseQuality: v.caseQuality || '—',
       alertCount: String(nAlerts),
+      alertHeadline: nAlerts
+        ? nAlerts + T(' alert(s) require physician attention',
+                      ' alerte(s) nécessitent l’attention du médecin')
+        : T('No alert was raised for this encounter.',
+            'Aucune alerte n’a été déclenchée pour cette prise en charge.'),
       // On the workup this counts what the CLINICIAN has left blank, which is the number the
       // note beside it is about. It previously read from the last analysis, so a fresh form
       // always claimed nothing was missing.
@@ -317,6 +349,9 @@ class Component extends DCLogic {
       onSex: e => this.setForm({ sex: e.target.value === 'Male' ? 'M' : 'F' }),
       onComplaint: e => this.setForm({ complaint: e.target.value }),
       onHistory: e => this.setForm({ history: e.target.value }),
+      // A placeholder, not content: the box used to arrive holding a fabricated history.
+      historyPlaceholder: T('e.g. hypertension, prior heart failure; current medications',
+                            'ex. hypertension, insuffisance cardiaque ; traitements en cours'),
       onOrgan: e => this.setForm({ organ: e.target.value }),
       onUpload: e => this.upload(e.target.files),
       clips: (st.previews || []).map((src, i) => ({ src, n: String(i + 1) })),
@@ -326,13 +361,13 @@ class Component extends DCLogic {
       perImage: ((st.upload || {}).perImage || []).map(p => ({
         title: 'Study ' + p.index + (p.status === 'ok' ? '' : ' — ' + p.status),
         rows: p.rows.map(r => ({ label: r.label, caption: r.caption,
-          conf: r.conf.toFixed(2), status: r.detected ? 'Detected' : 'Not detected' })) })),
+          conf: r.conf.toFixed(2), status: r.detected ? T('Detected', 'Détecté') : T('Not detected', 'Non détecté') })) })),
       asClip: !!st.asClip,
-      clipToggleLabel: st.asClip ? 'Frames of one clip' : 'Separate studies',
+      clipToggleLabel: st.asClip ? T('Frames of one clip', 'Images d’une même boucle') : T('Separate studies', 'Examens distincts'),
       onToggleClip: () => this.toggleClip(),
       uploadLabel: st.busy ? 'Reading…'
-                 : (st.previews || []).length ? '＋ Replace'
-                 : (f.organ === 'Heart' ? '＋ Add ED + ES' : '＋ Add clip'),
+                 : (st.previews || []).length ? T('＋ Replace', '＋ Remplacer')
+                 : (f.organ === 'Heart' ? T('＋ Add ED + ES', '＋ Ajouter TD + TS') : T('＋ Add clip', '＋ Ajouter une boucle')),
 
       // The organs this deployment can actually run, from module_status. The mockup offered
       // FAST, for which no module was ever built; an examination tab with nothing behind it is
@@ -345,7 +380,7 @@ class Component extends DCLogic {
         const name = k === 'heart' ? 'Cardiac'
                    : k.charAt(0).toUpperCase() + k.slice(1);
         return {
-          label: name + (m.runs ? '' : ' · unavailable'),
+          label: name + (m.runs ? '' : T(' · unavailable', ' · indisponible')),
           onClick: m.runs
             ? () => this.setForm({ organ: k.charAt(0).toUpperCase() + k.slice(1) })
             : (() => {}),
@@ -400,7 +435,7 @@ class Component extends DCLogic {
         .map(r => ({
           name: r.label,
           value: r.conf === null || r.conf === undefined ? 'not read yet'
-                 : (r.detected ? 'Detected ' + r.conf : 'Not detected ' + r.conf),
+                 : (r.detected ? T('Detected ', 'Détecté ') + r.conf : T('Not detected ', 'Non détecté ') + r.conf),
           nameStyle: { fontWeight: 600, fontSize: '14px' },
           segStyle: { fontSize: '12.5px', fontWeight: 700,
                       color: r.conf === null || r.conf === undefined ? '#9C99B8'
@@ -424,7 +459,7 @@ class Component extends DCLogic {
       // ---- imaging ---------------------------------------------------------------
       findings: (v.findings || []).map(x => ({
         label: x.label, caption: x.caption, conf: x.conf.toFixed(2),
-        status: x.detected ? 'Detected' : 'Not detected',
+        status: x.detected ? T('Detected', 'Détecté') : T('Not detected', 'Non détecté'),
         statusStyle: x.detected
           ? { background: '#E4E2F8', color: '#2E2A78', borderRadius: '999px',
               padding: '5px 12px', fontSize: '12.5px', fontWeight: 700 }
@@ -438,7 +473,7 @@ class Component extends DCLogic {
       // ---- vitals & labs as displayed elsewhere ----------------------------------
       vitals: (v.vitals || []).map(x => ({
         label: x.label, unit: x.unit,
-        value: x.value === null ? 'Not measured' : x.value,
+        value: x.value === null ? T('Not measured', 'Non mesuré') : x.value,
         note: x.value === null ? 'Not the same as normal' : (x.flag || ''),
         flag: x.flag || 'not measured', flagStyle: this.flagStyle(x.flag),
         style: x.value === null
@@ -452,7 +487,7 @@ class Component extends DCLogic {
                       color: x.value === null ? '#9C99B8' : '#1B1A3A' } })),
       labs: (v.labs || []).map(x => ({
         name: x.name, result: x.result || '—', ref: x.ref,
-        status: x.result === null ? 'Not measured' : (x.flag || ''),
+        status: x.result === null ? T('Not measured', 'Non mesuré') : (x.flag || ''),
         rowStyle: { padding: '13px 0', color: x.result === null ? '#9C99B8' : '#1B1A3A' },
         statusStyle: { borderRadius: '999px', padding: '4px 11px', fontSize: '12.5px',
           fontWeight: 700,
@@ -480,12 +515,17 @@ class Component extends DCLogic {
       hasDifferential: (v.differential || []).length > 0,
       noDifferential: (v.differential || []).length === 0,
       differentialNote: v.differentialOrigin === 'failed'
-        ? 'The model backend failed and the answer was withheld. The severity and alerts beside '
-          + 'it were computed before the model ran and are unaffected.'
+        ? T('The model backend failed and the answer was withheld. The severity and '
+            + 'alerts beside it were computed before the model ran and are unaffected.',
+            'Le moteur du modèle a échoué et la réponse a été retenue. La sévérité et les '
+            + 'alertes à côté ont été calculées avant son exécution et ne sont pas affectées.')
         : v.differentialOrigin === 'not_generated'
-        ? 'No differential was generated. Producing one requires a 4.9 GB language model on a '
-          + 'GPU, which is not loaded in this deployment. Everything else on screen was '
-          + 'computed here.' : '',
+        ? T('No differential was generated. Producing one requires a 4.9 GB language '
+            + 'model on a GPU, which is not loaded in this deployment. Everything else on '
+            + 'screen was computed here.',
+            'Aucun diagnostic différentiel n’a été généré. Cela nécessite un modèle de '
+            + 'langage de 4,9 Go sur GPU, non chargé dans ce déploiement. Tout le reste de '
+            + 'l’écran a été calculé ici.') : '',
       withheld: !!v.withheld,
       validationErrors: (v.validationErrors || []).map(x => ({ text: x })),
       warnings: (v.warnings || []).map(x => ({ text: x })),
@@ -497,9 +537,12 @@ class Component extends DCLogic {
 
       // ---- alerts ------------------------------------------------------------------
       alerts: (v.alerts || []).map(a => {
-        const crit = a.severity === 'CRITICAL';
+        // On the untranslated key. Matching the displayed word made every alert on a French
+        // screen render as the amber "Important" variant -- including the critical ones,
+        // whose red border and heading are how a clinician tells them apart at a glance.
+        const crit = (a.severityKey || a.severity) === 'CRITICAL';
         return { type: a.type, message: a.message,
-          kicker: crit ? 'Immediate attention' : 'Important',
+          kicker: crit ? T('Immediate attention', 'Attention immédiate') : T('Important', 'Important'),
           style: { background: '#fff', borderRadius: '18px', padding: '22px 26px',
             marginBottom: '16px', border: '1px solid ' + (crit ? '#F6CFCF' : '#F7DFB4'),
             borderLeft: '5px solid ' + (crit ? '#E5484D' : '#F5A623') },
@@ -510,8 +553,22 @@ class Component extends DCLogic {
 
       exams: (v.exams || []).map(e => ({ exam: e.exam, reason: e.reason,
                                          priority: e.priority })),
-      nextStep: (v.exams || []).length ? v.exams[0].exam
-                : 'Physician review of the current findings.',
+      nextStep: (v.exams || []).length
+        ? T('Obtain: ', 'Obtenir : ') + v.exams[0].exam
+        : T('Physician review of the current findings.',
+            'Relecture médicale des données actuelles.'),
+      assistantReady: T('Assistant ready', 'Assistant prêt'),
+      otherLangHref: FR ? '/' : '/fr',
+      otherLangLabel: FR ? '🌐 English' : '🌐 Français',
+      missingChips: (v.missing || []).map(m => ({ name: m })),
+      noMissing: !(v.missing || []).length,
+      noMissingNote: T('Every value in the reference set was measured.',
+                       'Toutes les valeurs de référence ont été mesurées.'),
+      noExams: !(v.exams || []).length,
+      noExamsNote: T('Nothing further is recommended: every value in the reference set was '
+                     + 'measured and every expected view was obtained.',
+                     'Aucun examen supplémentaire n’est recommandé : toutes les valeurs de '
+                     + 'référence ont été mesurées et toutes les coupes attendues obtenues.'),
       therapeutic: ((v.therapeutic || {}).considerations || []).map(c => ({
         consideration: c.consideration, basis: c.basis, passage: c.passage,
         disclaimer: c.disclaimer })),
@@ -553,22 +610,22 @@ class Component extends DCLogic {
       // there are none. The benchmark still runs -- in the suite, where it belongs.
       roster: (boot.records || []).map(r => ({ name: r.name, age: String(r.age), sex: r.sex,
         complaint: r.complaint, tag: r.severity, severity: r.severity,
-        alerts: r.alerts + ' alert(s)',
+        alerts: r.alerts + T(' alert(s)', ' alerte(s)'),
         initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
         onOpen: this.openRecord(r.id),
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
           fontWeight: 700,
-          background: r.severity === 'HIGH' ? '#FDECEC'
-                    : r.severity === 'MODERATE' ? '#FFF3E0' : '#F0FADB',
-          color: r.severity === 'HIGH' ? '#C13238'
-               : r.severity === 'MODERATE' ? '#9A6207' : '#5A7A0F' } })),
+          background: r.severityKey === 'HIGH' ? '#FDECEC'
+                    : r.severityKey === 'MODERATE' ? '#FFF3E0' : '#F0FADB',
+          color: r.severityKey === 'HIGH' ? '#C13238'
+               : r.severityKey === 'MODERATE' ? '#9A6207' : '#5A7A0F' } })),
       visits: (boot.records || []).map(r => ({ date: r.at, reason: r.name,
-        meta: r.organ + ' · ' + r.alerts + ' alert(s)', tag: r.severity,
-        outcome: (r.findings || []).join(', ') || 'no positive finding',
+        meta: r.organ + ' · ' + r.alerts + T(' alert(s)', ' alerte(s)'), tag: r.severity,
+        outcome: (r.findings || []).join(', ') || T('no positive finding', 'aucun signe positif'),
         onOpen: this.go('report'),
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
-          fontWeight: 700, background: r.severity === 'HIGH' ? '#FDECEC' : '#F0FADB',
-          color: r.severity === 'HIGH' ? '#C13238' : '#5A7A0F' } })),
+          fontWeight: 700, background: r.severityKey === 'HIGH' ? '#FDECEC' : '#F0FADB',
+          color: r.severityKey === 'HIGH' ? '#C13238' : '#5A7A0F' } })),
       noRecords: !(boot.records || []).length,
       // The images the module read, filed under the patient they were read for. On the list
       // this is every patient's studies; with one open it is that patient's only — the header
@@ -577,8 +634,8 @@ class Component extends DCLogic {
         .filter(r => !st.recordSel || r.id === st.recordSel)
         .filter(r => (r.images || []).length)
         .map(r => ({ date: r.at, reason: r.name,
-          meta: r.organ + ' · ' + r.images.length + ' stored · '
-                + ((r.findings || []).join(', ') || 'no positive finding'),
+          meta: r.organ + ' · ' + r.images.length + T(' stored · ', ' enregistrée(s) · ')
+                + ((r.findings || []).join(', ') || T('no positive finding', 'aucun signe positif')),
           images: r.images.map(im => ({ src: im.src, finding: im.finding, zone: im.zone,
                                         time: im.time + ' · ' + im.zone })) })),
       onRecordUpload: e => this.addToRecord(e.target.files),
@@ -587,7 +644,7 @@ class Component extends DCLogic {
         .some(r => (r.images || []).length),
       dataRows: (v.vitals || []).concat(v.labs || []).map(x => ({
         name: x.label || x.name,
-        now: x.value === null || x.result === null ? 'Not measured'
+        now: x.value === null || x.result === null ? T('Not measured', 'Non mesuré')
              : String(x.value !== undefined ? x.value : x.result),
         v2: '—', v3: '—', v4: '—',
         nowStyle: { padding: '13px 0', fontWeight: 700,
@@ -598,7 +655,7 @@ class Component extends DCLogic {
       sessionCount: String((boot.records || []).length),
       studyCount: String((boot.records || [])
         .reduce((n, r) => n + (r.images || []).length, 0)),
-      criticalCount: String((boot.records || []).filter(r => r.severity === 'HIGH').length),
+      criticalCount: String((boot.records || []).filter(r => r.severityKey === 'HIGH').length),
       testCount: boot.tests ? String(boot.tests) : '—',
       noRoster: !(boot.records || []).length,
 
@@ -608,25 +665,37 @@ class Component extends DCLogic {
       // number implies a calibration nothing in this pipeline has; and when no differential
       // was generated there is no top match to name at all.
       topDiagnosis: (v.differential && v.differential.length)
-        ? v.differential[0].diagnosis : 'No differential',
+        ? v.differential[0].diagnosis : T('No differential', 'Aucun différentiel'),
       topLikelihood: (v.differential && v.differential.length)
         ? (v.differential[0].likelihood || 'unranked') + ' likelihood'
-        : (v.withheld ? 'withheld' : 'not generated'),
+        : (v.withheld ? T('withheld', 'retenu') : T('not generated', 'non généré')),
       topBasis: (v.differential && v.differential.length)
-        ? ((v.differential[0].supporting || []).length + ' item(s) of evidence cited for it, '
-           + (v.differential[0].contradicting || []).length + ' against. '
-           + 'A band, not a percentage: no calibration behind this supports a number.')
+        ? ((v.differential[0].supporting || []).length
+           + T(' item(s) cited for it, ', ' élément(s) cité(s) en sa faveur, ')
+           + (v.differential[0].contradicting || []).length
+           + T(' against. ', ' en défaveur. ')
+           + T('A band, not a percentage: no calibration behind this supports a number.',
+               'Une fourchette, pas un pourcentage : aucune calibration ici ne justifie un '
+               + 'chiffre.'))
         : (v.withheld
-            ? 'The differential was withheld because the answer failed validation.'
-            : 'No reasoning model ran in this deployment, so no differential was produced. '
-              + 'The severity, the alerts and the escalation above were computed without it.'),
+            ? T('The differential was withheld because the answer failed validation.',
+                'Le diagnostic différentiel a été retenu : la réponse a échoué à la '
+                + 'validation.')
+            : T('No reasoning model ran in this deployment, so no differential was produced. '
+                + 'The severity, the alerts and the escalation above were computed without it.',
+                'Aucun modèle de raisonnement n’a été exécuté dans ce déploiement ; aucun '
+                + 'différentiel n’a donc été produit. La sévérité, les alertes et l’escalade '
+                + 'ci-dessus ont été calculées sans lui.')),
       diagnosisLine: has
-        ? ((v.patient || {}).name || 'This patient') + ' — ' + nAlerts + ' alert(s), '
-          + (v.missing || []).length + ' value(s) never measured'
-        : 'No encounter has been analysed yet.',
-      examCount: String((v.exams || []).length) + ' recommended',
-      anomalyCount: String(((v.alerts || []).filter(x => x.severity === 'CRITICAL')).length)
-                    + ' critical',
+        ? ((v.patient || {}).name || T('This patient', 'Ce patient')) + ' — ' + nAlerts
+          + T(' alert(s), ', ' alerte(s), ') + (v.missing || []).length
+          + T(' value(s) never measured', ' valeur(s) jamais mesurée(s)')
+        : T('No encounter has been analysed yet.',
+            'Aucune prise en charge n’a encore été analysée.'),
+      examCount: String((v.exams || []).length) + T(' recommended', ' recommandé(s)'),
+      anomalyCount: String((v.alerts || []).filter(
+                      x => x.severity === 'CRITICAL' || x.severity === 'CRITIQUE').length)
+                    + T(' critical', ' critique(s)'),
 
       // ---- record: reports and the measurement columns ---------------------------------
       // The tab listed three prior visits this patient never had. It lists the encounters
@@ -634,13 +703,42 @@ class Component extends DCLogic {
       patientReports: (boot.records || [])
         .filter(r => !st.recordSel || r.name === ((v.patient || {}).name))
         .map(r => ({ at: r.at, complaint: r.complaint,
-          summary: r.organ + ' · ' + r.severity + ' · ' + r.alerts + ' alert(s)',
+          summary: r.organ + ' · ' + r.severity + ' · ' + r.alerts + T(' alert(s)', ' alerte(s)'),
           onOpen: this.openRecord(r.id) })),
       oneReportOnly: (boot.records || [])
         .filter(r => !st.recordSel || r.name === ((v.patient || {}).name)).length < 2,
       // Dated columns for visits that never happened: a dash under "12 Jun" is a claim that
       // the date existed. There is one column, and it is this encounter.
       visitCol2: '—', visitCol3: '—', visitCol4: '—',
+      timelineNote: has
+        ? T('These are the stages of THIS encounter, timed as they ran. Nothing revises an '
+            + 'assessment in place: analysing again produces a new encounter, so what was '
+            + 'shown at the time stays comparable with what is shown now.',
+            'Voici les étapes de CETTE prise en charge, chronométrées telles qu’elles se sont '
+            + 'déroulées. Rien ne révise une évaluation sur place : relancer l’analyse crée '
+            + 'une nouvelle prise en charge, afin que ce qui a été montré alors reste '
+            + 'comparable à ce qui est montré maintenant.')
+        : T('No encounter has been analysed yet, so there are no stages to show.',
+            'Aucune prise en charge n’a été analysée : il n’y a aucune étape à montrer.'),
+      assistantPatient: has
+        ? ((v.patient || {}).age || '—') + ((v.patient || {}).sex || '')
+          + ' — ' + ((v.patient || {}).complaint || 'no complaint given')
+        : T('no patient', 'aucun patient'),
+      ctxVitals: has ? (v.vitals || []).filter(x => x.value !== null).length
+                       + T(' of ', ' sur ') + (v.vitals || []).length
+                       + T(' recorded', ' relevées') : T('none', 'aucune'),
+      ctxLabs: has ? (v.labs || []).filter(x => x.result !== null).length
+                     + T(' of ', ' sur ') + (v.labs || []).length
+                     + T(' resulted', ' rendus') : T('none', 'aucun'),
+      ctxPocus: has ? ((v.patient || {}).organ || '—') + ' · '
+                      + (v.findings || []).filter(f => f.detected).length
+                      + T(' finding(s)', ' signe(s)')
+                    : T('none', 'aucun'),
+      ctxGenerated: has ? (v.generatedAt || '—') : T('not generated', 'non généré'),
+      historyLine: (boot.records || []).length
+        + T(' assessment(s) this session · ', ' évaluation(s) cette session · ')
+        + (boot.records || []).filter(r => r.severityKey === 'HIGH').length
+        + T(' high severity', ' de sévérité élevée'),
       // Printed under ONE patient's name, so they have to be that patient's. "Encounters 3 /
       // POCUS studies 2" were session totals sitting beside mariem's alerts and severity,
       // which reads as a claim about her. On the list they are the session's, where they are.
@@ -652,9 +750,13 @@ class Component extends DCLogic {
           ? (boot.records || []).filter(r => r.id === st.recordSel)[0].images.length : 0
         : (boot.records || []).reduce((n, r) => n + (r.images || []).length, 0)),
       assistantLine: (boot.records || []).length
-        ? (boot.records || []).length + ' case(s) assessed in this session are open for review.'
-        : 'Nothing assessed yet. The assistant answers from a computed encounter, so there is '
-          + 'nothing for it to read until you analyse one.',
+        ? (boot.records || []).length
+          + T(' case(s) assessed in this session are open for review.',
+              ' cas évalué(s) cette session sont disponibles pour relecture.')
+        : T('Nothing assessed yet. The assistant answers from a computed encounter, so there '
+            + 'is nothing for it to read until you analyse one.',
+            'Rien n’a encore été évalué. L’assistant répond à partir d’une prise en charge '
+            + 'calculée : il n’a rien à lire tant que vous n’en avez pas analysé une.'),
       modules: Object.keys(boot.modules || {}).map(k => ({ organ: k,
         reason: boot.modules[k].reason, dot: boot.modules[k].runs ? '●' : '○' })),
 
@@ -680,9 +782,9 @@ class Component extends DCLogic {
       draft: st.draft,
       onDraft: e => this.setState({ draft: e.target.value }),
       onSubmit: e => { e.preventDefault(); this.ask(this.state.draft); },
-      askWhy: () => this.ask('Why is this the severity?'),
-      askChallenge: () => this.ask('Challenge this assessment.'),
-      askBLines: () => this.ask('What did POCUS actually see?'),
+      askWhy: () => this.ask(T('Why is this the severity?', 'Pourquoi cette sévérité ?')),
+      askChallenge: () => this.ask(T('Challenge this assessment.', 'Conteste cette évaluation.')),
+      askBLines: () => this.ask(T('What did POCUS actually see?', 'Qu’a réellement vu l’échographie ?')),
 
       // ---- floating assistant button -----------------------------------------------
       fabOpen: st.fabOpen,
@@ -707,18 +809,19 @@ class Component extends DCLogic {
       recordOpen: !!st.recordSel,
       patients: (boot.records || []).map(r => ({
         name: r.name, age: String(r.age), sex: r.sex, complaint: r.complaint, at: r.at,
-        severity: r.severity, alerts: r.alerts + ' alert(s)', organ: r.organ,
+        severity: r.severity, alerts: r.alerts + T(' alert(s)', ' alerte(s)'), organ: r.organ,
         encounterId: r.encounterId,
-        findings: ((r.findings || []).join(', ') || 'no positive finding')
-                  + ((r.images || []).length ? ' · ' + r.images.length + ' image(s)' : ''),
+        findings: ((r.findings || []).join(', ') || T('no positive finding', 'aucun signe positif'))
+                  + ((r.images || []).length ? ' · ' + r.images.length
+                     + T(' image(s)', ' image(s)') : ''),
         initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
         onOpen: this.openRecord(r.id),
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
           fontWeight: 700,
-          background: r.severity === 'HIGH' ? '#FDECEC'
-                    : r.severity === 'MODERATE' ? '#FFF3E0' : '#F0FADB',
-          color: r.severity === 'HIGH' ? '#C13238'
-               : r.severity === 'MODERATE' ? '#9A6207' : '#5A7A0F' } })),
+          background: r.severityKey === 'HIGH' ? '#FDECEC'
+                    : r.severityKey === 'MODERATE' ? '#FFF3E0' : '#F0FADB',
+          color: r.severityKey === 'HIGH' ? '#C13238'
+               : r.severityKey === 'MODERATE' ? '#9A6207' : '#5A7A0F' } })),
       noPatients: !(boot.records || []).length,
       patientCount: String((boot.records || []).length),
       backToList: () => this.backToList(),
