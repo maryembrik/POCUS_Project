@@ -359,6 +359,43 @@ def conclusion(report: dict[str, Any]) -> str:
     return " ".join(parts)
 
 
+def severity_reason(text: str) -> str:
+    """The six forms `severity_level` can give for why a case is graded as it is.
+
+    Matched exactly and re-composed, like the triggers, with `untranslated()` reporting
+    anything new. These appear in the answer to "pourquoi cette sévérité ?", which is the
+    question a clinician asks when they do not yet believe the number.
+    """
+    s = text.strip()
+
+    if s == "triage assessed the patient as high urgency":
+        return "le triage a classé le patient en urgence élevée"
+    if s == "triage assessed the patient as medium urgency":
+        return "le triage a classé le patient en urgence moyenne"
+    if s == "no escalation trigger, no critical value, and no positive finding":
+        return "aucun déclencheur d'escalade, aucune valeur critique et aucun signe positif"
+
+    m = re.match(r"the escalation policy fired \((\d+) trigger\(s\)\)$", s)
+    if m:
+        return f"la politique d'escalade s'est activée ({m.group(1)} déclencheur(s))"
+
+    m = re.match(r"(\d+) critical alert\(s\): (.+)$", s)
+    if m:
+        kinds = ", ".join(alert_type(k.strip()) for k in m.group(2).split(","))
+        return f"{m.group(1)} alerte(s) critique(s) : {kinds}"
+
+    m = re.match(r"(\d+) positive imaging finding\(s\) without an? (.+)$", s)
+    if m:
+        return (f"{m.group(1)} signe(s) d'imagerie positif(s) sans {m.group(2)}"
+                .replace("escalation trigger", "déclencheur d'escalade"))
+
+    m = re.match(r"(\d+) warning-level alert\(s\)$", s)
+    if m:
+        return f"{m.group(1)} alerte(s) de niveau avertissement"
+
+    return _miss(s)
+
+
 def scenario(label: str) -> str:
     # Not `.get(label, _miss(label))`: Python evaluates a default eagerly, so that recorded
     # every scenario as untranslated even when it had a French form. The coverage test caught

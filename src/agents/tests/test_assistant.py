@@ -174,6 +174,66 @@ def test_french_phrasing_without_the_apostrophe_still_finds_it():
         assert out and "quoted from the corpus" in out, q
 
 
+# -------------------------------------------------------------------------- French
+FRENCH = "Assistant French routing"
+
+
+@prop(FRENCH)
+def test_a_french_question_reaches_the_intent_not_the_fallback():
+    """The cues, not the answers, are what decide whether French works at all.
+
+    An assistant that recognises only English keywords answers every French question with its
+    fallback while appearing to work — the worst kind of broken, because it still replies.
+    """
+    a = _analysis(labs={"troponin": 62.0})
+    for q, must in (
+            ("quelles valeurs manquent ?", "Jamais mesuré"),
+            ("pourquoi cette sévérité ?", "La sévérité est"),
+            ("quelles sont les alertes ?", "Alertes"),
+            ("que dois-je faire maintenant ?", "CE QU'IL FAUT OBTENIR ENSUITE"),
+            ("quelle est la troponine ?", "troponine"),
+            ("qu'a vu l'échographie ?", "L'échographie a détecté"),
+            ("va-t-elle survivre ?", "ne prédit pas"),
+            ("bonjour", "Bonjour")):
+        out = answer(q, a, "fr")
+        assert must in out, f"{q!r} -> {out[:110]!r}"
+
+
+@prop(FRENCH)
+def test_the_french_assistant_leaves_nothing_untranslated():
+    """Every branch a French question can reach must render fully in French."""
+    from src.agents import i18n
+
+    i18n.reset_untranslated()
+    a = _analysis(labs={"troponin": 62.0})
+    for q in ("quelles valeurs manquent ?", "pourquoi cette sévérité ?",
+              "quelles sont les alertes ?", "que dois-je faire maintenant ?",
+              "quelles sont les limites ?", "résume ce patient", "quelle est la qualité ?",
+              "quels sont les conflits ?", "quel scénario ?", "les constantes ?",
+              "la biologie ?", "le différentiel ?", "quelles sources ?"):
+        answer(q, a, "fr")
+    assert i18n.untranslated() == [], i18n.untranslated()
+
+
+@prop(FRENCH)
+def test_the_prognosis_boundary_holds_in_french():
+    """The refusal must survive translation. A boundary that only exists in one language is
+    not a boundary."""
+    out = answer("va-t-elle s en sortir ?", _analysis(), "fr").lower()
+    assert "ne prédit pas" in out
+    assert "pronostic revient au clinicien" in out
+
+
+@prop(FRENCH)
+def test_a_quoted_passage_is_not_translated():
+    """A translated quotation is no longer a quotation, and would carry a citation to a source
+    that never said it. The frame is French; the passage stays as published."""
+    out = knowledge_answer("c est quoi le pneumothorax", None, "fr")
+    assert out is not None
+    assert "citée mot pour mot" in out
+    assert "Source :" in out
+
+
 @prop(KNOWLEDGE)
 def test_a_whole_sentence_is_not_treated_as_a_term():
     """"What is the most likely diagnosis for this breathless patient" is not a definition."""

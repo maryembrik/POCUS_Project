@@ -638,9 +638,12 @@ def api_attach(a: Attach) -> JSONResponse:
 @app.post("/api/ask")
 def api_ask(a: Ask, lang: str = "en") -> JSONResponse:
     if not _last:
-        return JSONResponse({"answer": "No encounter has been analysed yet, so there is "
-                                       "nothing to answer from. Analyse a patient first."})
-    return JSONResponse({"answer": assistant_answer(a.question, _last["a"])})
+        return JSONResponse({"answer":
+            "Aucune prise en charge n'a encore été analysée : il n'y a rien à partir de quoi "
+            "répondre. Analysez d'abord un patient." if lang == "fr" else
+            "No encounter has been analysed yet, so there is nothing to answer from. "
+            "Analyse a patient first."})
+    return JSONResponse({"answer": assistant_answer(a.question, _last["a"], lang)})
 
 
 @app.get("/api/view")

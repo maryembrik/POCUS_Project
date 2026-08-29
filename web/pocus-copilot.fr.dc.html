@@ -1019,9 +1019,13 @@ class Component extends DCLogic {
     // What was TYPED, kept beside what was parsed. The box showed the parsed number, so
     // "20." came back as "20" and the decimal point could never be entered at all.
     typed: { vitals: {}, labs: {} },
-    messages: [{ role: 'a', text: 'Ask me anything about this encounter. I answer from the '
-      + 'computed assessment — the clinical state, the escalation triggers, the alerts, the '
-      + 'evidence and the differential as validated.' }]
+    messages: [{ role: 'a', text: T(
+      'Ask me anything about this encounter. I answer from the computed assessment — the '
+      + 'clinical state, the escalation triggers, the alerts, the evidence and the '
+      + 'differential as validated.',
+      'Posez-moi n’importe quelle question sur cette prise en charge. Je réponds à partir de '
+      + 'l’évaluation calculée — l’état clinique, les déclencheurs d’escalade, les alertes, '
+      + 'les éléments de preuve et le diagnostic différentiel tel que validé.') }]
   };
 
   componentDidMount() {

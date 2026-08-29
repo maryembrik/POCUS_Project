@@ -1,13 +1,17 @@
 {
-  "generated_at": "2026-08-29T09:36:56+00:00",
-  "total_tests": 253,
-  "total_passed": 253,
+  "generated_at": "2026-08-29T11:19:11+00:00",
+  "total_tests": 265,
+  "total_passed": 265,
   "by_property": {
     "Absent is not normal": {
       "tests": 22,
       "passed": 22
     },
     "Advice scope": {
+      "tests": 4,
+      "passed": 4
+    },
+    "Assistant French routing": {
       "tests": 4,
       "passed": 4
     },
@@ -70,6 +74,10 @@
     "Failure severity": {
       "tests": 5,
       "passed": 5
+    },
+    "French rendering coverage": {
+      "tests": 8,
+      "passed": 8
     },
     "Hallucination rejection": {
       "tests": 25,
