@@ -37,3 +37,9 @@ notebooks/demo_missing_gpu*.json
 models/*.joblib
 models/triage_agent_xgb.json
 models/triage_agent_tier_xgb.json
+
+# MLflow's local tracking database. The durable record of which data produced which model is
+# models/registry.json, which IS committed; this is the queryable copy behind `mlflow ui`,
+# rebuilt by re-running the pipeline, and a binary that would churn on every run.
+models/mlflow.db
+models/mlruns/

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-29T11:19:11+00:00",
-  "total_tests": 265,
-  "total_passed": 265,
+  "generated_at": "2026-08-29T12:28:40+00:00",
+  "total_tests": 274,
+  "total_passed": 274,
   "by_property": {
     "Absent is not normal": {
       "tests": 22,
@@ -90,6 +90,10 @@
     "Malformed output rejection": {
       "tests": 16,
       "passed": 16
+    },
+    "Model promotion gate": {
+      "tests": 9,
+      "passed": 9
     },
     "Model-scope propagation": {
       "tests": 7,
