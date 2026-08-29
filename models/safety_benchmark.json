@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-29T09:26:44+00:00",
-  "total_tests": 247,
-  "total_passed": 247,
+  "generated_at": "2026-08-29T09:36:56+00:00",
+  "total_tests": 253,
+  "total_passed": 253,
   "by_property": {
     "Absent is not normal": {
       "tests": 22,
@@ -14,6 +14,10 @@
     "Assistant action boundary": {
       "tests": 3,
       "passed": 3
+    },
+    "Assistant knowledge boundary": {
+      "tests": 6,
+      "passed": 6
     },
     "Assistant routing": {
       "tests": 3,

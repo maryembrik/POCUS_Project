@@ -10,7 +10,7 @@ The second is the reason the ACTION layer can exist without a model at all. "Com
 observations" is safe to say from a record; "this is heart failure" is not.
 """
 from src.agents import schema as S
-from src.agents.assistant import answer, next_step_answer
+from src.agents.assistant import answer, knowledge_answer, next_step_answer
 from src.agents.clinical.clinical_state import build_clinical_state
 from src.agents.clinical.decision_support import decision_support
 from src.agents.clinical.reasoning import escalation_decision, reason
@@ -18,6 +18,7 @@ from src.agents.clinical.report import build_report
 from .helpers import prop, ESCALATION, MISSING_NOT_NORMAL, SCOPE
 
 ROUTER = "Assistant routing"
+KNOWLEDGE = "Assistant knowledge boundary"
 ACTION = "Assistant action boundary"
 
 
@@ -131,3 +132,49 @@ def test_no_therapeutic_consideration_without_a_sourced_protocol():
 def test_action_cites_no_source_when_nothing_was_retrieved():
     """A retrieved-evidence heading with nothing under it implies grounding it never had."""
     assert "RETRIEVED FOR THIS PRESENTATION" not in next_step_answer(_analysis())
+
+
+# ------------------------------------------------------------------------- knowledge
+@prop(KNOWLEDGE)
+def test_definition_is_answered_from_the_corpus_not_the_encounter():
+    """"What are B-lines?" asks what the sign means, not what this patient's confidence was."""
+    out = answer("what are b lines?", _analysis())
+    assert "quoted from the corpus" in out
+    assert "NOT a statement about this patient" in out
+    assert "Source:" in out
+
+
+@prop(KNOWLEDGE)
+def test_a_patient_value_is_never_answered_with_a_textbook():
+    """The dangerous direction. "What is the troponin?" is about this patient."""
+    out = answer("what is the troponin?", _analysis(labs={"troponin": 62.0}))
+    assert "62" in out
+    assert "quoted from the corpus" not in out
+
+
+@prop(KNOWLEDGE)
+def test_reference_and_encounter_are_separated_not_merged():
+    out = answer("what are b lines?", _analysis())
+    assert out.index("quoted from the corpus") < out.index("In THIS encounter")
+    assert "computed rather than quoted" in out
+
+
+@prop(KNOWLEDGE)
+def test_a_term_the_corpus_does_not_cover_is_not_answered_from_it():
+    """Nothing clears the relevance floor, so it must fall through rather than reach."""
+    assert knowledge_answer("what is aspirin dosing") is None
+    assert knowledge_answer("what is the capital of France") is None
+
+
+@prop(KNOWLEDGE)
+def test_french_phrasing_without_the_apostrophe_still_finds_it():
+    """A clinician types "c'est quoi" or "c est quoi"; punctuation must not decide."""
+    for q in ("c'est quoi le pneumothorax", "c est quoi le pneumothorax"):
+        out = knowledge_answer(q)
+        assert out and "quoted from the corpus" in out, q
+
+
+@prop(KNOWLEDGE)
+def test_a_whole_sentence_is_not_treated_as_a_term():
+    """"What is the most likely diagnosis for this breathless patient" is not a definition."""
+    assert knowledge_answer("what is the most likely diagnosis for this patient") is None

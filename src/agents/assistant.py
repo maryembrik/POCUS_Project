@@ -59,6 +59,101 @@ def has_encounter(a: dict[str, Any]) -> bool:
     return bool(a) and bool(a.get("state"))
 
 
+# Asking what a sign MEANS is a different question from asking what this patient HAS, and the
+# scaffolding is all that separates them in the wording. Stripped before retrieval so the query
+# is the clinical term and not the politeness around it.
+# Written without apostrophes because the question is stripped of them before matching: a
+# French clinician types "c'est quoi" or "c est quoi" indifferently, and the second form
+# missing the corpus while the first found it would be an accident of punctuation.
+_ASK = ("what is a", "what is an", "what is the", "what is", "what are the", "what are",
+        "what does a", "what does the", "what does", "whats a", "whats the", "whats",
+        "explain the", "explain", "define the", "define",
+        "tell me about the", "tell me about", "meaning of the", "meaning of",
+        "c est quoi le", "c est quoi la", "c est quoi", "cest quoi le", "cest quoi",
+        "qu est ce que le", "qu est ce que la", "qu est ce que", "quest ce que",
+        "signification de la", "signification de")
+_TAIL = (" mean", " means", " meaning", " look like", " on ultrasound", " in pocus",
+         " exactly", " please", " sign", " signs")
+
+_RETRIEVER: Any = None
+
+
+def _corpus_retriever() -> Any:
+    """Built once. The corpus is 32 short passages; the vectoriser is not worth rebuilding."""
+    global _RETRIEVER
+    if _RETRIEVER is None:
+        from .clinical.retrieval import Retriever
+        _RETRIEVER = Retriever()
+    return _RETRIEVER
+
+
+def knowledge_answer(question: str, a: dict[str, Any] | None = None) -> str | None:
+    """Answer a REFERENCE question by quoting the corpus, or return None to keep routing.
+
+    This is the one place the assistant answers something that is not about the patient in
+    front of it, and the separation is the whole safety argument. A definition is general: it
+    is quoted verbatim from a sourced passage, attributed, and labelled as reference rather
+    than as a statement about this encounter. Nothing is paraphrased, because a paraphrase of
+    a guideline is an unattributable claim wearing a citation.
+
+    The relevance floor decides. A question whose term matches nothing in the corpus returns
+    None and falls through to the rest of the router rather than being answered from a passage
+    that merely shares a stopword -- the same rule the reasoning agent's retrieval obeys, and
+    for the same reason: text that does not bear on the question is worse than no text,
+    because the answer then LOOKS grounded.
+
+    Unsourced passages are never quoted. The corpus ships placeholders so the pipeline can be
+    tested before real passages exist, and one appearing here would be a fabricated reference.
+    """
+    q = " " + re.sub(r"[?!.,'’-]", " ", str(question).lower()).strip() + " "
+    q = re.sub(r"\s+", " ", q)
+    term = None
+    for lead in _ASK:
+        m = re.search(rf"\b{re.escape(lead)}\b\s+(.+)", q)
+        if m:
+            term = m.group(1)
+            break
+    if term is None:
+        return None
+
+    for tail in _TAIL:
+        term = term.replace(tail, " ")
+    term = re.sub(r"\s+", " ", term).strip(" -")
+    # One or two words is a sign; a whole sentence is a question about the patient that
+    # happened to open with "what is". Retrieval on it would match on incidental words.
+    if not term or len(term.split()) > 4:
+        return None
+
+    hits = [h for h in _corpus_retriever().retrieve(term, k=3) if h["status"] == "sourced"]
+    if not hits:
+        return None
+
+    lines = [f"[{h['n']}] {h['topic'].replace('_', ' ')} — {h['text']}\n    Source: "
+             f"{h['source']}" for h in hits]
+    out = (f"Reference on “{term}”, quoted from the corpus. This is general clinical "
+           f"reference, NOT a statement about this patient — nothing below was computed "
+           f"from this encounter:\n\n" + "\n\n".join(lines))
+
+    # If the encounter also speaks to the term, say what it holds -- in its own paragraph,
+    # after the reference and labelled as this patient. Someone asking what a sign means while
+    # looking at a patient who has it wants both, and the one thing that must not happen is
+    # the two arriving as a single undifferentiated claim.
+    if a and has_encounter(a):
+        st = a["state"]
+        here = [f for f in st["imaging"]["findings"]
+                if term in f["label"].lower() or f["label"].lower() in term]
+        limits = [x for x in (st["imaging"].get("out_of_scope") or []) if term in x.lower()]
+        own = []
+        for f in here:
+            own.append(f"{f['label']} was {'DETECTED' if f['detected'] else 'screened and NOT '
+                       'detected'} at {f['confidence']:.2f}")
+        own.extend(limits)
+        if own:
+            out += ("\n\nIn THIS encounter, computed rather than quoted:\n"
+                    + "\n".join("• " + x for x in own))
+    return out
+
+
 def next_step_answer(a: dict[str, Any]) -> str:
     """What to do next, composed from the computed assessment and nothing else.
 
@@ -228,6 +323,16 @@ def answer(question: str, a: dict[str, Any]) -> str:
                 f"has no evidence identifier, so nothing in the assessment can argue for or "
                 f"against a diagnosis using it. It appears in the missing-information list, "
                 f"and in the recommended examinations if it bears on this presentation.")
+
+    # ---- a reference question about a sign or protocol --------------------------------
+    # After the measurement lookup and before everything else. "What is the troponin?" asks
+    # this patient's value and is answered above; "what are B-lines?" asks what the sign means,
+    # and answering it with this encounter's b-line confidence replies to a question about
+    # medicine with a fact about one patient. The corpus decides: a term it does not cover
+    # returns None and the encounter intents below get their turn.
+    know = knowledge_answer(question, a)
+    if know:
+        return know
 
     # ---- intents ---------------------------------------------------------------------
     if has("treat", "therapy", "therapeutic", "manage", "give ", "drug", "dose",
