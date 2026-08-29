@@ -155,11 +155,16 @@ def build_model(unfreeze_last_n: int, device) -> nn.Module:
 
 
 def load_cache(frames_per_clip: int, verbose: bool = True):
-    """Decode every usable study once. 198 files, so this is cheap and worth not repeating."""
+    """Decode every usable study once. 198 files, so this is cheap and worth not repeating.
+
+    `clips` identifies the study a frame came from. It is what makes clip-level scoring
+    possible, which is how the deployed agent actually reads a study: one finding set per
+    clip, not per frame.
+    """
     df = pd.read_csv(MANIFEST)
     usable = df[~df.flag_do_not_use & ~df.flag_off_target_organ & ~df.excluded_by_curators]
-    frames, labels, groups = [], [], []
-    for _, row in usable.iterrows():
+    frames, labels, groups, clips = [], [], [], []
+    for n, (_, row) in enumerate(usable.iterrows()):
         fp = DATA_ROOT / Path(str(row.filepath).replace("\\", "/"))
         if not fp.exists():
             continue
@@ -170,23 +175,39 @@ def load_cache(frames_per_clip: int, verbose: bool = True):
             frames.append(f)
             labels.append(y)
             groups.append(g)
+            clips.append(n)
     if verbose:
-        print(f"      {len(frames)} frames from {len(set(groups))} case groups")
-    return frames, np.array(labels), np.array(groups)
+        print(f"      {len(frames)} frames from {len(set(clips))} clips, "
+              f"{len(set(groups))} case groups")
+    return frames, np.array(labels), np.array(groups), np.array(clips)
 
 
-def tune_thresholds(y_true, prob):
-    """Per-finding operating point, chosen on the data given here -- which the caller must
-    ensure is NOT the fold being scored."""
-    out = {}
-    for i, name in enumerate(SHORT):
-        best_t, best_f1 = 0.5, -1.0
-        for t in np.arange(0.05, 0.96, 0.05):
-            f1 = f1_score(y_true[:, i], (prob[:, i] >= t).astype(int), zero_division=0)
-            if f1 > best_f1:
-                best_t, best_f1 = float(t), f1
-        out[name] = round(best_t, 2)
-    return out
+def by_clip(prob, labels, clips):
+    """Average the frames of one study into one prediction for that study.
+
+    The deployed agent emits one finding set per clip, so a frame-level score answers a
+    question nobody asks of it -- and the two are not interchangeable: averaging frames is
+    roughly a vote, and it usually scores higher than the frames it was built from. Reporting
+    one and comparing it against the other is how two runs of the same model come to look like
+    an improvement or a regression that never happened.
+    """
+    ids = np.unique(clips)
+    return (np.vstack([prob[clips == c].mean(axis=0) for c in ids]),
+            np.vstack([labels[clips == c][0] for c in ids]))
+
+
+def tune_threshold(y_true, y_prob):
+    """Threshold maximising F1, fitted ONLY on folds other than the one being scored.
+
+    The notebook's rule, kept: the operating point is part of the model, and choosing it on
+    the data you then report against produces a number that cannot be reproduced in use.
+    """
+    best_f1, best_t = 0.0, 0.5
+    for t in np.arange(0.05, 0.96, 0.05):
+        f1 = f1_score(y_true, (y_prob > t).astype(int), zero_division=0)
+        if f1 > best_f1:
+            best_f1, best_t = f1, float(t)
+    return best_t
 
 
 def run_fold(tr_idx, te_idx, frames, labels, groups, args, device, log):
@@ -224,15 +245,7 @@ def run_fold(tr_idx, te_idx, frames, labels, groups, args, device, log):
         for xb, yb in dl_te:
             probs.append(torch.sigmoid(model(xb.to(device))).cpu().numpy())
             trues.append(yb.numpy())
-    # Thresholds from the TRAINING fold only.
-    tr_probs = []
-    with torch.no_grad():
-        for xb, _ in DataLoader(FrameSet([frames[i] for i in tr_idx], labels[tr_idx],
-                                         groups[tr_idx], args.img_size, train=False),
-                                batch_size=args.batch_size):
-            tr_probs.append(torch.sigmoid(model(xb.to(device))).cpu().numpy())
-    thresholds = tune_thresholds(labels[tr_idx], np.vstack(tr_probs))
-    return np.vstack(probs), np.vstack(trues), thresholds, model
+    return np.vstack(probs), np.vstack(trues), model
 
 
 def main() -> int:
@@ -264,7 +277,7 @@ def main() -> int:
 
     log(f"[1/4] Loading dataset ({device})")
     t0 = time.time()
-    frames, labels, groups = load_cache(args.frames, verbose=not args.quiet)
+    frames, labels, groups, clips = load_cache(args.frames, verbose=not args.quiet)
     if not frames:
         print("FATAL: no frames decoded. The media is not on disk; this run would have "
               "produced metrics from nothing.", file=sys.stderr)
@@ -274,21 +287,37 @@ def main() -> int:
     log(f"[2/4] Training {n_folds} fold(s), {args.epochs} epoch(s) each")
     gkf = GroupKFold(n_splits=n_folds)
     oof_prob = np.zeros_like(labels, dtype=float)
-    fold_thresholds, last_model = [], None
+    fold_of = np.full(len(frames), -1, dtype=int)
+    last_model = None
     for k, (tr_idx, te_idx) in enumerate(gkf.split(frames, labels, groups), 1):
         log(f"   fold {k}/{n_folds}")
-        prob, _, thr, model = run_fold(tr_idx, te_idx, frames, labels, groups,
-                                       args, device, log)
+        prob, _, model = run_fold(tr_idx, te_idx, frames, labels, groups, args, device, log)
         oof_prob[te_idx] = prob
-        fold_thresholds.append(thr)
+        fold_of[te_idx] = k - 1
         last_model = model
 
-    log("[3/4] Evaluating (out-of-fold, thresholds tuned on training folds only)")
-    thresholds = {n: float(np.mean([t[n] for t in fold_thresholds])) for n in SHORT}
+    log("[3/4] Evaluating (out-of-fold, CLIP level, thresholds from held-out folds)")
+    # Scored the way the agent reads a study: one finding set per clip.
+    clip_prob, clip_labels = by_clip(oof_prob, labels, clips)
+    clip_fold = np.array([fold_of[clips == c][0] for c in np.unique(clips)])
+
+    # Each fold's clips are thresholded with a value chosen from the OTHER folds' held-out
+    # predictions -- never from the fold being scored, and never from in-sample training
+    # output, which is optimistically sharp and yields an operating point that does not hold.
+    chosen: dict[str, list] = {n: [] for n in SHORT}
+    clip_pred = np.zeros_like(clip_labels)
+    for i, name in enumerate(SHORT):
+        for k in range(n_folds):
+            te, tr = clip_fold == k, clip_fold != k
+            t = (0.5 if len(np.unique(clip_labels[tr, i])) < 2
+                 else tune_threshold(clip_labels[tr, i], clip_prob[tr, i]))
+            chosen[name].append(round(float(t), 2))
+            clip_pred[te, i] = (clip_prob[te, i] >= t).astype(int)
+    thresholds = {n: float(np.mean(chosen[n])) for n in SHORT}
+
     metrics: dict[str, float] = {}
     for i, name in enumerate(SHORT):
-        yt, pr = labels[:, i], oof_prob[:, i]
-        pred = (pr >= thresholds[name]).astype(int)
+        yt, pr, pred = clip_labels[:, i], clip_prob[:, i], clip_pred[:, i]
         metrics[f"auroc_{name}"] = float(roc_auc_score(yt, pr)) if len(set(yt)) > 1 else 0.0
         metrics[f"f1_{name}"] = float(f1_score(yt, pred, zero_division=0))
         # The gate guards these. A run that did not report them would be refused, correctly.
@@ -309,9 +338,13 @@ def main() -> int:
     (out / "config.json").write_text(json.dumps({
         "model": "lung",
         "dataset_version": args.dataset_version,
-        "eval_set": f"pulmonary manifest, GroupKFold {n_folds}-fold out-of-fold, "
-                    f"thresholds tuned on training folds",
-        "frames": len(frames), "case_groups": int(len(set(groups))),
+        # The exact protocol, because this string is what the gate compares on. Two runs
+        # scored differently are two facts, not an improvement, and the gate can only know
+        # that if the description is precise enough to differ when the protocol differs.
+        "eval_set": f"pulmonary manifest, GroupKFold {n_folds}-fold out-of-fold, clip-level, "
+                    f"thresholds from held-out folds",
+        "frames": len(frames), "clips": int(len(set(clips))),
+        "case_groups": int(len(set(groups))),
         "epochs": args.epochs, "folds": n_folds, "batch_size": args.batch_size,
         "img_size": args.img_size, "unfreeze_last_n": args.unfreeze, "lr": args.lr,
         "seed": args.seed, "device": str(device),

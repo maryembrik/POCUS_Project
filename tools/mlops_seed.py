@@ -41,8 +41,14 @@ def lung() -> dict | None:
                                  for f in findings) / len(findings)
     metrics["macro_f1"] = sum(metrics[f"f1_{f.replace('finding_', '')}"]
                               for f in findings) / len(findings)
+    # The SAME string src/lung/train.py writes, because it is the same protocol: the notebook
+    # splits with GroupKFold, pools out-of-fold predictions, scores at clip level, and tunes
+    # each fold's threshold on the other folds. Describing them differently made the gate
+    # refuse to compare them -- correctly, on the description it was given, which is how the
+    # clip-level difference in the first version of the trainer came to light.
     return {"metrics": {k: round(v, 4) for k, v in metrics.items()},
-            "eval_set": f"pulmonary {len(files)}-fold cross-validation, tuned thresholds",
+            "eval_set": (f"pulmonary manifest, GroupKFold {len(files)}-fold out-of-fold, "
+                         f"clip-level, thresholds from held-out folds"),
             "artifact": "Pulmonary/lung_finding_classifier_efficientnet_b0_final_best.pth",
             "notes": ("Mean over the per-split result files. Recall per finding is not in "
                       "these files, so the guard metrics the gate wants are absent: a "

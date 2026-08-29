@@ -138,8 +138,28 @@ def test_thresholds_are_not_tuned_on_the_fold_being_scored():
     against produces numbers that cannot be reproduced in use -- and the gate cannot detect
     it, because the leak makes every metric look better at once."""
     src = (ROOT / "src" / "lung" / "train.py").read_text(encoding="utf8")
-    assert "tune_thresholds(labels[tr_idx]" in src, \
-        "thresholds must be tuned on the TRAINING fold"
+    # The threshold for fold k is fitted on the clips NOT in fold k, using their held-out
+    # predictions. Two ways to get this wrong, and both are silent: fitting on the scored
+    # fold, or fitting on in-sample training output, which is optimistically sharp and yields
+    # an operating point that does not hold on new data.
+    assert "te, tr = clip_fold == k, clip_fold != k" in src
+    assert "tune_threshold(clip_labels[tr, i], clip_prob[tr, i])" in src
+    assert "tune_threshold(clip_labels[te" not in src
+
+
+@prop(GATE)
+def test_the_model_is_scored_the_way_the_agent_reads_a_study():
+    """Clip level, not frame level.
+
+    The deployed agent emits one finding set per clip, so a frame-level number answers a
+    question nobody asks of it -- and averaging frames usually scores higher than the frames
+    it was built from, so reporting one against the other invents an improvement. The gate
+    caught exactly this by refusing to compare a frame-level candidate with the clip-level
+    baseline, which is what the evaluation-set check is for.
+    """
+    src = (ROOT / "src" / "lung" / "train.py").read_text(encoding="utf8")
+    assert "clip_prob, clip_labels = by_clip(" in src
+    assert "clip-level" in src
 
 
 @prop(GATE)

@@ -2,13 +2,15 @@
   "models": {
     "lung": {
       "retired_names": [
-        "v1"
+        "v1",
+        "v2",
+        "v3"
       ],
       "versions": [
         {
           "version": "v1",
           "stage": "production",
-          "created": "2026-08-29T12:56:11+00:00",
+          "created": "2026-08-29T13:39:24+00:00",
           "dataset": "lung@11075e6a4296",
           "approved_by": "seeded from the results this project already produced",
           "metrics": {
@@ -23,7 +25,7 @@
             "macro_auroc": 0.7269,
             "macro_f1": 0.5475
           },
-          "eval_set": "pulmonary 3-fold cross-validation, tuned thresholds",
+          "eval_set": "pulmonary manifest, GroupKFold 3-fold out-of-fold, clip-level, thresholds from held-out folds",
           "artifact": "Pulmonary/lung_finding_classifier_efficientnet_b0_final_best.pth",
           "notes": "Mean over the per-split result files. Recall per finding is not in these files, so the guard metrics the gate wants are absent: a retrained candidate must report them."
         }
@@ -40,7 +42,7 @@
         {
           "version": "v1",
           "stage": "production",
-          "created": "2026-08-29T12:56:11+00:00",
+          "created": "2026-08-29T13:39:24+00:00",
           "dataset": "triage@9adc24de812b",
           "approved_by": "seeded from the results this project already produced",
           "metrics": {
