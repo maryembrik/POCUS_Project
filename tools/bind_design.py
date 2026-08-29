@@ -543,8 +543,8 @@ def main() -> int:
     # ---- 8. patient-record stats imply a database ------------------------------------
     ST = ('<div><div style="color:#6A6785">{k}</div><div style="font-weight:800;'
           'font-size:18px;margin-top:3px">{v}</div></div>')
-    for k, val, nk, nv in (("Visits", "4", "Encounters", "{{ sessionCount }}"),
-                           ("POCUS studies", "7", "POCUS studies", "{{ studyCount }}"),
+    for k, val, nk, nv in (("Visits", "4", "Encounters", "{{ recEncounters }}"),
+                           ("POCUS studies", "7", "POCUS studies", "{{ recStudies }}"),
                            ("Reports", "3", "Alerts", "{{ alertCount }}"),
                            ("Last seen", "Today", "Severity", "{{ severity }}")):
         s = sub(s, ST.format(k=k, v=val), ST.format(k=nk, v=nv), f"record stat {k}")

@@ -106,7 +106,14 @@ class Component extends DCLogic {
       return;
     }
     const boot = await get('/api/bootstrap');
+    // Point the record at the patient just assessed. It was left on whoever was opened last,
+    // so Patient record drew this patient's header -- name, complaint, alerts, severity, all
+    // from the new encounter -- while the images tab filtered by the OLD selection. Assessing
+    // a patient whose predecessor had no study showed "no study has been read for this
+    // patient" above a counter saying two had been, and the image really was stored.
+    const rs = boot.records || [];
     this.setState({ view, boot, busy: false, error: '', screen: 'assessment',
+                    recordSel: rs.length ? rs[rs.length - 1].id : null,
                     messages: this.state.messages.slice(0, 1) });
   }
 
@@ -573,6 +580,16 @@ class Component extends DCLogic {
       criticalCount: String((boot.records || []).filter(r => r.severity === 'HIGH').length),
       testCount: boot.tests ? String(boot.tests) : '—',
       noRoster: !(boot.records || []).length,
+      // Printed under ONE patient's name, so they have to be that patient's. "Encounters 3 /
+      // POCUS studies 2" were session totals sitting beside mariem's alerts and severity,
+      // which reads as a claim about her. On the list they are the session's, where they are.
+      recEncounters: String(st.recordSel
+        ? (boot.records || []).filter(r => r.name === ((v.patient || {}).name)).length
+        : (boot.records || []).length),
+      recStudies: String(st.recordSel
+        ? ((boot.records || []).filter(r => r.id === st.recordSel)[0] || {} ).images
+          ? (boot.records || []).filter(r => r.id === st.recordSel)[0].images.length : 0
+        : (boot.records || []).reduce((n, r) => n + (r.images || []).length, 0)),
       assistantLine: (boot.records || []).length
         ? (boot.records || []).length + ' case(s) assessed in this session are open for review.'
         : 'Nothing assessed yet. The assistant answers from a computed encounter, so there is '
