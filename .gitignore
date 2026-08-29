@@ -43,3 +43,4 @@ models/triage_agent_tier_xgb.json
 # rebuilt by re-running the pipeline, and a binary that would churn on every run.
 models/mlflow.db
 models/mlruns/
+outputs/

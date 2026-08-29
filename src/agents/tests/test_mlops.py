@@ -116,6 +116,46 @@ def test_every_model_guards_a_miss_rate_not_only_a_headline():
 
 
 @prop(GATE)
+def test_the_lung_trainer_reports_every_metric_its_gate_guards():
+    """The reason `train` exists rather than `register` alone.
+
+    The gate refuses a candidate that does not report its dangerous-miss rate. A training
+    script that computed only macro-F1 would therefore produce models that can never be
+    promoted -- so the metrics the trainer writes and the metrics the gate demands have to be
+    checked against each other, not just assumed to line up.
+    """
+    src = (ROOT / "src" / "lung" / "train.py").read_text(encoding="utf8")
+    for guard in RULES["lung"]["guard"]:
+        finding = guard.replace("recall_", "")
+        assert f'f"recall_{{name}}"' in src or guard in src, guard
+        assert finding in src, f"{finding} is guarded but the trainer never names it"
+    assert "macro_f1" in src
+
+
+@prop(GATE)
+def test_thresholds_are_not_tuned_on_the_fold_being_scored():
+    """The operating point is part of the model. Choosing it on the data you then report
+    against produces numbers that cannot be reproduced in use -- and the gate cannot detect
+    it, because the leak makes every metric look better at once."""
+    src = (ROOT / "src" / "lung" / "train.py").read_text(encoding="utf8")
+    assert "tune_thresholds(labels[tr_idx]" in src, \
+        "thresholds must be tuned on the TRAINING fold"
+
+
+@prop(GATE)
+def test_training_never_promotes_its_own_output():
+    """No argument to `train` may reach production. The human gate is the whole design."""
+    src = (ROOT / "tools" / "mlops.py").read_text(encoding="utf8")
+    body = src[src.index("def cmd_train"):src.index("def cmd_gate")]
+    assert '"stage": "candidate"' in body, "train must register as a candidate"
+    # The two ways it could ship a model: writing the stage itself, or calling promote.
+    assert '"stage": "production"' not in body
+    assert '= "production"' not in body
+    assert "cmd_promote" not in body
+    assert "approved_by" not in body
+
+
+@prop(GATE)
 def test_the_dataset_version_changes_with_the_data():
     """The version has to be derived from content. A name someone types is a label, not a
     record of which rows produced the model."""

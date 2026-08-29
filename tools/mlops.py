@@ -2,9 +2,15 @@
 
     python tools/mlops.py status
     python tools/mlops.py dataset lung
-    python tools/mlops.py register lung --metrics results.json --dataset lung@a1b2c3
+    python tools/mlops.py train lung --epochs 8          # train -> register -> gate
     python tools/mlops.py gate lung
     python tools/mlops.py promote lung v2 --approve "who approved, and why"
+
+`train` is the normal route and `register` the escape hatch for a model trained elsewhere.
+The difference matters: `register` records numbers somebody hands it, so the registry says
+what a person believed, while `train` takes them from the training script's own evaluation
+and nothing in that path can improve a model's reported performance without improving the
+model. Prefer `train` wherever a pipeline exists for the model.
 
 WHY THIS EXISTS, in one sentence a supervisor can be given: the datasets behind the initial
 models do not cover the whole clinical scope, so the system is built to accept validated data
@@ -297,6 +303,97 @@ def cmd_register(args) -> int:
     return 0
 
 
+TRAINERS = {"lung": "src/lung/train.py"}
+
+
+def cmd_train(args) -> int:
+    """Train, register the result as a candidate, and run the gate. One command.
+
+    The weakness this closes: `register` used to take metrics somebody typed, so the record
+    said what a person believed rather than what a run produced. Here the numbers come out of
+    the training script's own evaluation and go into the registry untouched -- nothing in this
+    path can improve a model's reported performance without improving the model.
+
+    It stops at CANDIDATE. Training that promoted its own output would be the dangerous
+    version of this idea, and no argument to this command reaches production.
+    """
+    import subprocess
+
+    script = TRAINERS.get(args.model)
+    if script is None:
+        print(f"no training pipeline wired for {args.model!r}. "
+              f"Available: {', '.join(sorted(TRAINERS))}")
+        return 1
+
+    ds = dataset_version(args.model)
+    if not ds["version"]:
+        print(f"REFUSED: no manifest for {args.model} — "
+              f"missing {', '.join(ds['missing'])}. A run whose data cannot be identified "
+              f"produces a model that cannot be reproduced.")
+        return 1
+
+    print(f"[1/5] Dataset\n      {ds['version']}  ({ds['rows']:,} manifest rows)")
+    cmd = [sys.executable, str(ROOT / script), "--dataset-version", ds["version"],
+           "--epochs", str(args.epochs), "--folds", str(args.folds),
+           "--seed", str(args.seed)]
+    if args.frames:
+        cmd += ["--frames", str(args.frames)]
+    if args.img_size:
+        cmd += ["--img-size", str(args.img_size)]
+
+    print(f"[2/5] Training  ({' '.join(cmd[2:])})")
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
+    for line in proc.stdout.splitlines():
+        if line.startswith(("      ", "   fold", "[")):
+            print("   " + line.rstrip())
+    if proc.returncode != 0:
+        print("TRAINING FAILED — nothing registered.")
+        print(proc.stderr[-1200:])
+        return 1
+
+    run_dir = Path(proc.stdout.strip().splitlines()[-1])
+    metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf8"))
+    config = json.loads((run_dir / "config.json").read_text(encoding="utf8"))
+
+    print("[3/5] Evaluated  (out-of-fold)")
+    for k in ("macro_f1", "macro_auroc", "macro_recall"):
+        if k in metrics:
+            print(f"      {k:<14} {metrics[k]:.4f}")
+
+    reg = load_registry()
+    node = reg["models"].setdefault(args.model, {"versions": []})
+    used = {v["version"] for v in node["versions"]} | set(node.get("retired_names", []))
+    n = len(node["versions"]) + 1
+    while f"v{n}" in used:
+        n += 1
+    version = f"v{n}"
+    entry = {
+        "version": version, "stage": "candidate",
+        "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "dataset": ds["version"], "eval_set": config["eval_set"],
+        "metrics": metrics, "artifact": str(run_dir / "model.pt"),
+        "config": {k: config[k] for k in ("epochs", "folds", "seed", "frames",
+                                          "case_groups", "img_size", "seconds")
+                   if k in config},
+        "notes": args.notes or "",
+    }
+    node["versions"].append(entry)
+    save_registry(reg)
+    print(f"[4/5] Registered {args.model} {version} as CANDIDATE")
+    print("      " + log_to_mlflow(args.model, version, entry))
+
+    print("[5/5] Promotion gate\n")
+    result = gate(args.model, entry, production(reg, args.model))
+    for c in result["checks"]:
+        print(f"      {'PASS' if c['pass'] else 'FAIL'}  {c['check']:<34} {c['detail']}")
+    print(f"\n      RESULT: {result['decision']}")
+    print("\n" + result["note"])
+    if result["decision"] == "CANDIDATE":
+        print(f"\nTo deploy it:  python tools/mlops.py promote {args.model} {version} "
+              f"--approve \"your name, and why\"")
+    return 0 if result["decision"] == "CANDIDATE" else 1
+
+
 def cmd_gate(args) -> int:
     reg = load_registry()
     cand = candidate(reg, args.model)
@@ -387,6 +484,16 @@ def main() -> int:
     r.add_argument("--version")
     r.add_argument("--notes")
     r.set_defaults(fn=cmd_register)
+
+    t = sub.add_parser("train", help="train, register as candidate, and run the gate")
+    t.add_argument("model")
+    t.add_argument("--epochs", type=int, default=8)
+    t.add_argument("--folds", type=int, default=3)
+    t.add_argument("--seed", type=int, default=42)
+    t.add_argument("--frames", type=int)
+    t.add_argument("--img-size", type=int)
+    t.add_argument("--notes")
+    t.set_defaults(fn=cmd_train)
 
     g = sub.add_parser("gate", help="check the latest candidate against production")
     g.add_argument("model")
