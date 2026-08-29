@@ -1007,6 +1007,9 @@ class Component extends DCLogic {
     boot: null, view: null, preset: '', upload: null, previews: [],
     form: { name: '', age: 60, sex: 'F', complaint: '', history: '', tier: 'medium',
             tconf: 0.8, organ: 'Lung', vitals: {}, labs: {}, findings: {} },
+    // What was TYPED, kept beside what was parsed. The box showed the parsed number, so
+    // "20." came back as "20" and the decimal point could never be entered at all.
+    typed: { vitals: {}, labs: {} },
     messages: [{ role: 'a', text: 'Ask me anything about this encounter. I answer from the '
       + 'computed assessment — the clinical state, the escalation triggers, the alerts, the '
       + 'evidence and the differential as validated.' }]
@@ -1037,15 +1040,28 @@ class Component extends DCLogic {
   // measurement: the key is removed, which records it as never measured.
   static num(x) {
     if (x === '' || x === null || x === undefined) return null;
-    const n = parseFloat(x);
+    // A comma is a decimal separator to most of the people this is for, and the interface
+    // offers French. parseFloat('20,4') is 20 -- it would silently drop the fraction.
+    const n = parseFloat(String(x).replace(',', '.'));
     return isFinite(n) ? n : null;
   }
 
+  // The box shows what was typed; the encounter carries what parsed. Binding the box to the
+  // parsed number meant every keystroke was re-rendered through parseFloat, so "20." became
+  // "20" and the point was erased as it was typed: no decimal could be entered, and 36.6 C or
+  // a lactate of 2.6 could not be recorded at all. They are separate now, and a box holding
+  // "20." is simply not a measurement yet -- the key stays absent until it parses.
   setNumeric(group, key, raw) {
     const next = Object.assign({}, this.state.form[group]);
     const n = Component.num(raw);
     if (n === null) delete next[key]; else next[key] = n;
     const patch = {}; patch[group] = next;
+    this.setState(s => {
+      const t = Object.assign({}, s.typed);
+      t[group] = Object.assign({}, t[group]);
+      if (raw === '') delete t[group][key]; else t[group][key] = raw;
+      return { typed: t };
+    });
     this.setForm(patch);
   }
 
@@ -1316,7 +1332,9 @@ class Component extends DCLogic {
         const val = f.vitals[k.key];
         const flag = val === undefined ? 'not measured'
           : (val < k.min ? 'low' : val > k.max ? 'high' : 'normal');
-        return { label: k.key, unit: k.unit, value: val === undefined ? '' : String(val),
+        const typed = (st.typed.vitals || {})[k.key];
+        return { label: k.key, unit: k.unit,
+          value: typed !== undefined ? typed : (val === undefined ? '' : String(val)),
           flag: flag, flagStyle: this.flagStyle(val === undefined ? '' : flag),
           inputStyle: { border: '1px solid #DEDCF4', borderRadius: '10px',
                         padding: '10px 12px', fontSize: '14.5px', background: '#FCFBFF',
@@ -1332,7 +1350,10 @@ class Component extends DCLogic {
         const flag = val === undefined ? 'not measured'
           : (k.min !== null && k.min !== undefined && val < k.min) ? 'low'
           : (k.max !== null && k.max !== undefined && val > k.max) ? 'high' : 'normal';
-        return { name: k.key, value: val === undefined ? '' : String(val), flag: flag,
+        const typed = (st.typed.labs || {})[k.key];
+        return { name: k.key,
+          value: typed !== undefined ? typed : (val === undefined ? '' : String(val)),
+          flag: flag,
           nameStyle: { fontWeight: 600, fontSize: '14px',
                        color: val === undefined ? '#9C99B8' : '#1B1A3A' },
           flagStyle: this.flagStyle(val === undefined ? '' : flag),

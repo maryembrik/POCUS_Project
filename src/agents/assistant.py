@@ -157,8 +157,14 @@ def answer(question: str, a: dict[str, Any]) -> str:
                 + (f", and {len(gone)} value(s) never measured" if gone else "")
                 + ". The clinician makes the prognosis; this is decision support.")
 
+    # "what shoud i do now??" reached the catch-all: the intent was matched as the literal
+    # phrase "what should i do", and one missing letter defeated it. A clinician asking the
+    # most obvious question of all should not have to spell it correctly, so the intent is
+    # matched on the words that carry it -- some form of "do" together with "now" or "next" --
+    # rather than on a phrase they have to reproduce exactly.
     if has("suggest", "recommend", "next", "investigate", "order", "which test", "what test",
-           "what should i do", "work up", "workup", "plan"):
+           "what should i do", "work up", "workup", "plan") or \
+            (has(" do ", " doing ", " shoud ", " should ") and has("now", "next", "then")):
         r = sup["additional_examinations"]
         return ("Recommended, in priority order: "
                 + "; ".join(f"{x['exam']} ({x['priority']}) — {x['reason']}" for x in r[:5])
@@ -375,6 +381,26 @@ def answer(question: str, a: dict[str, Any]) -> str:
                     + "\n\nThat is what the record holds on it. I have not added anything to "
                       "it.")
 
-    return ("I could not find anything in this encounter's record that bears on that. Rather "
-            "than write something plausible around the gap, here is what I can read out of "
-            "it:\n\n" + CAPABILITIES)
+    # Nothing in the record matched the words. That is a reason to say what the record DOES
+    # hold, not to recite a menu: a list of capabilities answers a question nobody asked, and
+    # reads as a broken assistant at the exact moment someone is trying to use it. The
+    # standing summary is real -- every number below is computed -- and it is usually what was
+    # wanted anyway. The refusal to invent stands; it just no longer arrives empty-handed.
+    lines = [f"Severity {sup['severity']['severity']}, {len(sup['alerts'])} alert(s), "
+             f"{'escalation required' if esc['escalate'] else 'no escalation trigger'}."]
+    if det:
+        lines.append("POCUS: " + ", ".join(f"{f['label']} {f['confidence']:.2f}" for f in det))
+    else:
+        lines.append("POCUS: no finding above threshold.")
+    if gone:
+        lines.append(f"{len(gone)} value(s) never measured: " + ", ".join(gone[:6])
+                     + ("…" if len(gone) > 6 else "") + " — absent, not normal.")
+    r = sup["additional_examinations"]
+    if r:
+        lines.append("Recommended next: "
+                     + "; ".join(f"{x['exam']} ({x['priority']})" for x in r[:3]))
+    return ("I could not match that to anything specific in the record, so rather than write "
+            "something plausible around the gap, here is where this encounter stands:\n\n"
+            + "\n".join("• " + x for x in lines)
+            + "\n\nAsk for a value, what is missing, why the severity is what it is, what the "
+              "scan saw, or the evidence for a diagnosis, and I will read it out exactly.")
