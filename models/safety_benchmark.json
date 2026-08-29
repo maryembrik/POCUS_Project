@@ -1,15 +1,23 @@
 {
-  "generated_at": "2026-08-25T16:32:40+00:00",
-  "total_tests": 237,
-  "total_passed": 237,
+  "generated_at": "2026-08-29T09:26:44+00:00",
+  "total_tests": 247,
+  "total_passed": 247,
   "by_property": {
     "Absent is not normal": {
-      "tests": 21,
-      "passed": 21
+      "tests": 22,
+      "passed": 22
     },
     "Advice scope": {
       "tests": 4,
       "passed": 4
+    },
+    "Assistant action boundary": {
+      "tests": 3,
+      "passed": 3
+    },
+    "Assistant routing": {
+      "tests": 3,
+      "passed": 3
     },
     "Automated reporting": {
       "tests": 7,
@@ -40,8 +48,8 @@
       "passed": 8
     },
     "Escalation policy": {
-      "tests": 11,
-      "passed": 11
+      "tests": 12,
+      "passed": 12
     },
     "Evidence coverage": {
       "tests": 8,
@@ -72,8 +80,8 @@
       "passed": 16
     },
     "Model-scope propagation": {
-      "tests": 5,
-      "passed": 5
+      "tests": 7,
+      "passed": 7
     },
     "Perception contract": {
       "tests": 17,

@@ -59,6 +59,108 @@ def has_encounter(a: dict[str, Any]) -> bool:
     return bool(a) and bool(a.get("state"))
 
 
+def next_step_answer(a: dict[str, Any]) -> str:
+    """What to do next, composed from the computed assessment and nothing else.
+
+    "What should I do now?" is the question a clinician actually asks, and answering it with a
+    semicolon-separated list of examinations was correct and close to useless. The answer is
+    assembled here in the order the question is really asked in: where the patient stands, what
+    is not known, what to obtain next, what the models cannot settle whatever is obtained, and
+    when to stop reading the screen.
+
+    Every line is drawn from a computed field. Nothing is composed about the patient that the
+    pipeline did not derive: no diagnosis, no drug, no dose. An ACTION is not a diagnosis --
+    "complete the observations" can be said safely where "this is heart failure" cannot -- and
+    that distinction is the whole reason this can be answered without a model.
+
+    Note which context this uses. The retrieval query deliberately EXCLUDES absent tests,
+    because querying on what was never measured retrieves literature about it and invites
+    reasoning from a gap. Acting is the opposite case: what is missing, what escalated and what
+    the models cannot exclude are exactly what determines the next move, so they are central
+    here. Retrieval context and action context are not the same context.
+    """
+    state, sup, esc = a["state"], a["support"], a["esc"]
+    det = [f for f in state["imaging"]["findings"] if f["detected"]]
+    gone = state["missing"]["labs"] + state["missing"]["vitals"]
+    never = state["imaging"].get("organs_not_assessed") or []
+    out = state["imaging"].get("out_of_scope") or []
+    blocks: list[str] = []
+
+    # 1. Where the patient stands.
+    sev = sup["severity"]["severity"]
+    line = (f"Assessed at {sev} severity with {len(sup['alerts'])} alert(s). ")
+    if det:
+        line += ("POCUS detected " + ", ".join(f"{f['label']} ({f['confidence']:.2f})"
+                                               for f in det)
+                 + ". A finding's confidence is the model's confidence that the SIGN is "
+                   "present; it is not the likelihood of any diagnosis, and these require "
+                   "clinical correlation.")
+    else:
+        line += ("No POCUS finding reached threshold. That is the absence of the findings "
+                 "these modules screen for, not the absence of pathology.")
+    blocks.append("WHERE THIS STANDS\n" + line)
+
+    # 2. What is not known. Never assessed comes first: a scan that did not happen is a bigger
+    #    hole than a lab that did not result, and it is the one most often read as negative.
+    unknown = []
+    if never:
+        unknown.append("Never assessed: " + ", ".join(never)
+                       + " — a gap in the record, not a negative result.")
+    if gone:
+        unknown.append(f"Never measured ({len(gone)}): " + ", ".join(gone)
+                       + " — absent, not normal. These carry no evidence identifier, so "
+                         "nothing can be cited for or against a diagnosis from them.")
+    blocks.append("WHAT IS NOT KNOWN\n" + ("\n".join(unknown) if unknown
+                  else "Every value in the reference set was measured and every expected "
+                       "view was obtained."))
+
+    # 3. What to obtain, in the order the support module ranked it.
+    r = sup["additional_examinations"]
+    blocks.append("WHAT TO OBTAIN NEXT\n"
+                  + ("\n".join(f"{i}. {x['exam']} ({x['priority']}) — {x['reason']}"
+                               for i, x in enumerate(r[:6], 1)) if r else
+                     "Nothing further is recommended for this presentation; the record is "
+                     "complete."))
+
+    # 4. What obtaining it still will not settle.
+    if out:
+        blocks.append("WHAT THIS CANNOT SETTLE\n"
+                      + "\n".join("• " + x for x in out)
+                      + "\nThese bound the conclusion whatever else is obtained.")
+
+    # 5. When to stop reading the screen.
+    if esc["escalate"]:
+        blocks.append("ESCALATION\nEscalation is required. Triggered by:\n"
+                      + "\n".join("• " + t for t in esc["triggers"])
+                      + "\nThe triggers are computed before the reasoning model runs and are "
+                        "unaffected by whether it ran, so this stands even if no differential "
+                        "was produced.")
+    else:
+        blocks.append("ESCALATION\nNo escalation trigger fired. That is a statement about "
+                      "this record, not about the patient: a deteriorating patient is an "
+                      "emergency pathway decision, not a screen-reading one.")
+
+    # 6. Therapeutics, only where a protocol backs them.
+    th = sup["therapeutic"]
+    if th.get("considerations"):
+        blocks.append("THERAPEUTIC CONSIDERATIONS\n"
+                      + "\n".join(f"• {c['consideration']} (basis: {c['basis']}, "
+                                  f"{c['passage']})" for c in th["considerations"][:3])
+                      + "\nEach requires clinician verification.")
+    else:
+        blocks.append(f"THERAPEUTIC CONSIDERATIONS\nNone offered — {th['status']}. Treatment "
+                      f"is never generated from the model's own knowledge, because a reader "
+                      f"could not tell that from a protocol-backed one.")
+
+    # 7. Sources, only if something actually cleared the relevance floor.
+    hits = a.get("hits") or []
+    if hits:
+        blocks.append("RETRIEVED FOR THIS PRESENTATION\n"
+                      + "\n".join(f"[{h['n']}] {h['topic']} — {h['source']}" for h in hits[:4]))
+
+    return "\n\n".join(blocks)
+
+
 def answer(question: str, a: dict[str, Any]) -> str:
     """Answer `question` from the analysis dict produced by the pipeline.
 
@@ -163,12 +265,10 @@ def answer(question: str, a: dict[str, Any]) -> str:
     # matched on the words that carry it -- some form of "do" together with "now" or "next" --
     # rather than on a phrase they have to reproduce exactly.
     if has("suggest", "recommend", "next", "investigate", "order", "which test", "what test",
-           "what should i do", "work up", "workup", "plan") or \
+           "what should i do", "work up", "workup", "plan", "what now", "assess next",
+           "que faire", "prochaine", "maintenant") or \
             (has(" do ", " doing ", " shoud ", " should ") and has("now", "next", "then")):
-        r = sup["additional_examinations"]
-        return ("Recommended, in priority order: "
-                + "; ".join(f"{x['exam']} ({x['priority']}) — {x['reason']}" for x in r[:5])
-                ) if r else "The record is complete for this presentation."
+        return next_step_answer(a)
 
     if has("miss", "absent", "not measured", "unavailable", "don't have", "do not have"):
         return ("Not measured for this patient: " + ", ".join(gone) + ". These have no "
