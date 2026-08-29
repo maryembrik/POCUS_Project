@@ -342,6 +342,7 @@ class Ask(BaseModel):
 
 _last: dict[str, Any] = {}
 _studies: dict[str, dict[str, Any]] = {}     # study id -> the stored copy and its reading
+_NO_STORE = {"Cache-Control": "no-store, must-revalidate", "Pragma": "no-cache"}
 
 
 def _store_study(b64: str, organ: str, rep: dict, zone: str) -> str:
@@ -613,10 +614,26 @@ def api_view() -> JSONResponse:
 
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(WEB / "pocus-copilot.dc.html")
+    return FileResponse(WEB / "pocus-copilot.dc.html", headers=_NO_STORE)
 
 
 app.mount("/", StaticFiles(directory=str(WEB)), name="web")
+
+
+# The interface is ONE generated file -- the binder inlines the logic into the page -- so a
+# cached copy is a cached application. Three times now a change was made, the server was
+# restarted, and the browser kept running the previous build: uploads that no longer filed
+# their images, counters reading the old bindings, an empty screen that had already been
+# fixed. Each looked like a fresh bug in the code that had just been written, and one of them
+# was reported as one. Revalidation headers were not enough, because the page is re-issued on
+# every bind and a browser is entitled to reuse a fresh-looking response without asking.
+# It is a few hundred kilobytes off local disk; correctness is worth more than the round trip.
+@app.middleware("http")
+async def _no_cache(request, call_next):
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers.update(_NO_STORE)
+    return response
 
 
 if __name__ == "__main__":

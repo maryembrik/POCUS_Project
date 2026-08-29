@@ -81,6 +81,13 @@ class Component extends DCLogic {
 
   async analyse() {
     this.setState({ busy: true, error: '' });
+    // Wait for a study still being read. Pressing Analyze while the upload was in flight took
+    // `upload` as null and sent BOTH reportJson and images empty -- so the encounter was
+    // assessed from whatever was left in the form, reported findings that did not come from
+    // the scan just uploaded, and filed no image against the patient. It looked like the
+    // upload had been ignored; it had in fact been overtaken. The first read after startup
+    // loads the weights and takes seconds, which is exactly when a clinician clicks on.
+    if (this._reading) { try { await this._reading; } catch (e) { /* reported below */ } }
     const body = Object.assign({}, this.state.form, {
       preset: this.state.preset || null,
       reportJson: this.state.upload ? this.state.upload.report : null,
@@ -153,6 +160,12 @@ class Component extends DCLogic {
 
   async upload(files) {
     if (!files || !files.length) return;
+    // Held so that analyse() can wait on it rather than race it.
+    this._reading = this._read(files);
+    try { await this._reading; } finally { this._reading = null; }
+  }
+
+  async _read(files) {
     const imgs = await this.readFiles(files);
     this.setState({ busy: true, previews: imgs });
     const out = await post('/api/upload', {
@@ -166,12 +179,16 @@ class Component extends DCLogic {
     const next = !this.state.asClip;
     this.setState({ asClip: next });
     if (this.state.previews && this.state.previews.length > 1) {
-      this.setState({ busy: true });
-      const out = await post('/api/upload', {
-        organ: this.state.form.organ, image: this.state.previews[0],
-        images: this.state.previews, image2: this.state.previews[1] || null, asClip: next
-      });
-      this.setState({ upload: out, busy: false });
+      // Re-read, and held like any other read so analyse() waits for it.
+      this._reading = (async () => {
+        this.setState({ busy: true });
+        const out = await post('/api/upload', {
+          organ: this.state.form.organ, image: this.state.previews[0],
+          images: this.state.previews, image2: this.state.previews[1] || null, asClip: next
+        });
+        this.setState({ upload: out, busy: false });
+      })();
+      try { await this._reading; } finally { this._reading = null; }
     }
   }
 
@@ -225,6 +242,7 @@ class Component extends DCLogic {
       analyzeLabel: st.busy ? 'Analyzing…' : (has ? 'Re-analyze patient' : 'Analyze patient'),
       filledCount: String(filled),
       onAnalyze: () => this.analyse(),
+      analyseLabel: st.busy ? 'Reading the study…' : '✦ Analyze patient',
       emptyMessage: v.message || 'No encounter has been analysed yet.',
 
       nav: SCREENS.map(s => {

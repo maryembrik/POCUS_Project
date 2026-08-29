@@ -149,6 +149,14 @@ def main() -> int:
                            ("7", "Completed", "{{ testCount }}", "Safety tests passing")):
         s = sub(s, TILE.format(n=on, t=ot), TILE.format(n=nn, t=nt), f"tile {ot}")
 
+    # ---- 4b. the analyse button never said it was working ---------------------------
+    # It now waits for a study still being read, and a button that looks idle while it waits
+    # invites a second click on an encounter that is already being assessed.
+    s = sub(s, 'font-size:14.5px;padding:13px 24px;border-radius:999px">✦ Analyze patient'
+               '</button>',
+            'font-size:14.5px;padding:13px 24px;border-radius:999px">{{ analyseLabel }}'
+            '</button>', "analyse button label")
+
     # ---- 5. the workup form fields must actually write somewhere --------------------
     s = sub(s, 'Name<input value="Sarah Martin"',
             'Name<input value="{{ fName }}" onChange="{{ onName }}"', "workup name")
