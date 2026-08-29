@@ -370,9 +370,9 @@ input,textarea,select,button{font-family:inherit}
   <section class="rise" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
     <div style="background:#5B54D6;border-radius:10px;padding:30px 34px;color:#fff;position:relative;overflow:hidden">
       <h1 style="margin:0;font-size:29px;font-weight:800;letter-spacing:-.02em;position:relative">{{ pName }}</h1>
-      <p style="margin:10px 0 0;font-size:15px;opacity:.9;position:relative">You have 12 incomplete clinical tasks today</p>
+      <p style="margin:10px 0 0;font-size:15px;opacity:.9;position:relative">{{ diagnosisLine }}</p>
       <div style="margin-top:22px;display:flex;gap:26px;flex-wrap:wrap;font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;position:relative">
-        <span>✦ 23 suggestions</span><span>⚠ 8 anomalies</span>
+        <span>✦ {{ examCount }}</span><span>⚠ {{ anomalyCount }}</span>
       </div>
       <div class="drift" style="position:absolute;right:22px;top:22px;bottom:22px;width:170px"><image-slot id="dx-illus" shape="rounded" radius="14" placeholder="Illustration"></image-slot></div>
     </div>
@@ -413,8 +413,9 @@ input,textarea,select,button{font-family:inherit}
   <section class="rise-3" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:20px">
     <div class="lift" style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:24px 26px">
       <div style="display:flex;justify-content:space-between"><span style="font-weight:700;font-size:15px;color:#2E2A78">⌁ Top match</span><span style="color:#C2BED0">⋮</span></div>
-      <div style="margin-top:18px;border:3px solid #5B54D6;padding:20px 14px;text-align:center;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase">Pulmonary edema</div>
-      <div style="margin-top:18px;display:flex;align-items:baseline;gap:6px"><span style="font-size:32px;font-weight:800;letter-spacing:-.03em">62.4</span><span style="font-size:15px;color:#6A6785">%</span></div>
+      <div style="margin-top:18px;border:3px solid #5B54D6;padding:20px 14px;text-align:center;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase">{{ topDiagnosis }}</div>
+      <div style="margin-top:18px;font-size:19px;font-weight:800">{{ topLikelihood }}</div>
+      <div style="margin-top:8px;font-size:12.5px;color:#6A6785;line-height:1.5">{{ topBasis }}</div>
     </div>
     <div class="lift" style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:24px 26px">
       <div style="display:flex;justify-content:space-between"><span style="font-weight:700;font-size:15px;color:#C6F24E">✛ Heart rate</span><span style="color:#C2BED0">⋮</span></div>
@@ -522,7 +523,7 @@ input,textarea,select,button{font-family:inherit}
     <h2 style="margin:0 0 18px;font-size:18px;font-weight:800">Stored measurements — all visits</h2>
     <div style="overflow:auto">
       <table style="width:100%;border-collapse:collapse;font-size:14.5px;min-width:560px">
-        <thead><tr style="text-align:left;color:#6A6785;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase"><th style="padding:0 0 12px;font-weight:700">Measurement</th><th style="padding:0 0 12px;font-weight:700">Today</th><th style="padding:0 0 12px;font-weight:700">12 Jun</th><th style="padding:0 0 12px;font-weight:700">3 Mar</th><th style="padding:0 0 12px;font-weight:700">18 Jan</th></tr></thead>
+        <thead><tr style="text-align:left;color:#6A6785;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase"><th style="padding:0 0 12px;font-weight:700">Measurement</th><th style="padding:0 0 12px;font-weight:700">Today</th><th style="padding:0 0 12px;font-weight:700">{{ visitCol2 }}</th><th style="padding:0 0 12px;font-weight:700">{{ visitCol3 }}</th><th style="padding:0 0 12px;font-weight:700">{{ visitCol4 }}</th></tr></thead>
         <tbody>
           <sc-for list="{{ dataRows }}" as="r" hint-placeholder-count="8">
             <tr style="border-top:1px solid #E9E8FB">
@@ -562,22 +563,17 @@ input,textarea,select,button{font-family:inherit}
   <section style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;padding:26px 30px">
     <h2 style="margin:0 0 18px;font-size:18px;font-weight:800">Stored reports</h2>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
-      <button type="button" onClick="{{ goReport }}" style="text-align:left;appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;border-radius:8px;padding:20px 22px;display:flex;flex-direction:column;gap:7px">
-        <span style="font-size:12.5px;color:#6A6785;font-weight:700">24 Aug 2026 · 09:20</span>
-        <span style="font-weight:800;font-size:16px">Acute breathlessness</span>
-        <span style="font-size:13.5px;color:#6A6785">Pulmonary edema leading · high priority</span>
+      <sc-for list="{{ patientReports }}" as="r" hint-placeholder-count="3">
+      <button type="button" onClick="{{ r.onOpen }}" style="text-align:left;appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;border-radius:8px;padding:20px 22px;display:flex;flex-direction:column;gap:7px">
+        <span style="font-size:12.5px;color:#6A6785;font-weight:700">{{ r.at }}</span>
+        <span style="font-weight:800;font-size:16px">{{ r.complaint }}</span>
+        <span style="font-size:13.5px;color:#6A6785">{{ r.summary }}</span>
         <span style="margin-top:6px;color:#2E2A78;font-weight:700;font-size:13.5px">Open →</span>
       </button>
-      <div style="background:#fff;border:1px solid #E4E2F8;border-radius:8px;padding:20px 22px;display:flex;flex-direction:column;gap:7px">
-        <span style="font-size:12.5px;color:#6A6785;font-weight:700">12 Jun 2026 · 14:05</span>
-        <span style="font-weight:800;font-size:16px">Exertional breathlessness</span>
-        <span style="font-size:13.5px;color:#6A6785">Discharged with follow-up</span>
-      </div>
-      <div style="background:#fff;border:1px solid #E4E2F8;border-radius:8px;padding:20px 22px;display:flex;flex-direction:column;gap:7px">
-        <span style="font-size:12.5px;color:#6A6785;font-weight:700">3 Mar 2026 · 10:31</span>
-        <span style="font-weight:800;font-size:16px">Ankle swelling</span>
-        <span style="font-size:13.5px;color:#6A6785">Routine review</span>
-      </div>
+      </sc-for>
+      <sc-if value="{{ oneReportOnly }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff;border:1px solid #E4E2F8;border-radius:8px;padding:20px 22px;color:#6A6785;font-size:13.5px">This session holds no earlier encounter for this patient. There is no database behind this screen: it shows what was assessed here, not a medical history.</div>
+      </sc-if>
     </div>
   </section>
   </sc-if>
@@ -1571,6 +1567,46 @@ class Component extends DCLogic {
       criticalCount: String((boot.records || []).filter(r => r.severity === 'HIGH').length),
       testCount: boot.tests ? String(boot.tests) : '—',
       noRoster: !(boot.records || []).length,
+
+      // ---- Diagnosis screen -----------------------------------------------------------
+      // It showed "Top match / PULMONARY EDEMA / 62.4 %" beside this patient's real heart
+      // rate. The reasoning agent emits a likelihood BAND and never a percentage, because a
+      // number implies a calibration nothing in this pipeline has; and when no differential
+      // was generated there is no top match to name at all.
+      topDiagnosis: (v.differential && v.differential.length)
+        ? v.differential[0].diagnosis : 'No differential',
+      topLikelihood: (v.differential && v.differential.length)
+        ? (v.differential[0].likelihood || 'unranked') + ' likelihood'
+        : (v.withheld ? 'withheld' : 'not generated'),
+      topBasis: (v.differential && v.differential.length)
+        ? ((v.differential[0].supporting || []).length + ' item(s) of evidence cited for it, '
+           + (v.differential[0].contradicting || []).length + ' against. '
+           + 'A band, not a percentage: no calibration behind this supports a number.')
+        : (v.withheld
+            ? 'The differential was withheld because the answer failed validation.'
+            : 'No reasoning model ran in this deployment, so no differential was produced. '
+              + 'The severity, the alerts and the escalation above were computed without it.'),
+      diagnosisLine: has
+        ? ((v.patient || {}).name || 'This patient') + ' — ' + nAlerts + ' alert(s), '
+          + (v.missing || []).length + ' value(s) never measured'
+        : 'No encounter has been analysed yet.',
+      examCount: String((v.exams || []).length) + ' recommended',
+      anomalyCount: String(((v.alerts || []).filter(x => x.severity === 'CRITICAL')).length)
+                    + ' critical',
+
+      // ---- record: reports and the measurement columns ---------------------------------
+      // The tab listed three prior visits this patient never had. It lists the encounters
+      // THIS session holds for them, and says so when there is only one.
+      patientReports: (boot.records || [])
+        .filter(r => !st.recordSel || r.name === ((v.patient || {}).name))
+        .map(r => ({ at: r.at, complaint: r.complaint,
+          summary: r.organ + ' · ' + r.severity + ' · ' + r.alerts + ' alert(s)',
+          onOpen: this.openRecord(r.id) })),
+      oneReportOnly: (boot.records || [])
+        .filter(r => !st.recordSel || r.name === ((v.patient || {}).name)).length < 2,
+      // Dated columns for visits that never happened: a dash under "12 Jun" is a claim that
+      // the date existed. There is one column, and it is this encounter.
+      visitCol2: '—', visitCol3: '—', visitCol4: '—',
       // Printed under ONE patient's name, so they have to be that patient's. "Encounters 3 /
       // POCUS studies 2" were session totals sitting beside mariem's alerts and severity,
       // which reads as a claim about her. On the list they are the session's, where they are.

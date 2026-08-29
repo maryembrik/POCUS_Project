@@ -468,6 +468,32 @@ def main() -> int:
             '<div style="font-size:13.5px;color:#6A6785">{{ assistantLine }}</div>',
             "assistant strip")
 
+    # ---- 7b3. the Diagnosis screen invented a diagnosis AND a percentage -------------
+    # "⌁ Top match / PULMONARY EDEMA / 62.4 %" was displayed for a live patient, beside that
+    # patient's real heart rate and real alert count. It is the worst thing the mockup carried
+    # and it survived every earlier pass: a diagnosis nobody derived, given a precision this
+    # system deliberately never produces. The reasoning agent emits a LIKELIHOOD BAND -- high,
+    # moderate, low -- and never a number, because a percentage implies a calibration no part
+    # of this pipeline has. Worse, the real values around it lend it their credibility.
+    s = sub(s, '<div style="margin-top:18px;border:3px solid #5B54D6;padding:20px 14px;'
+               'text-align:center;font-size:12.5px;font-weight:800;letter-spacing:.1em;'
+               'text-transform:uppercase">Pulmonary edema</div>\n'
+               '      <div style="margin-top:18px;display:flex;align-items:baseline;gap:6px">'
+               '<span style="font-size:32px;font-weight:800;letter-spacing:-.03em">62.4</span>'
+               '<span style="font-size:15px;color:#6A6785">%</span></div>',
+            '<div style="margin-top:18px;border:3px solid #5B54D6;padding:20px 14px;'
+            'text-align:center;font-size:12.5px;font-weight:800;letter-spacing:.1em;'
+            'text-transform:uppercase">{{ topDiagnosis }}</div>\n'
+            '      <div style="margin-top:18px;font-size:19px;font-weight:800">'
+            '{{ topLikelihood }}</div>\n'
+            '      <div style="margin-top:8px;font-size:12.5px;color:#6A6785;line-height:1.5">'
+            '{{ topBasis }}</div>', "top match")
+
+    s = sub(s, "You have 12 incomplete clinical tasks today",
+            "{{ diagnosisLine }}", "diagnosis header")
+    s = sub(s, "✦ 23 suggestions", "✦ {{ examCount }}", "suggestion count")
+    s = sub(s, "⚠ 8 anomalies", "⚠ {{ anomalyCount }}", "anomaly count")
+
     # ---- 7c. the lime tile counted conversations this system never had ---------------
     s = sub(s, '<span style="font-weight:700;font-size:15.5px">▤ Clinical assistant</span>',
             '<span style="font-weight:700;font-size:15.5px">▤ Evidence cited</span>',
@@ -563,6 +589,44 @@ def main() -> int:
             'module now and filed against this patient, for this session only — there is no '
             'database behind this screen. The assessment above is not re-run: it was reached '
             'without this study.</div>', "record upload")
+
+    # ---- 8b2. three prior visits this patient never had ------------------------------
+    # The Reports tab listed "12 Jun 2026 · Exertional breathlessness · Discharged with
+    # follow-up" and "3 Mar 2026 · Ankle swelling · Routine review" under whichever real
+    # patient was open: a fabricated medical history attached to a named person, which is the
+    # most consequential kind of invention in the whole interface. It lists this session's
+    # encounters for that patient, and says plainly when there is only the one.
+    s = cut(s, '<button type="button" onClick="{{ goReport }}" style="text-align:left;'
+               'appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;'
+               'border-radius:8px;padding:20px 22px;display:flex;flex-direction:column;'
+               'gap:7px">\n        <span style="font-size:12.5px;color:#6A6785;'
+               'font-weight:700">24 Aug 2026 · 09:20</span>',
+            '<span style="font-size:13.5px;color:#6A6785">Routine review</span>\n'
+            '      </div>\n    </div>\n  </section>',
+            '<sc-for list="{{ patientReports }}" as="r" hint-placeholder-count="3">\n'
+            '      <button type="button" onClick="{{ r.onOpen }}" style="text-align:left;'
+            'appearance:none;cursor:pointer;background:#fff;border:1px solid #E4E2F8;'
+            'border-radius:8px;padding:20px 22px;display:flex;flex-direction:column;gap:7px">\n'
+            '        <span style="font-size:12.5px;color:#6A6785;font-weight:700">{{ r.at }}'
+            '</span>\n'
+            '        <span style="font-weight:800;font-size:16px">{{ r.complaint }}</span>\n'
+            '        <span style="font-size:13.5px;color:#6A6785">{{ r.summary }}</span>\n'
+            '        <span style="margin-top:6px;color:#2E2A78;font-weight:700;'
+            'font-size:13.5px">Open →</span>\n      </button>\n      </sc-for>\n'
+            '      <sc-if value="{{ oneReportOnly }}" hint-placeholder-val="{{ false }}">\n'
+            '      <div style="background:#fff;border:1px solid #E4E2F8;border-radius:8px;'
+            'padding:20px 22px;color:#6A6785;font-size:13.5px">This session holds no earlier '
+            'encounter for this patient. There is no database behind this screen: it shows '
+            'what was assessed here, not a medical history.</div>\n      </sc-if>\n'
+            '    </div>\n  </section>', "stored reports")
+
+    # ---- 8b3. four columns of visits that never happened -----------------------------
+    # The measurements table was headed Today / 12 Jun / 3 Mar / 18 Jan. The three older
+    # columns held only dashes, which reads as "measured then, not now" rather than "these
+    # visits are invented" -- a dash under a date is a claim that the date existed.
+    for old, new in (("12 Jun", "{{ visitCol2 }}"), ("3 Mar", "{{ visitCol3 }}"),
+                     ("18 Jan", "{{ visitCol4 }}")):
+        s = sub(s, f'>{old}</th>', f'>{new}</th>', f"visit column {old}")
 
     # ---- 8c. the stored studies were drop targets, never the patient's images ---------
     # The grid looped the mockup's visits and drew an `image-slot` in each cell: a slot the

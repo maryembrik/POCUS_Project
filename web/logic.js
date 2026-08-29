@@ -601,6 +601,46 @@ class Component extends DCLogic {
       criticalCount: String((boot.records || []).filter(r => r.severity === 'HIGH').length),
       testCount: boot.tests ? String(boot.tests) : '—',
       noRoster: !(boot.records || []).length,
+
+      // ---- Diagnosis screen -----------------------------------------------------------
+      // It showed "Top match / PULMONARY EDEMA / 62.4 %" beside this patient's real heart
+      // rate. The reasoning agent emits a likelihood BAND and never a percentage, because a
+      // number implies a calibration nothing in this pipeline has; and when no differential
+      // was generated there is no top match to name at all.
+      topDiagnosis: (v.differential && v.differential.length)
+        ? v.differential[0].diagnosis : 'No differential',
+      topLikelihood: (v.differential && v.differential.length)
+        ? (v.differential[0].likelihood || 'unranked') + ' likelihood'
+        : (v.withheld ? 'withheld' : 'not generated'),
+      topBasis: (v.differential && v.differential.length)
+        ? ((v.differential[0].supporting || []).length + ' item(s) of evidence cited for it, '
+           + (v.differential[0].contradicting || []).length + ' against. '
+           + 'A band, not a percentage: no calibration behind this supports a number.')
+        : (v.withheld
+            ? 'The differential was withheld because the answer failed validation.'
+            : 'No reasoning model ran in this deployment, so no differential was produced. '
+              + 'The severity, the alerts and the escalation above were computed without it.'),
+      diagnosisLine: has
+        ? ((v.patient || {}).name || 'This patient') + ' — ' + nAlerts + ' alert(s), '
+          + (v.missing || []).length + ' value(s) never measured'
+        : 'No encounter has been analysed yet.',
+      examCount: String((v.exams || []).length) + ' recommended',
+      anomalyCount: String(((v.alerts || []).filter(x => x.severity === 'CRITICAL')).length)
+                    + ' critical',
+
+      // ---- record: reports and the measurement columns ---------------------------------
+      // The tab listed three prior visits this patient never had. It lists the encounters
+      // THIS session holds for them, and says so when there is only one.
+      patientReports: (boot.records || [])
+        .filter(r => !st.recordSel || r.name === ((v.patient || {}).name))
+        .map(r => ({ at: r.at, complaint: r.complaint,
+          summary: r.organ + ' · ' + r.severity + ' · ' + r.alerts + ' alert(s)',
+          onOpen: this.openRecord(r.id) })),
+      oneReportOnly: (boot.records || [])
+        .filter(r => !st.recordSel || r.name === ((v.patient || {}).name)).length < 2,
+      // Dated columns for visits that never happened: a dash under "12 Jun" is a claim that
+      // the date existed. There is one column, and it is this encounter.
+      visitCol2: '—', visitCol3: '—', visitCol4: '—',
       // Printed under ONE patient's name, so they have to be that patient's. "Encounters 3 /
       // POCUS studies 2" were session totals sitting beside mariem's alerts and severity,
       // which reads as a claim about her. On the list they are the session's, where they are.
