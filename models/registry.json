@@ -1,11 +1,14 @@
 {
   "models": {
     "lung": {
+      "retired_names": [
+        "v1"
+      ],
       "versions": [
         {
           "version": "v1",
           "stage": "production",
-          "created": "2026-08-29T12:27:42+00:00",
+          "created": "2026-08-29T12:56:11+00:00",
           "dataset": "lung@11075e6a4296",
           "approved_by": "seeded from the results this project already produced",
           "metrics": {
@@ -27,11 +30,17 @@
       ]
     },
     "triage": {
+      "retired_names": [
+        "v1",
+        "v2",
+        "v3",
+        "v4"
+      ],
       "versions": [
         {
           "version": "v1",
           "stage": "production",
-          "created": "2026-08-29T12:27:42+00:00",
+          "created": "2026-08-29T12:56:11+00:00",
           "dataset": "triage@9adc24de812b",
           "approved_by": "seeded from the results this project already produced",
           "metrics": {

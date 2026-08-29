@@ -265,7 +265,21 @@ def cmd_register(args) -> int:
             metrics = metrics[part]
     reg = load_registry()
     node = reg["models"].setdefault(args.model, {"versions": []})
-    version = args.version or f"v{len(node['versions']) + 1}"
+    # Never reuse a version name. Numbering by list length meant that re-seeding the registry
+    # started again at v1, so MLflow -- which is an append-only log and was right to keep both
+    # -- ended up holding two different runs both called v3, with different metrics. An audit
+    # trail whose names are ambiguous is not an audit trail. The counter only ever goes up.
+    used = {v["version"] for v in node["versions"]} | set(node.get("retired_names", []))
+    if args.version:
+        version = args.version
+        if version in used:
+            print(f"REFUSED: {args.model} already has a version named {version!r}")
+            return 1
+    else:
+        n = len(node["versions"]) + 1
+        while f"v{n}" in used:
+            n += 1
+        version = f"v{n}"
     entry = {
         "version": version,
         "stage": "candidate",

@@ -69,6 +69,12 @@ def triage() -> dict | None:
 
 
 def main() -> int:
+    # Re-seeding starts the registry again, but the names already spent must not come back:
+    # MLflow keeps every run, so a reused version name would leave two different models
+    # answering to the same label in the history.
+    from mlops import load_registry  # noqa: PLC0415 - local, to keep the CLI import light
+
+    previous = load_registry()
     reg = {"models": {}}
     seeded = []
     for name, fn in (("lung", lung), ("triage", triage)):
@@ -77,7 +83,11 @@ def main() -> int:
             print(f"skipped {name}: no results file in the repository")
             continue
         ds = dataset_version(name)
-        reg["models"][name] = {"versions": [{
+        spent = sorted({v["version"] for v in
+                        previous.get("models", {}).get(name, {}).get("versions", [])}
+                       | set(previous.get("models", {}).get(name, {})
+                             .get("retired_names", [])))
+        reg["models"][name] = {"retired_names": spent, "versions": [{
             "version": "v1",
             "stage": "production",
             "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
