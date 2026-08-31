@@ -7,10 +7,32 @@
 \subsection{Host Organization}
 \label{subsec:host}
 
-\rmq{Describe the host organisation: its activity, size, position in its sector, and the
-department or team the internship took place in. Half a page to a page. If the project was
-carried out within the school rather than a company, describe the laboratory or programme
-instead.}
+The work was carried out at \textbf{Esprit Tech}, the research entity attached to ESPRIT
+(\textit{École Supérieure Privée d'Ingénierie et de Technologies}). Esprit Tech proposes a
+set of applied research subjects each year and supervises them as end-of-studies internships,
+which places a project of this kind in a research setting rather than a product one: the
+objective is a defensible investigation of whether an approach works, and the deliverable is
+the evidence for that answer as much as the software itself.
+
+That framing shaped several decisions reported later. It is the reason a negative result is
+treated as a result --- seven well-motivated changes were tested and rejected on measurement
+(Section~\ref{subsec:results-rejected}) --- and the reason the system is built to state what
+it does not know rather than to appear complete.
+
+The clinical framing of the subject was set in partnership with the \textbf{STMU}
+(\textit{Société Tunisienne de Médecine d'Urgence}), the Tunisian society for emergency
+medicine. The partnership defines the clinical problem the work addresses: point-of-care
+ultrasound in the emergency department, where the constraint is not imaging quality but the
+speed and completeness of the decision made around it. It is the source of the framing that
+runs through this report --- that an unperformed examination and a negative one are different
+facts, and that a decision-support system which conflates them is worse than none.
+
+The clinical scope of this report should be read with one limitation stated plainly here
+rather than left to the conclusion: no part of the system was validated against patient
+outcomes, and no clinician used it in a live encounter during the internship. The partnership
+established what the problem is and what a safe answer would have to look like; it did not
+provide a prospective evaluation, which remains the principal item of future work
+(Chapter~\ref{sec:conclusion}).
 
 \subsection{Internship Environment}
 \label{subsec:internship-env}

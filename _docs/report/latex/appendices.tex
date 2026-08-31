@@ -267,3 +267,120 @@ two identical calls produce byte-identical output.
 with calibrated confidences, a list of findings screened for and not detected, and a reliability
 block declaring scope. Section~\ref{subsec:output-contract} states the four validation rules and
 the reason for each.
+
+% =========================================================================================
+\chapter{Finding and Choosing the Data}
+\label{app:data-search}
+
+The single largest cost of this project was not training models. It was deciding what to train
+them on. This appendix records that work, because the report as a whole shows the datasets that
+were chosen and says little about the ones that were not, and because the difficulty was
+methodological rather than clerical: at no point was the obstacle a shortage of files.
+
+\section{The constraint that shaped everything}
+
+The subject requires point-of-care ultrasound from an emergency department, labelled with
+clinical findings, linked to the patient's physiological state, and usable outside the
+institution that produced it. No such dataset exists publicly. Every candidate satisfies some
+of those conditions and fails at least one, and the project's architecture is in large part a
+response to that fact rather than a design chosen in the abstract.
+
+The multi-agent structure --- separate perception modules feeding a clinical state, with the
+reasoning layer reading that state rather than the images --- is the direct consequence. No
+single source carried images \emph{and} vitals \emph{and} laboratory values for the same
+patient, so a model that consumed all three jointly could not have been trained on anything.
+Modelling each modality separately and combining them in a structured state was the only
+option available, and it turned out to be the safer architecture as well: the escalation logic
+that runs before any model can be tested independently precisely because it takes structured
+inputs rather than pixels.
+
+\section{What was searched, and what was rejected}
+
+Candidate sources were assessed against four criteria: whether the labels were clinical
+findings rather than diagnostic categories, whether the case identity was recoverable, whether
+the licence permitted use and redistribution of derived work, and whether the acquisition
+setting resembled emergency point-of-care use.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\textwidth}{@{}lXl@{}}
+    \toprule
+    Candidate & Why it was not used, or how it was constrained & Outcome \
+    \midrule
+    Hospital PACS data & Requires ethical approval, a data-sharing agreement and a clinical
+      sponsor; not obtainable within a three-month internship & unavailable \
+    Vascular / DVT sets & Located, but no module was built: a fourth organ could not be
+      supported to the standard of the other three in the time available & scoped out \
+    FAST / abdominal trauma & The clinical scenario routing expects it, and no dataset with
+      recoverable case identity was found; the system reports it as an unassessed modality
+      rather than pretending to cover it & scoped out \
+    MIMIC-IV-ED (full) & Credentialed access; only the 222-row demo release was usable &
+      partially used \
+    MC-MED (full) & Same; the 388-row public sample was used & partially used \
+    Iran ED vitals & Present and apparently rich, but excluded after analysis
+      (Section~\ref{app:data-search-iran}) & excluded \
+    \bottomrule
+  \end{tabularx}
+  \caption{Sources considered and the reason each was constrained or set aside.}
+  \label{tab:data-search}
+\end{table}
+
+The two entries marked \emph{scoped out} are visible in the delivered system rather than
+hidden by it. The clinical scenario router expects a FAST examination for a trauma
+presentation, finds no module able to provide one, and reports the modality as never assessed
+--- which is the behaviour the whole project argues for, applied to its own gaps.
+
+\section{The Iran ED vital signs, and why apparent richness was not richness}
+\label{app:data-search-iran}
+
+The most instructive rejection concerns the triage data. The Iran ED dataset (143{,}582 visits,
+2017--2022) carries a full set of vital signs, and including them raised accuracy to
+approximately 75\%. The result did not survive inspection: accuracy was 98\% on Iran rows and
+62\% on NHAMCS rows.
+
+The cause was in the recording pattern rather than in the model. Every vital-sign field is
+more than 90\% populated for exactly one triage grade and less than 5\% populated for all
+others. That is not physiological missingness --- an emergency department takes vitals on
+resuscitation patients too --- but an artefact of one hospital's documentation workflow. The
+model had learned \emph{whether a field was recorded} as a proxy for the label, which is a
+shortcut that cannot transfer anywhere and would fail silently in use.
+
+Only age, sex and arrival mode were kept from that source. The consequence is stated in the
+results as a bound rather than buried: the triage model operates largely on demographics and
+presenting complaint, and roughly 88\% of every vital sign is missing in the pooled training
+data. That is also the origin of the missing-data behaviour the system is built around; the
+architecture treats absence as a first-class state because the data forced the question early.
+
+\section{Direction verified rather than assumed}
+
+The Iran dataset's triage grade does not state its direction, and the source paper is
+paywalled. Rather than assume the common convention, the direction was established from the
+data: mean age falls monotonically from 58 to 34 across grades~1 to~5, and critical-status
+assessments concentrate in grades~1--2, both consistent with grade~1 being most urgent. Had
+the assumption been made the wrong way round, every downstream result would have been
+inverted while remaining internally consistent, and nothing in the training process would have
+signalled it.
+
+\section{Licensing, and what it prevents}
+
+The imaging sources are released under research licences, several non-commercial
+(CC~BY--NC~4.0), and none permits redistribution of the media. This is why the repository
+contains manifests rather than data, why reproduction requires the reader to obtain the
+sources themselves, and why the MLOps dataset versioning hashes the manifest rather than the
+files (Section~\ref{subsec:mlops}). A constraint of this kind is easy to discover late and
+expensive to discover late; it was checked before the datasets were adopted.
+
+\section{What the search cost, and what it produced}
+
+The most valuable outcome of this phase was a definition rather than a dataset: the decision
+that the unit of analysis is the \emph{case}, not the file. Applying it reduced the gallbladder
+set from 10{,}694 images to 220 cases and the lung set from 187 clips to 165 groups, and
+lowered every metric reported afterwards. Chapter~\ref{sec:data} records that work; this
+appendix records that it came out of the search rather than out of the modelling.
+
+Two numbers give the scale of what that leaves. Pleural effusion has 24 positive clips in the
+lung evaluation cohort, so a single clip changing class is 4.2 percentage points of recall ---
+the limit that the promotion gate ran into in Section~\ref{subsec:results-mlops}. Small data
+is not a caveat appended to the results here; it is the condition the entire system was
+designed around.
