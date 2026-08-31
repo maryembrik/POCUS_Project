@@ -28,6 +28,111 @@
           "eval_set": "pulmonary manifest, GroupKFold 3-fold out-of-fold, clip-level, thresholds from held-out folds",
           "artifact": "Pulmonary/lung_finding_classifier_efficientnet_b0_final_best.pth",
           "notes": "Mean over the per-split result files. Recall per finding is not in these files, so the guard metrics the gate wants are absent: a retrained candidate must report them."
+        },
+        {
+          "version": "v4",
+          "stage": "candidate",
+          "created": "2026-08-29T14:06:41+00:00",
+          "dataset": "lung@11075e6a4296",
+          "eval_set": "pulmonary manifest, GroupKFold 3-fold out-of-fold, clip-level, thresholds from held-out folds",
+          "metrics": {
+            "auroc_b_lines": 0.8548,
+            "f1_b_lines": 0.6174,
+            "recall_b_lines": 0.7302,
+            "auroc_consolidation": 0.8121,
+            "f1_consolidation": 0.6711,
+            "recall_consolidation": 0.8333,
+            "auroc_pleural_effusion": 0.6421,
+            "f1_pleural_effusion": 0.2985,
+            "recall_pleural_effusion": 0.4167,
+            "auroc_pleural_thickening": 0.7752,
+            "f1_pleural_thickening": 0.521,
+            "recall_pleural_thickening": 0.6739,
+            "macro_auroc": 0.7711,
+            "macro_f1": 0.527,
+            "macro_recall": 0.6635
+          },
+          "artifact": "C:\\Users\\HUAWEI\\Documents\\POCUS-Project\\outputs\\lung\\run_20260829_144257\\model.pt",
+          "config": {
+            "epochs": 10,
+            "folds": 3,
+            "seed": 42,
+            "frames": 613,
+            "case_groups": 165,
+            "img_size": 224,
+            "seconds": 1416.1
+          },
+          "notes": "longer schedule at full resolution"
+        },
+        {
+          "version": "v5",
+          "stage": "candidate",
+          "created": "2026-08-31T09:34:15+00:00",
+          "dataset": "lung@11075e6a4296",
+          "eval_set": "pulmonary manifest, GroupKFold 3-fold out-of-fold, clip-level, thresholds from held-out folds, checkpoint selected on inner split",
+          "metrics": {
+            "auroc_b_lines": 0.6457,
+            "f1_b_lines": 0.4946,
+            "recall_b_lines": 0.7302,
+            "auroc_consolidation": 0.7864,
+            "f1_consolidation": 0.5409,
+            "recall_consolidation": 0.7167,
+            "auroc_pleural_effusion": 0.6457,
+            "f1_pleural_effusion": 0.2439,
+            "recall_pleural_effusion": 0.625,
+            "auroc_pleural_thickening": 0.6357,
+            "f1_pleural_thickening": 0.442,
+            "recall_pleural_thickening": 0.8696,
+            "macro_auroc": 0.6784,
+            "macro_f1": 0.4303,
+            "macro_recall": 0.7353
+          },
+          "artifact": "C:\\Users\\HUAWEI\\Documents\\POCUS-Project\\outputs\\lung\\run_20260831_102805\\model.pt",
+          "config": {
+            "epochs": 12,
+            "folds": 3,
+            "seed": 42,
+            "frames": 613,
+            "case_groups": 165,
+            "img_size": 192,
+            "seconds": 365.1
+          },
+          "notes": "half the training case groups: the 'before new data' baseline"
+        },
+        {
+          "version": "v6",
+          "stage": "candidate",
+          "created": "2026-08-31T10:02:45+00:00",
+          "dataset": "lung@11075e6a4296",
+          "eval_set": "pulmonary manifest, GroupKFold 3-fold out-of-fold, clip-level, thresholds from held-out folds, checkpoint selected on inner split",
+          "metrics": {
+            "auroc_b_lines": 0.7716,
+            "f1_b_lines": 0.6163,
+            "recall_b_lines": 0.8413,
+            "auroc_consolidation": 0.7816,
+            "f1_consolidation": 0.559,
+            "recall_consolidation": 0.75,
+            "auroc_pleural_effusion": 0.6534,
+            "f1_pleural_effusion": 0.2979,
+            "recall_pleural_effusion": 0.5833,
+            "auroc_pleural_thickening": 0.7145,
+            "f1_pleural_thickening": 0.5286,
+            "recall_pleural_thickening": 0.8043,
+            "macro_auroc": 0.7303,
+            "macro_f1": 0.5004,
+            "macro_recall": 0.7447
+          },
+          "artifact": "C:\\Users\\HUAWEI\\Documents\\POCUS-Project\\outputs\\lung\\run_20260831_105346\\model.pt",
+          "config": {
+            "epochs": 12,
+            "folds": 3,
+            "seed": 42,
+            "frames": 613,
+            "case_groups": 165,
+            "img_size": 192,
+            "seconds": 534.5
+          },
+          "notes": "all training case groups: the 'after new data' model"
         }
       ]
     },

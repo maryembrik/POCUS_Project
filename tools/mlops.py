@@ -340,6 +340,8 @@ def cmd_train(args) -> int:
         cmd += ["--frames", str(args.frames)]
     if args.img_size:
         cmd += ["--img-size", str(args.img_size)]
+    if args.train_frac is not None:
+        cmd += ["--train-frac", str(args.train_frac)]
 
     print(f"[2/5] Training  ({' '.join(cmd[2:])})")
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
@@ -405,6 +407,33 @@ def cmd_gate(args) -> int:
     for c in result["checks"]:
         print(f"  {'PASS' if c['pass'] else 'FAIL'}  {c['check']:<38} {c['detail']}")
     print("\n" + result["note"])
+    return 0 if result["decision"] == "CANDIDATE" else 1
+
+
+def cmd_compare(args) -> int:
+    """Run the gate between two recorded versions, changing nothing.
+
+    `gate` asks whether a candidate may replace what is DEPLOYED. That is the question that
+    matters for release, and it is the wrong question while a pipeline is being established,
+    when the deployed artefact came from somewhere else under a different protocol. Comparing
+    two runs of the same pipeline answers "did this change help?" without anyone having to
+    promote a model to production in order to find out -- which would make the registry claim
+    something false about what patients are seeing.
+    """
+    reg = load_registry()
+    versions = {v["version"]: v for v in reg["models"].get(args.model, {}).get("versions", [])}
+    for name in (args.candidate, args.baseline):
+        if name not in versions:
+            print(f"unknown version {name!r} for {args.model}. "
+                  f"Known: {', '.join(versions) or 'none'}")
+            return 1
+    cand, base = versions[args.candidate], versions[args.baseline]
+    result = gate(args.model, cand, base)
+    print(f"{args.model}  {args.candidate} vs {args.baseline}  ->  "
+          f"{'BETTER' if result['decision'] == 'CANDIDATE' else 'NOT BETTER'}\n")
+    for c in result["checks"]:
+        print(f"  {'PASS' if c['pass'] else 'FAIL'}  {c['check']:<34} {c['detail']}")
+    print("\nNothing was changed. This is a comparison, not a promotion.")
     return 0 if result["decision"] == "CANDIDATE" else 1
 
 
@@ -492,12 +521,21 @@ def main() -> int:
     t.add_argument("--seed", type=int, default=42)
     t.add_argument("--frames", type=int)
     t.add_argument("--img-size", type=int)
+    t.add_argument("--train-frac", type=float,
+                   help="fraction of training case groups; evaluation folds are untouched, "
+                        "so a run at 0.5 and a run at 1.0 are directly comparable")
     t.add_argument("--notes")
     t.set_defaults(fn=cmd_train)
 
     g = sub.add_parser("gate", help="check the latest candidate against production")
     g.add_argument("model")
     g.set_defaults(fn=cmd_gate)
+
+    c = sub.add_parser("compare", help="gate one version against another; changes nothing")
+    c.add_argument("model")
+    c.add_argument("candidate")
+    c.add_argument("baseline")
+    c.set_defaults(fn=cmd_compare)
 
     pr = sub.add_parser("promote", help="human approval; refuses without an approver")
     pr.add_argument("model")

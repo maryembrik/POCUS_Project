@@ -211,22 +211,61 @@ def tune_threshold(y_true, y_prob):
 
 
 def run_fold(tr_idx, te_idx, frames, labels, groups, args, device, log):
-    tr = FrameSet([frames[i] for i in tr_idx], labels[tr_idx], groups[tr_idx],
-                  args.img_size, train=True)
-    te = FrameSet([frames[i] for i in te_idx], labels[te_idx], groups[te_idx],
-                  args.img_size, train=False)
-    dl_tr = DataLoader(tr, batch_size=args.batch_size, shuffle=True, num_workers=0)
-    dl_te = DataLoader(te, batch_size=args.batch_size, shuffle=False, num_workers=0)
+    """Train one fold, with early stopping on an INNER validation split.
+
+    The notebook stops on -- and keeps the best checkpoint by -- AUROC on the fold it then
+    reports. That is model selection on the scored data, and it makes the reported number
+    optimistic by an amount nobody can measure after the fact. Here the stopping signal comes
+    from a slice of the TRAINING folds, held out by case group, so the scored fold is never
+    consulted until it is scored. This costs a point or two against the notebook's figure and
+    is the reason the two are recorded as different evaluation protocols.
+    """
+    rng = np.random.RandomState(args.seed)
+
+    # --train-frac subsamples the training CASE GROUPS, never individual frames: dropping
+    # frames would leave the same patients with thinner coverage, which is not what "less
+    # data" means clinically. This is what makes a data-growth comparison honest -- the
+    # evaluation folds are untouched, so only the training volume differs between runs.
+    tr_groups = np.unique(groups[tr_idx])
+    if args.train_frac < 1.0:
+        keep = set(rng.choice(tr_groups, max(2, int(len(tr_groups) * args.train_frac)),
+                              replace=False))
+        tr_idx = np.array([i for i in tr_idx if groups[i] in keep])
+        tr_groups = np.unique(groups[tr_idx])
+
+    # Inner validation split for early stopping, by group.
+    n_val = max(1, int(len(tr_groups) * 0.2))
+    val_groups = set(rng.choice(tr_groups, n_val, replace=False))
+    inner_val = np.array([i for i in tr_idx if groups[i] in val_groups])
+    inner_tr = np.array([i for i in tr_idx if groups[i] not in val_groups])
+    if len(inner_val) == 0 or len(inner_tr) == 0:
+        inner_tr, inner_val = tr_idx, tr_idx
+
+    def loader(idx, train):
+        return DataLoader(FrameSet([frames[i] for i in idx], labels[idx], groups[idx],
+                                   args.img_size, train=train),
+                          batch_size=args.batch_size, shuffle=train, num_workers=0)
+
+    dl_tr, dl_val, dl_te = loader(inner_tr, True), loader(inner_val, False), loader(te_idx, False)
 
     model = build_model(args.unfreeze, device)
-    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.lr)
-    # Positive weighting: every finding is a minority class, and an unweighted loss on this
-    # data is minimised by predicting "absent" for all four.
-    pos = labels[tr_idx].sum(axis=0).clip(min=1)
-    neg = len(tr_idx) - pos
-    crit = nn.BCEWithLogitsLoss(
-        pos_weight=torch.tensor(neg / pos, dtype=torch.float32, device=device))
+    opt = torch.optim.Adam([p for p in model.parameters() if p.requires_grad],
+                           lr=args.lr, weight_decay=1e-4)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs)
+    pos = labels[inner_tr].sum(axis=0).clip(min=1)
+    crit = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(
+        (len(inner_tr) - pos) / pos, dtype=torch.float32, device=device))
 
+    def predict(dl):
+        model.eval()
+        out, ys = [], []
+        with torch.no_grad():
+            for xb, yb in dl:
+                out.append(torch.sigmoid(model(xb.to(device))).cpu().numpy())
+                ys.append(yb.numpy())
+        return np.vstack(out), np.vstack(ys)
+
+    best_auroc, best_state, stale = -1.0, None, 0
     for ep in range(args.epochs):
         model.train()
         total = 0.0
@@ -237,15 +276,27 @@ def run_fold(tr_idx, te_idx, frames, labels, groups, args, device, log):
             loss.backward()
             opt.step()
             total += loss.item() * len(xb)
-        log(f"      epoch {ep + 1}/{args.epochs}  train loss {total / len(tr):.4f}")
+        sched.step()
 
-    model.eval()
-    probs, trues = [], []
-    with torch.no_grad():
-        for xb, yb in dl_te:
-            probs.append(torch.sigmoid(model(xb.to(device))).cpu().numpy())
-            trues.append(yb.numpy())
-    return np.vstack(probs), np.vstack(trues), model
+        vp, vy = predict(dl_val)
+        aurocs = [roc_auc_score(vy[:, i], vp[:, i]) for i in range(len(SHORT))
+                  if len(np.unique(vy[:, i])) > 1]
+        val_auroc = float(np.mean(aurocs)) if aurocs else 0.0
+        log(f"      epoch {ep + 1}/{args.epochs}  train loss {total / len(inner_tr):.4f}  "
+            f"inner-val AUROC {val_auroc:.3f}")
+        if val_auroc > best_auroc:
+            best_auroc, stale = val_auroc, 0
+            best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+        else:
+            stale += 1
+            if stale >= args.patience:
+                log(f"      early stop: no inner-val improvement for {args.patience} epochs")
+                break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    probs, trues = predict(dl_te)
+    return probs, trues, model
 
 
 def main() -> int:
@@ -257,6 +308,11 @@ def main() -> int:
     p.add_argument("--img-size", type=int, default=224)
     p.add_argument("--unfreeze", type=int, default=3, help="backbone blocks to fine-tune")
     p.add_argument("--lr", type=float, default=3e-4)
+    p.add_argument("--patience", type=int, default=3,
+                   help="epochs without inner-val improvement before stopping")
+    p.add_argument("--train-frac", type=float, default=1.0,
+                   help="fraction of training CASE GROUPS to use; evaluation folds are "
+                        "untouched, so runs remain comparable")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--dataset-version", default=None)
     p.add_argument("--out", default=None)
@@ -342,12 +398,13 @@ def main() -> int:
         # scored differently are two facts, not an improvement, and the gate can only know
         # that if the description is precise enough to differ when the protocol differs.
         "eval_set": f"pulmonary manifest, GroupKFold {n_folds}-fold out-of-fold, clip-level, "
-                    f"thresholds from held-out folds",
+                    f"thresholds from held-out folds, checkpoint selected on inner split",
         "frames": len(frames), "clips": int(len(set(clips))),
         "case_groups": int(len(set(groups))),
         "epochs": args.epochs, "folds": n_folds, "batch_size": args.batch_size,
         "img_size": args.img_size, "unfreeze_last_n": args.unfreeze, "lr": args.lr,
         "seed": args.seed, "device": str(device),
+        "patience": args.patience, "train_frac": args.train_frac,
         "thresholds": thresholds,
         "seconds": round(time.time() - t0, 1),
         "finished": datetime.now(timezone.utc).isoformat(timespec="seconds"),

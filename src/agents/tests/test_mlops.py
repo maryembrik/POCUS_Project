@@ -148,6 +148,31 @@ def test_thresholds_are_not_tuned_on_the_fold_being_scored():
 
 
 @prop(GATE)
+def test_the_checkpoint_is_selected_without_looking_at_the_scored_fold():
+    """The notebook stops on, and keeps the best checkpoint by, AUROC on the fold it then
+    reports. That is model selection on the scored data, and it inflates the reported figure
+    by an amount nobody can recover afterwards. The stopping signal here comes from a slice of
+    the TRAINING folds, held out by case group.
+    """
+    src = (ROOT / "src" / "lung" / "train.py").read_text(encoding="utf8")
+    assert "inner_val" in src and "val_groups" in src
+    # The early-stopping signal must be computed on the inner split, not the test loader.
+    assert "vp, vy = predict(dl_val)" in src
+    assert "predict(dl_te)" in src
+    assert "best_auroc" in src and "dl_te" not in src[src.index("best_auroc, best_state"):
+                                                      src.index("if best_state is not None")]
+
+
+@prop(GATE)
+def test_less_training_data_is_expressed_as_fewer_CASE_GROUPS():
+    """Dropping frames would leave the same patients with thinner coverage, which is not what
+    less data means clinically, and would not model new patients arriving."""
+    src = (ROOT / "src" / "lung" / "train.py").read_text(encoding="utf8")
+    assert "tr_groups = np.unique(groups[tr_idx])" in src
+    assert "args.train_frac" in src
+
+
+@prop(GATE)
 def test_the_model_is_scored_the_way_the_agent_reads_a_study():
     """Clip level, not frame level.
 
