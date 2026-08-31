@@ -410,6 +410,81 @@ def cmd_gate(args) -> int:
     return 0 if result["decision"] == "CANDIDATE" else 1
 
 
+PROTOCOL = ROOT / "models" / "mlops_protocol.json"
+
+
+def protocol() -> dict[str, Any]:
+    """The experimental protocol, read out of the code that enforces it.
+
+    Frozen so that later results are judged by the rules that existed before them. A threshold
+    revised after seeing the result it decides is not a threshold; it is a description of the
+    result. The pleural-effusion guard is the live example: one clip is 4.2 recall points on 24
+    positives, so the 2-point tolerance is finer than the data can resolve -- a real argument
+    for making it support-aware, and exactly the argument that must not be settled by the run
+    that happens to fail on it.
+
+    Generated rather than written by hand, so it cannot describe a system that no longer
+    exists; a test compares this file against the code and fails when they drift, which forces
+    a change of rules to be a deliberate, reviewed act rather than an edit.
+    """
+    import hashlib as _h
+
+    body = {
+        "frozen": "the rules below judge every later run; changing one requires re-freezing",
+        "gate_rules": RULES,
+        "dataset_versioning": {
+            "method": "sha256 of the manifest bytes, truncated to 12 hex characters",
+            "rationale": ("the manifest is the list of rows actually used, so the hash changes "
+                          "exactly when the training data changes; the media itself is tens of "
+                          "gigabytes and not redistributable, so DVC without a remote would "
+                          "add a tool without adding reproducibility"),
+            "manifests": DATASETS,
+            "current": {m: dataset_version(m)["version"] for m in DATASETS},
+        },
+        "evaluation_protocol": {
+            "lung": ("GroupKFold over case groups, pooled out-of-fold predictions, scored at "
+                     "CLIP level because the deployed agent emits one finding set per clip; "
+                     "per-fold thresholds fitted on the other folds' held-out predictions; "
+                     "checkpoint selected on an inner validation split held out by case group "
+                     "from the training folds, never on the fold being scored"),
+            "triage": "held-out test split of triage_combined_tier_core (16,180 rows)",
+        },
+        "versioning": ("v1, v2, ... per model; names are never reused, retired names are "
+                       "carried across re-seeds, and an explicit --version that collides is "
+                       "refused"),
+        "approval": ("train and gate stop at CANDIDATE; promote refuses without a named "
+                     "approver and records who decided; --override is recorded in the entry"),
+        "benchmark": {
+            "lung": "manifests/pulmonary_manifest.csv, 187 usable clips, 165 case groups",
+            "triage": "manifests/triage_combined_tier_core.csv, 164,700 rows",
+        },
+    }
+    body["fingerprint"] = _h.sha256(
+        json.dumps(body, sort_keys=True).encode()).hexdigest()[:16]
+    return body
+
+
+def cmd_freeze(args) -> int:
+    current = protocol()
+    if PROTOCOL.exists():
+        old = json.loads(PROTOCOL.read_text(encoding="utf8"))
+        if old.get("fingerprint") == current["fingerprint"]:
+            print(f"unchanged  ({current['fingerprint']})")
+            return 0
+        if not args.reason:
+            print("REFUSED: the protocol has changed and --reason is required.\n"
+                  "Rules are frozen so that later results are judged by rules that existed "
+                  "before them. Say what changed and why, and it is recorded.")
+            return 1
+        current["previous_fingerprint"] = old.get("fingerprint")
+        current["changed_because"] = args.reason
+        current["changed_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    PROTOCOL.write_text(json.dumps(current, indent=2, ensure_ascii=False) + "\n",
+                        encoding="utf8")
+    print(f"froze {PROTOCOL.relative_to(ROOT)}  ({current['fingerprint']})")
+    return 0
+
+
 def cmd_compare(args) -> int:
     """Run the gate between two recorded versions, changing nothing.
 
@@ -530,6 +605,10 @@ def main() -> int:
     g = sub.add_parser("gate", help="check the latest candidate against production")
     g.add_argument("model")
     g.set_defaults(fn=cmd_gate)
+
+    fz = sub.add_parser("freeze", help="snapshot the protocol the gate enforces")
+    fz.add_argument("--reason", help="required when the protocol has changed")
+    fz.set_defaults(fn=cmd_freeze)
 
     c = sub.add_parser("compare", help="gate one version against another; changes nothing")
     c.add_argument("model")

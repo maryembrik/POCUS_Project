@@ -1,0 +1,88 @@
+{
+  "frozen": "the rules below judge every later run; changing one requires re-freezing",
+  "gate_rules": {
+    "lung": {
+      "key": "macro_f1",
+      "tolerance": 0.0,
+      "guard": [
+        "recall_b_lines",
+        "recall_consolidation",
+        "recall_pleural_effusion"
+      ],
+      "guard_tolerance": 0.02,
+      "floor": {
+        "macro_f1": 0.45
+      }
+    },
+    "cardiac": {
+      "key": "mae_ef",
+      "lower_is_better": true,
+      "tolerance": 0.0,
+      "guard": [
+        "recall_severe_dysfunction"
+      ],
+      "guard_tolerance": 0.02,
+      "floor": {}
+    },
+    "gallbladder": {
+      "key": "accuracy",
+      "tolerance": 0.0,
+      "guard": [
+        "recall_carcinoma",
+        "recall_cholecystitis"
+      ],
+      "guard_tolerance": 0.02,
+      "floor": {}
+    },
+    "triage": {
+      "key": "macro_f1",
+      "tolerance": 0.0,
+      "guard": [
+        "recall_high"
+      ],
+      "guard_tolerance": 0.01,
+      "floor": {
+        "accuracy": 0.6
+      },
+      "calibration": [
+        "ece",
+        0.1
+      ]
+    }
+  },
+  "dataset_versioning": {
+    "method": "sha256 of the manifest bytes, truncated to 12 hex characters",
+    "rationale": "the manifest is the list of rows actually used, so the hash changes exactly when the training data changes; the media itself is tens of gigabytes and not redistributable, so DVC without a remote would add a tool without adding reproducibility",
+    "manifests": {
+      "lung": [
+        "manifests/pulmonary_manifest.csv"
+      ],
+      "cardiac": [
+        "manifests/cardiac_manifest.csv"
+      ],
+      "gallbladder": [
+        "manifests/gallbladder_manifest.csv"
+      ],
+      "triage": [
+        "manifests/triage_combined_tier_core.csv"
+      ]
+    },
+    "current": {
+      "lung": "lung@11075e6a4296",
+      "cardiac": "cardiac@47b4d1a7ecb3",
+      "gallbladder": "gallbladder@1241e9f93928",
+      "triage": "triage@9adc24de812b"
+    }
+  },
+  "evaluation_protocol": {
+    "lung": "GroupKFold over case groups, pooled out-of-fold predictions, scored at CLIP level because the deployed agent emits one finding set per clip; per-fold thresholds fitted on the other folds' held-out predictions; checkpoint selected on an inner validation split held out by case group from the training folds, never on the fold being scored",
+    "triage": "held-out test split of triage_combined_tier_core (16,180 rows)"
+  },
+  "versioning": "v1, v2, ... per model; names are never reused, retired names are carried across re-seeds, and an explicit --version that collides is refused",
+  "approval": "train and gate stop at CANDIDATE; promote refuses without a named approver and records who decided; --override is recorded in the entry",
+  "benchmark": {
+    "lung": "manifests/pulmonary_manifest.csv, 187 usable clips, 165 case groups",
+    "triage": "manifests/triage_combined_tier_core.csv, 164,700 rows"
+  },
+  "fingerprint": "f9fbcf50efa70b00"
+}

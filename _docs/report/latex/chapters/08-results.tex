@@ -261,6 +261,84 @@ rejected: enumerated evidence was retained on measurement, a second correction r
 tested and reverted after it produced no change for a third more runtime, and the sharpened
 complaint wording was retained only because it cost nothing, not because it was shown to work.
 
+\subsection{Validating the Promotion Gate}
+\label{subsec:results-mlops}
+
+The gate described in Section~\ref{subsec:mlops} was exercised on real retraining runs rather
+than on constructed metrics. The experiment isolates the variable the mechanism exists to
+handle: two runs differ only in how much training data they were given, and the evaluation
+folds are identical, so the comparison is like for like. Training volume is reduced by
+dropping training \emph{case groups} rather than frames, because removing frames would leave
+the same patients with thinner coverage, which is not what a smaller cohort means clinically.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Identical evaluation folds; only the quantity of training data differs. The
+  candidate improves on aggregate performance and on two of three guarded findings.}
+  \label{tab:mlops-ab}
+  \begin{tabular}{@{}lrrrl@{}}
+    \toprule
+    Metric & Half data & Full data & Change & Gate \
+    \midrule
+    Macro-F1                  & 0.4303 & 0.5004 & $+0.0701$ & pass \
+    Recall, B-lines           & 0.7302 & 0.8413 & $+0.1111$ & pass \
+    Recall, consolidation     & 0.7167 & 0.7500 & $+0.0333$ & pass \
+    Recall, pleural effusion  & 0.6250 & 0.5833 & $-0.0417$ & \textbf{fail} \
+    \midrule
+    \multicolumn{4}{@{}l}{Decision} & \textbf{rejected} \
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Doubling the training data raised macro-F1 by seven points and recall on the commonest finding
+by eleven, and lowered recall on the rarest one. A gate that compared headline performance
+would have accepted this candidate and deployed a model that misses more pleural effusions
+than the one it replaced. This is the failure mode the guarded metrics exist for, and it
+arose from a routine change in training data rather than from an adversarial example.
+
+The correct statement of the result is that the full-data model is better on aggregate
+performance and \emph{not eligible for promotion under the stated criteria} --- not that it is
+a better model. The distinction is the entire contribution of the mechanism.
+
+Four further candidates were rejected during the same work: one whose evaluation protocol
+differed from the incumbent's and was therefore not comparable, one that fell below the
+macro-F1 floor, and two whose headline metric regressed. No candidate was accepted. The
+guard tolerance was not relaxed to produce one, because a threshold revised after seeing the
+result it decides is a description of that result rather than a criterion.
+
+\subsubsection{A limitation the experiment exposes}
+
+Pleural effusion has 24 positive clips in the evaluation cohort, so a single clip changing
+class is approximately 4.2 percentage points of recall --- and the observed $-0.0417$ is one
+clip. The guard tolerance of two points is therefore finer than the data can resolve, and the
+gate cannot distinguish a real regression on this finding from sampling noise.
+
+This argues for making the tolerance sensitive to class support, or for a larger case-grouped
+evaluation cohort, and it argues against relaxing the threshold on the evidence of the run
+that failed it. It is recorded here rather than acted on for that reason.
+
+\subsubsection{Optimistic bias in the original lung figure}
+
+Extracting the training pipeline from the notebook surfaced a methodological problem in the
+original evaluation. The notebook applies early stopping and retains the best checkpoint by
+AUROC measured on the cross-validation fold that it then reports as held-out performance.
+Model selection and performance reporting therefore use the same data, which biases the
+reported figure upwards by an amount that cannot be recovered after the fact.
+
+This is not label leakage in the formal sense --- no training example carries a test label ---
+and it should be described precisely as \emph{optimistic bias from checkpoint selection on the
+reported evaluation fold}. Its practical effect is that the macro-F1 of 0.5475 quoted for the
+lung model in Section~\ref{subsec:perception-lung} is not directly comparable with figures
+produced by a protocol that holds the scored fold aside.
+
+The extracted pipeline takes its stopping signal from an inner validation split held out by
+case group from the training folds, so the scored fold is not consulted until it is scored.
+This is stricter, produces lower numbers, and is the protocol under which all subsequent
+candidates are evaluated. The two protocols are recorded as distinct, and the gate's
+same-evaluation-set check refuses to compare across them --- which is how the difference was
+detected in the first place.
+
 \subsection{Strengths}
 \label{subsec:results-strengths}
 
@@ -284,7 +362,7 @@ claiming an assessment occurred while recording nothing about it is rejected.
 
 \paragraph{Safety decisions independent of the language model.} Escalation is computed from
 the structured state before the model is consulted and is unchanged by anything the model
-does. This is demonstrated rather than asserted: 236 tests exercise the safety layer with no
+does. This is demonstrated rather than asserted: 281 tests exercise the safety layer with no
 model present, and the decision was verified identical across three different backends
 including one that fails.
 

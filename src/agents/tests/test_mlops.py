@@ -201,6 +201,26 @@ def test_training_never_promotes_its_own_output():
 
 
 @prop(GATE)
+def test_the_frozen_protocol_still_describes_the_code_that_enforces_it():
+    """The rules are frozen so that later results are judged by rules that existed before them.
+
+    A threshold revised after seeing the result it decides is not a threshold; it is a
+    description of the result. This fails the moment the gate's rules, the hashing method or
+    the evaluation protocol drift from the snapshot -- which makes changing them a deliberate,
+    reviewed act (`mlops.py freeze --reason ...`) rather than an edit nobody notices.
+    """
+    import json
+
+    from mlops import PROTOCOL, protocol  # noqa: PLC0415
+
+    assert PROTOCOL.exists(), "run: python tools/mlops.py freeze"
+    frozen = json.loads(PROTOCOL.read_text(encoding="utf8"))
+    assert frozen["fingerprint"] == protocol()["fingerprint"], (
+        "the MLOps protocol has changed since it was frozen. If that was deliberate, run "
+        "`python tools/mlops.py freeze --reason \"...\"` so the change is recorded.")
+
+
+@prop(GATE)
 def test_the_dataset_version_changes_with_the_data():
     """The version has to be derived from content. A name someone types is a label, not a
     record of which rows produced the model."""

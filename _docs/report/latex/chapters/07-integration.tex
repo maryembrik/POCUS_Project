@@ -69,7 +69,7 @@ stating, because they were what made the rest of this project tractable:
 \begin{enumerate}
   \item \textbf{Each agent is independently testable.} The reasoning agent can be exercised
         against a hand-written bundle with no imaging model present at all, which is how all
-        236 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
+        281 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
         no model weights.
   \item \textbf{Each decision is reproducible after the fact.} The bundle that produced a given
         output is on disk. A decision can be re-examined months later against exactly the inputs
@@ -360,3 +360,120 @@ a clinician needs first; the differential and its reasoning arrive up to two min
 are what they would read while waiting. The architecture already separates these two paths for
 safety reasons, and the timing measurements suggest the same separation is right for
 interaction as well.
+
+\subsection{A Controlled Path for Future Model Updates}
+\label{subsec:mlops}
+
+The datasets behind the perception models do not cover the whole clinical scope this system is
+intended for. That is ordinary for medical imaging work at this scale, and it has a
+consequence for the architecture rather than only for the results: a system whose models are
+expected to improve later needs a defined mechanism for improving them, or the first
+contribution of new validated data becomes an ad-hoc retraining whose provenance nobody can
+reconstruct.
+
+What is implemented is deliberately small. New validated data updates a dataset manifest; the
+manifest is content-hashed into a dataset version; a training command consumes that version
+and writes its own metrics; the run is registered as a \emph{candidate}; and an automated gate
+decides whether the candidate may be offered for approval. A person then promotes it, or does
+not. Figure~\ref{fig:mlops} shows the cycle.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}{0.62\textwidth}
+  \small\ttfamily
+  \begin{verbatim}
+          new validated data
+                  |
+          dataset manifest + content hash
+                  |
+          reproducible training
+                  |
+          evaluation (fixed protocol)
+                  |
+          register candidate  --> MLflow
+                  |
+              safety gate
+              /         \
+           FAIL         PASS
+            |             |
+          reject      candidate
+                          |
+                   human approval
+                          |
+                     production
+  \end{verbatim}
+  \end{minipage}
+  \caption{The model-update lifecycle. No path leads from contributed data to a deployed
+  model without a person in it.}
+  \label{fig:mlops}
+\end{figure}
+
+\subsubsection{Dataset Versioning}
+
+A dataset version is the SHA-256 of the manifest bytes, truncated for readability
+(\texttt{lung@11075e6a4296}). The manifest is the list of rows actually used, so the hash
+changes exactly when the training data changes, and every registered model records the version
+it was trained on.
+
+DVC was considered and not adopted. The media is tens of gigabytes, is already untracked, and
+is not redistributable under the source licences; DVC without a storage backend would have
+added a tool without adding reproducibility. Hashing the manifest gives the property that
+matters --- which rows produced which model --- and \texttt{dvc add} on the manifests slots in
+underneath the same design if a suitable backend becomes available.
+
+\subsubsection{Experiment Tracking and the Model Registry}
+
+Runs are logged to MLflow, backed by SQLite so that no server is required. The registry itself
+is a JSON file recording, per model version: the stage (\emph{candidate}, \emph{production},
+\emph{archived}), the dataset version, the evaluation set, the metrics, the artifact path, the
+training configuration, and --- once promoted --- who approved it and when.
+
+MLflow is optional by construction. A tracking backend that is missing or misconfigured is
+reported and stepped over rather than raised, because a completed training run must not be
+lost to a logging failure. Version names are never reused: the counter only advances, retired
+names are carried across re-seeds of the registry, and an explicit name that collides is
+refused. This was added after MLflow, which is an append-only log and was right to keep both,
+came to hold two different runs called \texttt{v3}.
+
+\subsubsection{The Promotion Gate}
+
+\emph{Is the new model better?} is the wrong question for an emergency system, because a model
+can gain aggregate accuracy by classifying easy cases better while missing more of the patients
+who are actually ill. The gate therefore checks what a single headline number hides:
+
+\begin{itemize}
+  \item the headline metric, which may not regress;
+  \item \textbf{guarded metrics} --- recall on the findings where a miss is dangerous ---
+        which may fall by at most a stated tolerance;
+  \item absolute floors;
+  \item calibration, because the reasoning layer escalates on low confidence, so a model whose
+        stated confidence stops meaning anything breaks the escalation logic while appearing
+        to classify better;
+  \item that the candidate was scored on the \textbf{same evaluation set} as the incumbent,
+        since two numbers from two protocols are two facts rather than an improvement;
+  \item that the dataset version is recorded, because a model that cannot be reproduced cannot
+        be withdrawn and rebuilt when something is found wrong.
+\end{itemize}
+
+A missing guard metric fails rather than passes. A candidate that does not report its
+dangerous-miss rate has not shown that it did not regress, and silence must not read as
+success --- the same rule the clinical state applies to an unmeasured laboratory value.
+
+Two commands ask two different questions. \texttt{gate} asks whether a candidate may replace
+what is deployed. \texttt{compare} asks whether one run improved on another, and changes
+nothing; it exists so that establishing a pipeline does not require promoting a model to
+production in order to measure it, which would make the registry state something false about
+what a clinician is seeing.
+
+\subsubsection{Human Approval}
+
+Training and gating stop at \emph{candidate}. Promotion requires a named approver and records
+the name, the reason and the time; without one it is refused. A test asserts that the training
+command cannot write a production stage, call the promotion path, or set an approver, so the
+dangerous version of this design --- contributed data reaching deployed models unattended ---
+is not reachable by accident rather than merely discouraged by convention.
+
+The protocol above is frozen in \texttt{models/mlops\_protocol.json} and compared against the
+enforcing code by a test. Changing a threshold requires re-freezing with a recorded reason,
+because a threshold revised after seeing the result it decides is not a threshold; it is a
+description of the result.
