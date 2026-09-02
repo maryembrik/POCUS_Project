@@ -80,13 +80,15 @@ for m in re.finditer(r'\\(?:page)?ref\{([^}]+)\}', strip_comments(allsrc)):
 # each logo, which produced four "problems" for two images that are simply optional -- and a
 # checker that cries wolf stops being read, which costs more than the check is worth.
 searchdirs = [ROOT, ROOT / 'figures', ROOT / 'logos']
-src = strip_comments(allsrc)
+# Not `src`: that name holds the {path: text} mapping the later checks read from, and
+# rebinding it here silently broke them.
+flat = strip_comments(allsrc)
 
 guarded: set[str] = set()
-for m in re.finditer(r'\\IfFileExists\{([^}]+)\}', src):
+for m in re.finditer(r'\\IfFileExists\{([^}]+)\}', flat):
     guarded.add(Path(m.group(1)).name)
 
-for m in re.finditer(r'\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}', src):
+for m in re.finditer(r'\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}', flat):
     f = m.group(1)
     if any((d / f).exists() for d in searchdirs):
         continue
@@ -101,6 +103,42 @@ for stem in sorted({Path(g).stem for g in guarded}):
                for d in searchdirs for ext in ('.png', '.jpg', '.jpeg', '.pdf')):
         notes.append(f'optional image {stem}.* not present '
                      f'(the document still compiles; the slot shows a placeholder)')
+
+# ---------------------------------------------------------------- table rows ------------
+# The first real compile died on rows ending in ONE backslash instead of two -- a row break
+# that an editing script had eaten. TeX reports it far from the cause ("Misplaced \\noalign"),
+# and the brace check cannot see it because the braces are balanced. Cheap to detect here.
+BS = chr(92)
+for p, text in src.items():
+    depth = 0
+    for i, line in enumerate(text.split('\n'), 1):
+        if re.search(r'\\begin\{tabular', line):
+            depth += 1
+        if re.search(r'\\end\{tabular', line):
+            depth -= 1
+        if depth <= 0:
+            continue
+        body = strip_comments(line).rstrip()
+        if not body or body.endswith(BS * 2):
+            continue
+        n = len(body) - len(body.rstrip(BS))
+        if n == 1:
+            problems.append(f'{p.name}:{i}: table row ends in one backslash, '
+                            f'expected two ({body.strip()[:46]}...)')
+
+# ---------------------------------------------------------------- tikz key clashes ------
+# A style named after a built-in TikZ key is read as that key. `out/.style` made the whole
+# reasoning figure fail with "The key '/tikz/out' requires a value", which names the symptom
+# and not the cause. These are the built-ins a diagram is most likely to shadow by accident.
+RESERVED = {'in', 'out', 'at', 'above', 'below', 'left', 'right', 'anchor', 'name', 'scale',
+            'shift', 'rotate', 'label', 'pos', 'draw', 'fill', 'text', 'node', 'to', 'edge',
+            'gate', 'sloped', 'midway', 'near start', 'near end'}
+for p, text in src.items():
+    for m in re.finditer(r'(\w[\w ]*)/\.style\s*=', strip_comments(text)):
+        name = m.group(1).strip()
+        if name in RESERVED:
+            problems.append(f'{p.name}: tikz style "{name}" shadows a built-in TikZ key '
+                            f'-- rename it (e.g. "{name}box")')
 
 # ---------------------------------------------------------------- report ---------------
 print('files:', ', '.join(p.name for p in tex))

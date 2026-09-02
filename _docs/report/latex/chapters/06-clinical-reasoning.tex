@@ -203,7 +203,9 @@ output.
       state/.style = {box, fill=black!8, align=left, text width=58mm},
       safe/.style  = {box, fill=black!12, very thick, align=center, text width=40mm},
       gen/.style   = {box, align=center, text width=40mm},
-      out/.style   = {box, align=center, text width=38mm},
+      % Not `out`: that is a built-in TikZ key (the outgoing angle of a `to` path), so a
+      % style of the same name is read as that key with no value and the picture dies.
+      outbox/.style = {box, align=center, text width=38mm},
       ar/.style    = {-{Latex[length=2mm]}, thick},
     ]
 
@@ -246,7 +248,7 @@ output.
       {one correction\\ request, once} (llm.east);
 
     % ---- output -----------------------------------------------------------------
-    \node[out, below=16mm of val] (final) {%
+    \node[outbox, below=16mm of val] (final) {%
       \textbf{Output}\\ differential \emph{or} withheld\\ + escalation flag};
 
     \draw[ar] (val.south) -- node[right=1mm, font=\tiny, align=left]
