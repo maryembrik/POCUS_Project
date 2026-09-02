@@ -46,8 +46,15 @@ performed by the author, with periodic supervision and review.
 The technical environment reflects that scope. Development was carried out in Python,
 using PyTorch for the imaging models and scikit-learn together with XGBoost for the
 structured-data model. Training was performed on Google Colab GPU instances, with local
-execution reserved for data preparation, analysis and inference. \rmq{State the supervision
-arrangement: frequency of meetings, review format, and any clinical input received.}
+execution reserved for data preparation, analysis and inference.
+
+Supervision took the form of a fixed weekly meeting each Monday, held on site or online as
+circumstances required, at which the previous week's work was reviewed and the next week's
+priorities agreed. A weekly cadence suited the constraint described below: with GPU time
+intermittent, a training run committed on a Monday had to be worth the week it occupied, and
+the meeting was where that judgement was made. Several of the rejections reported in
+Chapter~\ref{sec:results} were decided at one --- the value of a fixed review point being
+that a negative result is discussed rather than quietly retried.
 
 The intermittent availability of GPU hardware was a genuine constraint on the experimental
 programme rather than an incidental inconvenience. It limited the number of training runs
