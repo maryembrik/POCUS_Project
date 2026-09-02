@@ -39,13 +39,21 @@
 \begin{titlepage}
   \begin{center}
 
+    % Either extension is accepted, so the file that was actually downloaded works without
+    % anyone having to convert it. Note the name: this must be the ESPRIT mark (the one
+    % reading "Se former autrement"), NOT ESPRIM -- the Ecole Superieure Privee d'Ingenieurs
+    % de Monastir, whose wordmark is nearly identical and is a different institution.
     \IfFileExists{logos/esprit.png}
       {\includegraphics[width=0.28\textwidth]{esprit.png}}
-      {\rmq{[ add the school logo as logos/esprit.png ]}}
+      {\IfFileExists{logos/esprit.jpg}
+        {\includegraphics[width=0.28\textwidth]{esprit.jpg}}
+        {\rmq{[ add the ESPRIT logo as logos/esprit.png or logos/esprit.jpg ]}}}
     \hfill
     \IfFileExists{logos/host.png}
       {\includegraphics[width=0.22\textwidth]{host.png}}
-      {}
+      {\IfFileExists{logos/host.jpg}
+        {\includegraphics[width=0.22\textwidth]{host.jpg}}
+        {}}
 
     \vspace{1.2cm}
     \noindent\rule{\textwidth}{1.2pt}

@@ -13,6 +13,7 @@ src = {p: p.read_text(encoding='utf8') for p in tex}
 allsrc = '\n'.join(src.values())
 
 problems = []
+notes = []
 
 
 def strip_comments(s):
@@ -74,11 +75,32 @@ for m in re.finditer(r'\\(?:page)?ref\{([^}]+)\}', strip_comments(allsrc)):
         problems.append(f'\\ref{{{m.group(1)}}} has no matching \\label')
 
 # ---------------------------------------------------------------- graphics -------------
+# An \includegraphics inside \IfFileExists is a BRANCH: exactly one of the alternatives is
+# compiled, so reporting every missing one is noise. The title page offers .png and .jpg for
+# each logo, which produced four "problems" for two images that are simply optional -- and a
+# checker that cries wolf stops being read, which costs more than the check is worth.
 searchdirs = [ROOT, ROOT / 'figures', ROOT / 'logos']
-for m in re.finditer(r'\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}', strip_comments(allsrc)):
+src = strip_comments(allsrc)
+
+guarded: set[str] = set()
+for m in re.finditer(r'\\IfFileExists\{([^}]+)\}', src):
+    guarded.add(Path(m.group(1)).name)
+
+for m in re.finditer(r'\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}', src):
     f = m.group(1)
-    if not any((d / f).exists() for d in searchdirs):
-        problems.append(f'\\includegraphics{{{f}}} -> not found in figures/ or logos/')
+    if any((d / f).exists() for d in searchdirs):
+        continue
+    if Path(f).name in guarded:
+        continue          # a guarded alternative; its absence is handled in the document
+    problems.append(f'\\includegraphics{{{f}}} -> not found in figures/ or logos/')
+
+# Report the guarded images once, as information rather than as a problem: the document
+# compiles without them, but the title page will carry a red placeholder where a logo goes.
+for stem in sorted({Path(g).stem for g in guarded}):
+    if not any((d / f'{stem}{ext}').exists()
+               for d in searchdirs for ext in ('.png', '.jpg', '.jpeg', '.pdf')):
+        notes.append(f'optional image {stem}.* not present '
+                     f'(the document still compiles; the slot shows a placeholder)')
 
 # ---------------------------------------------------------------- report ---------------
 print('files:', ', '.join(p.name for p in tex))
@@ -88,6 +110,10 @@ if unused:
     print('bib entries not yet cited (fine, they are for later chapters):',
           ', '.join(unused))
 print()
+for n in notes:
+    print('note:', n)
+if notes:
+    print()
 if problems:
     print(f'{len(problems)} PROBLEM(S):')
     for x in problems:

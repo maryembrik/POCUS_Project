@@ -379,32 +379,54 @@ not. Figure~\ref{fig:mlops} shows the cycle.
 
 \begin{figure}[H]
   \centering
-  \begin{minipage}{0.62\textwidth}
-  \small\ttfamily
-  \begin{verbatim}
-          new validated data
-                  |
-          dataset manifest + content hash
-                  |
-          reproducible training
-                  |
-          evaluation (fixed protocol)
-                  |
-          register candidate  --> MLflow
-                  |
-              safety gate
-              /         \
-           FAIL         PASS
-            |             |
-          reject      candidate
-                          |
-                   human approval
-                          |
-                     production
-  \end{verbatim}
-  \end{minipage}
-  \caption{The model-update lifecycle. No path leads from contributed data to a deployed
-  model without a person in it.}
+  \begin{tikzpicture}[
+      node distance = 6mm,
+      font = \small,
+      box/.style    = {draw, rounded corners=2pt, align=center, inner sep=4pt,
+                       minimum height=7mm, text width=42mm},
+      data/.style   = {box, fill=black!4},
+      run/.style    = {box, fill=black!8},
+      gateb/.style  = {box, fill=black!12, very thick, text width=46mm},
+      human/.style  = {box, fill=black!12, very thick, text width=42mm},
+      term/.style   = {box, text width=26mm},
+      side/.style   = {box, dashed, fill=none, text width=30mm},
+      ar/.style     = {-{Latex[length=2mm]}, thick},
+      lbl/.style    = {font=\scriptsize\itshape, inner sep=1pt},
+    ]
+
+    \node[data] (new) {new validated data};
+    \node[data, below=of new] (ver) {dataset manifest\\ \texttt{lung@11075e6a4296}};
+    \node[run,  below=of ver] (train) {reproducible training};
+    \node[run,  below=of train] (eval) {evaluation\\ \emph{fixed protocol}};
+    \node[run,  below=of eval] (reg) {register \textbf{candidate}};
+    \node[gateb, below=of reg] (gate) {\textbf{promotion gate}\\
+      headline $\cdot$ guarded recall\\ floors $\cdot$ calibration\\
+      same eval set $\cdot$ dataset recorded};
+
+    \draw[ar] (new) -- (ver);
+    \draw[ar] (ver) -- (train);
+    \draw[ar] (train) -- (eval);
+    \draw[ar] (eval) -- (reg);
+    \draw[ar] (reg) -- (gate);
+
+    % MLflow sits beside the flow: it records, it does not decide.
+    \node[side, right=10mm of reg] (mlf) {MLflow\\ \scriptsize experiment tracking};
+    \draw[ar, dashed] (reg) -- (mlf);
+
+    % The two outcomes.
+    \node[term, below left=10mm and 2mm of gate] (rej) {\textbf{rejected}};
+    \node[human, below right=10mm and 2mm of gate] (appr) {\textbf{human approval}\\
+      \scriptsize named approver, recorded};
+    \draw[ar] (gate.south) -| node[lbl, pos=0.25, above] {fail} (rej.north);
+    \draw[ar] (gate.south) -| node[lbl, pos=0.25, above] {pass} (appr.north);
+
+    \node[term, below=of appr] (prod) {\textbf{production}};
+    \draw[ar] (appr) -- (prod);
+
+  \end{tikzpicture}
+  \caption{The model-update lifecycle. The gate decides only whether a candidate may be
+  \emph{offered}; no path leads from contributed data to a deployed model without a named
+  person approving it. MLflow records runs and takes no part in the decision.}
   \label{fig:mlops}
 \end{figure}
 
