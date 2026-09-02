@@ -49,8 +49,26 @@ Four datasets were used, one per module. Tab.~\ref{tab:datasets} gives their com
   \label{tab:datasets}
 \end{table}
 
-\rmq{Add a licence column, or a sentence per dataset stating the licence and conditions of
-use. Required for a public release of the report and easy to overlook.}
+All four sources are publicly available and were obtained free of charge for academic
+research. Their terms are not uniform, and the differences shaped how the project stores data.
+
+The lung dataset \cite{born2021pocus} is a collection of contributions rather than a single
+release, and the licence varies by contributing source: material from Neuruppin is CC~BY~4.0,
+material from Northumbria is CC~BY--NC~4.0, and some items the original study used could not
+be redistributed in its own repository at all. The cardiac dataset (CAMUS
+\cite{leclerc2019camus}) and the gallbladder dataset (UIdataGB, Mendeley Data) are released
+for research use. The triage sources are public-use files: NHAMCS is a United States federal
+public-use release, the Iran ED data accompanies an open-access publication, and MC-MED and
+MIMIC-IV-ED were used in their public demonstration releases, the credentialed full versions
+being outside the scope of this work.
+
+Two consequences follow, and both are visible in the deliverables. No source permits
+wholesale redistribution of the media, so this project's repository contains
+\emph{manifests} --- the lists of rows used, with their exclusion flags --- rather than
+images, and reproduction requires obtaining the sources from their original providers. And
+because several sources are non-commercial, the work reported here is academic; any use
+beyond that would require re-examining each licence individually rather than treating the
+collection as one permission.
 
 \subsection{The Statistical Unit}
 \label{subsec:data-grouping}
