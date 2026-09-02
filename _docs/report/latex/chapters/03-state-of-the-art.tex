@@ -232,8 +232,15 @@ representative of real point-of-care acquisition, which is desirable. But proven
 mixed, acquisition is uncontrolled, and --- decisively for this project --- the release
 carries no patient identifier linking the multiple clips belonging to one patient. Case
 identity therefore has to be reconstructed before any honest partition can be drawn, which
-is the subject of Section~\ref{subsec:data-grouping}. \rmq{The dataset has a published
-erratum; check which version the downloaded copy corresponds to and cite accordingly.}
+is the subject of Section~\ref{subsec:data-grouping}.
+
+The dataset is also a moving target, and the report should say so. The original publication
+carries an erratum \cite{born2022erratum}, and the collection has continued to grow since
+both, so ``the POCUS dataset'' does not name one fixed object. This project does not resolve
+that by asserting a version number it cannot verify. It pins the copy instead: the exact rows
+used are recorded in a manifest whose content hash accompanies every trained model
+(Section~\ref{subsec:mlops}), so the data behind a reported result is identified by what it
+contained rather than by what it was called.
 
 \subsection{Multimodal Clinical Decision Support}
 \label{subsec:sota-multimodal}
