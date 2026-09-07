@@ -1,0 +1,116 @@
+{
+  "features": [
+    "age",
+    "sex",
+    "pulse",
+    "bpsys",
+    "bpdias",
+    "respr",
+    "o2sat",
+    "temp_f",
+    "pain_scale",
+    "ambulance_flag",
+    "shock_index",
+    "pulse_pressure",
+    "map_pressure",
+    "qsofa_partial",
+    "tachypnea_flag",
+    "hypotension_flag",
+    "fever_flag",
+    "severe_pain_flag",
+    "hypoxia_flag",
+    "elderly_flag",
+    "pediatric_flag"
+  ],
+  "collected_from_intake": [
+    "age",
+    "sex",
+    "pulse",
+    "bpsys",
+    "bpdias",
+    "respr",
+    "o2sat",
+    "temp_f",
+    "pain_scale",
+    "ambulance_flag"
+  ],
+  "sex_categories": [
+    "female",
+    "male"
+  ],
+  "classes": [
+    "high",
+    "low",
+    "medium"
+  ],
+  "excluded": [
+    "rfv1",
+    "rfv2",
+    "rfv3",
+    "rfv4",
+    "rfv5",
+    "source",
+    "year"
+  ],
+  "macro_f1": 0.5668127764250722,
+  "accuracy": 0.6296044499381953,
+  "dangerous_miss": 0.013611755607115236,
+  "ece_raw": 0.057510761813489686,
+  "ece_calibrated": 0.030119550177530482,
+  "safety_threshold": 0.2,
+  "tier_order": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "report": {
+    "high": {
+      "precision": 0.7581134364573855,
+      "recall": 0.7732405259087394,
+      "f1-score": 0.7656022666360365,
+      "support": 6465.0
+    },
+    "low": {
+      "precision": 0.52832674571805,
+      "recall": 0.23232908458864426,
+      "f1-score": 0.3227364185110664,
+      "support": 3452.0
+    },
+    "medium": {
+      "precision": 0.5436291522062469,
+      "recall": 0.7003033689924956,
+      "f1-score": 0.6120996441281139,
+      "support": 6263.0
+    },
+    "accuracy": 0.6296044499381953,
+    "macro avg": {
+      "precision": 0.6100231114605608,
+      "recall": 0.5686243264966264,
+      "f1-score": 0.5668127764250722,
+      "support": 16180.0
+    },
+    "weighted avg": {
+      "precision": 0.6260653073660958,
+      "recall": 0.6296044499381953,
+      "f1-score": 0.6116986923162271,
+      "support": 16180.0
+    }
+  },
+  "confusion": [
+    [
+      4999,
+      88,
+      1378
+    ],
+    [
+      346,
+      802,
+      2304
+    ],
+    [
+      1249,
+      628,
+      4386
+    ]
+  ]
+}

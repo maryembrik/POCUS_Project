@@ -198,14 +198,27 @@ aide à la décision clinique, systèmes multi-agents, génération augmentée p
 % \include (not \input) so that \includeonly above can skip chapters while keeping their
 % page numbers and cross-references correct. Each \include starts a new page by itself,
 % so no \newpage is needed between them.
+%
+% The three parts follow the methodology rather than a generic report template: the context
+% is established first, the CRISP-DM phases carry the technical work, and the conclusion
+% closes the objectives stated in Part I. Chapter titles inside Part II name the phase they
+% belong to, so the process model is visible in the table of contents rather than only
+% described in Section~\ref{subsec:methodology}.
+
+\part{Mise en contexte}
 \include{chapters/01-introduction}
 \include{chapters/02-environment}
+
+\part{CRISP-DM}
 \include{chapters/03-state-of-the-art}
 \include{chapters/04-data}
+\include{chapters/04b-data-preparation}
 \include{chapters/05-perception-agents}
 \include{chapters/06-clinical-reasoning}
 \include{chapters/07-integration}
 \include{chapters/08-results}
+
+\part{Conclusion}
 \include{chapters/09-conclusion}
 
 % =========================================================================================

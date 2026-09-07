@@ -9,7 +9,6 @@ sex, age, ejection fraction, image quality, frame rate).
 Reads the .cfg files directly from inside each zip (no extraction needed for the
 manifest step) and produces one row per patient with both views' metadata.
 """
-import re
 import zipfile
 from pathlib import Path
 

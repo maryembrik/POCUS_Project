@@ -1,0 +1,12 @@
+{
+ "accuracy": 0.6296,
+ "macro_f1": 0.5668,
+ "ece": 0.0301,
+ "recall_high": 0.7732,
+ "precision_high": 0.7581,
+ "recall_medium": 0.7003,
+ "precision_medium": 0.5436,
+ "recall_low": 0.2323,
+ "precision_low": 0.5283,
+ "dangerous_miss": 0.0136
+}

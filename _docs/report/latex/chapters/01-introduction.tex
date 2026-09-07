@@ -237,30 +237,44 @@ model outside the scope it was trained for.
 \subsection{Report Organization}
 \label{subsec:organization}
 
-The report follows the order in which the system was built, so that each chapter depends
-only on what precedes it.
+The report is organised in three parts. \emph{Mise en contexte} establishes the setting: the
+present chapter and Chapter~\ref{sec:environment}, which together state the problem, the
+objectives and the environment in which the work was carried out. The second part follows the
+\gls{crisp} phases, and each chapter in it is titled by the phase it belongs to, so that the
+methodology is legible from the table of contents. The third closes the objectives stated
+here.
+
+Within the second part the chapters follow the order in which the system was built, so that
+each depends only on what precedes it. That ordering places integration before the synthesis
+of results, which inverts the usual sequence of the two phases; it is deliberate. The
+evaluation of each module is reported inside the chapter that builds it, where the reader has
+the method in view, and Chapter~\ref{sec:results} draws those results together across modules
+once the assembled system exists to be discussed.
 
 \begin{itemize}[label=$\bullet$]
   \setlength\itemsep{-0.1em}
   \item \textbf{Chapter~\ref{sec:environment} --- Project Environment and Presentation.}
     The host organisation, the context of the internship, the system architecture in
     detail, and the development methodology.
-  \item \textbf{Chapter~\ref{sec:sota} --- Preliminary Study and State of the Art.}
-    Existing work in automated ultrasound interpretation and multimodal decision support,
-    its limitations, and the positioning of this project against it.
-  \item \textbf{Chapter~\ref{sec:data} --- Datasets and Data Preparation.} The datasets
-    used, their characteristics, and the determination of the statistical unit that
-    governs every result reported afterwards.
-  \item \textbf{Chapter~\ref{sec:perception} --- Perception Agents.} Development and
-    evaluation of the triage, lung, cardiac and gallbladder modules, including the
+  \item \textbf{Chapter~\ref{sec:sota} --- Business Understanding: Preliminary Study and
+    State of the Art.} Existing work in automated ultrasound interpretation and multimodal
+    decision support, its limitations, and the positioning of this project against it.
+  \item \textbf{Chapter~\ref{sec:data} --- Data Understanding.} The datasets used, their
+    provenance and licensing, and the determination of the statistical unit that governs
+    every result reported afterwards.
+  \item \textbf{Chapter~\ref{sec:dataprep} --- Data Preparation.} The exclusions applied, the
+    class distributions and baselines that remain after them, and the partitioning that keeps
+    a case on one side of the split.
+  \item \textbf{Chapter~\ref{sec:perception} --- Modeling: Perception Agents.} Development
+    and evaluation of the triage, lung, cardiac and gallbladder modules, including the
     experiments that failed and the corrections they prompted.
-  \item \textbf{Chapter~\ref{sec:reasoning} --- Clinical Reasoning Agent.} The clinical
-    state representation, conflict detection, retrieval, the medical language model,
+  \item \textbf{Chapter~\ref{sec:reasoning} --- Modeling: Clinical Reasoning Agent.} The
+    clinical state representation, conflict detection, retrieval, the medical language model,
     output validation and the escalation policy.
-  \item \textbf{Chapter~\ref{sec:integration} --- System Integration and Prototype.} The
-    end-to-end pipeline, the contract through which the agents communicate, and worked
-    clinical scenarios.
-  \item \textbf{Chapter~\ref{sec:results} --- Results and Discussion.} The measured
+  \item \textbf{Chapter~\ref{sec:integration} --- Deployment: System Integration and
+    Prototype.} The end-to-end pipeline, the contract through which the agents communicate,
+    worked clinical scenarios, and how the assembled system is served.
+  \item \textbf{Chapter~\ref{sec:results} --- Evaluation and Discussion.} The measured
     results for each module, what they mean clinically, and the limitations that remain.
   \item \textbf{Chapter~\ref{sec:conclusion} --- Conclusion and Perspectives.} The
     contributions, the objectives achieved, and directions for future work.

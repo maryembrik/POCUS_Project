@@ -9,7 +9,6 @@ and `untranslated()` must be empty after the whole benchmark has been rendered.
 The second property is that French is a rendering of the same computed numbers, not a second
 derivation: the value and the threshold in the French alert are the ones the alert fired on.
 """
-import re
 
 from src.agents import i18n
 from src.agents.clinical.decision_support import decision_support

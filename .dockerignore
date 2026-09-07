@@ -1,0 +1,71 @@
+# Everything the image must not carry. The build context is sent to the daemon in full before
+# any COPY runs, so an unfiltered context here would mean sending tens of gigabytes of medical
+# imaging over a socket to build a 3 GB image.
+
+# -- datasets: not redistributable, and never read by the running application ---------------
+Pulmonary/**
+Cardiac/**
+Abdominal_Gallbladder/**
+# ...except the checkpoints and calibrators the Dockerfile copies explicitly.
+!Pulmonary/lung_finding_classifier_efficientnet_b0_split0_best.pth
+!Pulmonary/lung_finding_classifier_efficientnet_b0_split1_best.pth
+!Pulmonary/lung_finding_classifier_efficientnet_b0_split2_best.pth
+!Pulmonary/results_efficientnet_b0_split0.json
+!Pulmonary/results_efficientnet_b0_split1.json
+!Pulmonary/results_efficientnet_b0_split2.json
+!Cardiac/cardiac_effnet_unet_best.pth
+!Cardiac/cardiac_calibration.json
+!Abdominal_Gallbladder/gallbladder_effnetb0_best.pth
+!Abdominal_Gallbladder/gallbladder_calibration.json
+
+data/
+datasets/
+manifests/
+
+# -- the language model: 4.9 GB, and the deployed agent does not use it --------------------
+*.gguf
+*.bin
+
+# -- training and experiment tracking ------------------------------------------------------
+notebooks/
+models/mlflow.db
+mlruns/
+*.ipynb
+
+# -- the superseded Streamlit prototype ----------------------------------------------------
+_archive/
+
+# -- documentation and the report ----------------------------------------------------------
+_docs/
+*.pdf
+*.zip
+
+# -- development ---------------------------------------------------------------------------
+.git/
+.github/
+.gitignore
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tools/
+scratchpad/
+requirements-dev.txt
+requirements-train.txt
+
+# -- editor and OS -------------------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# -- the container's own files -------------------------------------------------------------
+Dockerfile
+.dockerignore
+docker-compose.yml
+run.bat

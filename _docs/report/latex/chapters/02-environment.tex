@@ -112,7 +112,9 @@ by which the fourth difficulty of Section~\ref{subsec:problem} --- unwarranted c
     \textbf{Agent} & \textbf{Input} & \textbf{Output} \\
     \midrule
     Triage Agent & Chief complaint, vital signs, age, red-flag symptoms &
-      Urgency level with calibrated confidence \\
+      Urgency level with calibrated confidence. Built and evaluated as described in
+      Section~\ref{subsec:triage-agent}; in the deployed application the tier is supplied by
+      the clinician instead (Section~\ref{subsec:triage-deployment}) \\
     \addlinespace[2pt]
     Ultrasound Agent & Ultrasound image or clip, routed by organ &
       Findings with calibrated confidence and attention maps \\
@@ -263,9 +265,12 @@ departed from the standard description.
       A calibration step was inserted between modelling and evaluation: the deliverable is
       not a prediction but a prediction with a trustworthy confidence \\
     \addlinespace[2pt]
-    Deployment & --- &
-      Out of scope for the internship. Replaced by integration and a prototype
-      (Chapter~\ref{sec:integration}); no clinical deployment was undertaken \\
+    Deployment & The system served as a running application: a web service, a clinician-facing
+      interface, containerisation, dependency management, automated testing, security scanning
+      and request monitoring (Chapter~\ref{sec:integration}) &
+      Carried out as \emph{technical} deployment. The intended users are emergency physicians
+      and the system is built for that use; what was not undertaken is installation in a
+      hospital and prospective clinical validation \\
     \bottomrule
   \end{tabularx}
   \caption{The six CRISP-DM phases as applied in this project.}
@@ -277,8 +282,9 @@ departed from the standard description.
   \includegraphics[width=0.72\textwidth]{fig_crispdm.png}
   \caption{The CRISP-DM cycle as followed here. The return path from modelling and
     evaluation to data understanding, drawn in red, ran repeatedly and was the dominant
-    route through the cycle rather than an exception. Deployment was outside the scope of
-    the internship.}
+    route through the cycle rather than an exception. Deployment was reached: the system runs
+    as a served application built for use by clinicians. Prospective validation in a hospital
+    lies beyond the cycle shown.}
   \label{fig:crispdm}
 \end{figure}
 

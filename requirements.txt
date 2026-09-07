@@ -1,0 +1,55 @@
+# Runtime dependencies -- what the deployed application needs and nothing more.
+#
+# The deployment is serve.py: uvicorn running a FastAPI application on port 8501, which serves
+# the generated interface and computes every value on it. This file is what a container
+# installs. Training, experiment tracking and the test tooling are deliberately elsewhere:
+#
+#   requirements-dev.txt     tests, linting, security scanning
+#   requirements-train.txt   training the models and recording the runs
+#
+# Versions are pinned to what the working environment actually holds, read from the installed
+# distributions rather than transcribed from memory, so an image built from this file runs the
+# same code that was evaluated.
+#
+# torch is the CPU build. The GPU wheels are several times larger and the deployed pipeline
+# runs on CPU by design -- the clinician's machine has no CUDA device. Installing from PyPI
+# alone will pull the CUDA build on Linux, so the CPU index is named here rather than left as
+# an instruction someone has to remember.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# -- web layer ---------------------------------------------------------------------------
+# fastapi is pinned forward of where this project sat because 0.115.0 constrains starlette to
+# <0.39, and pip-audit reported nine advisories against 0.38.6 -- the ASGI layer every request
+# passes through. Raising fastapi is what releases that constraint; starlette itself is left
+# transitive so the two cannot be pinned into disagreement.
+fastapi==0.141.1
+uvicorn==0.30.6
+pydantic==2.9.2
+# No python-multipart: images arrive as base64 inside JSON, which keeps the upload path on a
+# bare FastAPI. Adding multipart later would mean changing serve.py, not just this file.
+
+# -- numeric core ------------------------------------------------------------------------
+numpy==2.3.5
+
+# -- retrieval ---------------------------------------------------------------------------
+# scikit-learn is here for TfidfVectorizer, which the clinical retriever uses by default --
+# not for the triage model. pandas, xgboost and joblib are NOT runtime dependencies: the
+# trained triage classifier is not reached from serve.py. The interface takes the urgency
+# tier from the clinician (a three-way control, "Assessed urgency"), so nothing in the
+# deployed path loads that model. They are pinned in requirements-train.txt instead.
+scikit-learn==1.5.2
+
+# -- ultrasound perception ---------------------------------------------------------------
+torch==2.13.0
+torchvision==0.28.0
+segmentation-models-pytorch==0.5.0
+
+# -- image handling ----------------------------------------------------------------------
+# headless, not plain opencv-python: the server draws nothing on a screen, and the desktop
+# build depends on libGL, which is absent from slim container images. The two are the same
+# library otherwise, and cv2 imports identically from either.
+opencv-python-headless==4.13.0.92
+# 12.3.0, not 12.0.0: pip-audit reported 27 advisories against the earlier release. This one
+# matters more than its count suggests -- Pillow is what decodes the image a clinician uploads,
+# so an image-parsing flaw here is reachable by anyone who can submit a study.
+pillow==12.3.0

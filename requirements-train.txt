@@ -1,0 +1,34 @@
+# Training and experiment-tracking dependencies.
+#
+# Needed to retrain a module and to record the run, not to serve one. Kept out of the runtime
+# file because an MLflow client in the deployed image would carry a database driver and a
+# tracking server URL into an environment that never trains anything.
+#
+# There is no DVC entry, and its absence is a decision rather than an oversight: the datasets
+# are tens of gigabytes and not redistributable, so DVC without a remote would add ceremony
+# without adding reproducibility. Versioning is done with content-hashed manifests instead --
+# tools/mlops.py documents the reasoning, and `dvc add` on the manifests would slot in
+# underneath it unchanged if the data ever became shareable.
+
+-r requirements.txt
+
+# -- training loops ----------------------------------------------------------------------
+imageio==2.37.2                 # frame extraction from the lung clips
+
+# -- triage model ------------------------------------------------------------------------
+# Training and evaluating the urgency classifier (src/agents/triage/). Deliberately not in the
+# runtime file: the classifier is trained, calibrated and reported, but the deployed interface
+# takes the tier from the clinician rather than predicting it, so serve.py never loads it.
+pandas==2.2.3
+xgboost==3.2.0
+joblib==1.4.2
+
+# -- experiment tracking -----------------------------------------------------------------
+mlflow==3.15.2                  # runs, parameters, metrics; SQLite backend, see tools/mlops.py
+
+# -- optional backends -------------------------------------------------------------------
+# Neither is imported at module level and neither is reached by the deployed application: the
+# retriever defaults to TF-IDF and serve.py runs the clinical agent on a test backend. They
+# are here so a comparison run can be reproduced, not because the system needs them to work.
+# llama-cpp-python==0.3.34      # dense clinical reasoning; needs a CUDA build and the 4.9 GB model
+# sentence-transformers==5.3.0  # `backend="dense"` retrieval, for comparison against TF-IDF

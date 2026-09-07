@@ -43,6 +43,16 @@ from .. import schema as S
 
 LUNG_FINDINGS = ["b_lines", "consolidation", "pleural_effusion", "pleural_thickening"]
 
+# Findings a clinician would expect a lung study to address and this model does not model at
+# all. Named here rather than left implicit, because the dangerous reading of an all-negative
+# lung report is "the scan was clear" -- and for these the scan was never asked the question.
+#
+# Pneumothorax is the one that matters. It was in the intended label set and has zero positive
+# examples in the usable data, so it was dropped rather than trained on nothing. It is also
+# among the findings lung ultrasound is most used to look for, which is exactly why a negative
+# report must carry it as UNASSESSED and never as absent.
+NOT_MODELLED = {"lung": ["pneumothorax"]}
+
 # The gallbladder module is single-label over five classes, unlike the lung module's four
 # independent findings. It predicts eight fine-grained classes and MARGINALISES to these five
 # rather than taking the argmax and mapping it -- merging the predictions scored 63.1% against
@@ -210,8 +220,13 @@ def load_lung(fold: int = 0):
         raise FileNotFoundError(f"no lung checkpoint under {ROOT / 'Pulmonary'}")
     torch = _torch()
     model = _build_lung_model()
+    # weights_only=True: torch.load unpickles, and unpickling executes code that the pickle
+    # names. A checkpoint is therefore an executable file, not data, and these are downloaded
+    # from training runs and copied between machines. The flag restricts loading to tensors and
+    # plain containers, which is all a state_dict contains -- so it costs nothing here and
+    # removes the path by which a substituted .pth file would run as this process.
     model.load_state_dict(torch.load(LUNG_WEIGHTS[fold % len(LUNG_WEIGHTS)],
-                                     map_location="cpu"))
+                                     map_location="cpu", weights_only=True))
     model.eval()
     _MODELS[key] = model
     return model
@@ -341,7 +356,7 @@ def load_gallbladder():
     torch = _torch()
     m = torchvision.models.efficientnet_b0(weights=None)
     m.classifier[1] = nn.Linear(m.classifier[1].in_features, len(GB_TRAIN_NAMES))
-    m.load_state_dict(torch.load(GB_WEIGHTS, map_location="cpu"))
+    m.load_state_dict(torch.load(GB_WEIGHTS, map_location="cpu", weights_only=True))
     m.eval()
     _MODELS["gallbladder"] = m
     return m
@@ -375,11 +390,28 @@ def predict_gallbladder(image) -> dict[str, Any]:
     c = int(p5.argmax())
     conf = float(p5[c])
 
+    # The four classes this one was preferred over, ranked. Reported so that a reader can tell
+    # a diagnosis the module WEIGHED and rejected from one it never had in its label set --
+    # which, with a report naming a single class, is otherwise indistinguishable.
+    #
+    # They go in `alternatives` and not in `not_detected`: these five probabilities sum to one
+    # and describe one mutually exclusive choice, so calling the losers "screened and not
+    # detected" would assert four independent negative results the module never produced.
+    alternatives = [
+        S.make_finding(GB_CLASSES[i], float(p5[i]), group=GB_GROUP[GB_CLASSES[i]])
+        for i in np.argsort(-p5) if int(i) != c
+    ]
+
     return S.make_report(
         "gallbladder",
         [S.make_finding(GB_CLASSES[c], conf, group=GB_GROUP[GB_CLASSES[c]])],
+        alternatives=alternatives,
         quality={"low_confidence": conf < GB_LOW_CONFIDENCE,
-                 "fine_grained": GB_TRAIN_NAMES[int(p8.argmax())]},
+                 "fine_grained": GB_TRAIN_NAMES[int(p8.argmax())],
+                 # How much better the chosen class was than the next one. A margin near zero
+                 # means the module effectively could not separate two diagnoses, which the
+                 # confidence alone does not show.
+                 "margin": round(conf - float(p5[int(np.argsort(-p5)[1])]), 3)},
         reliability={"confidence_calibrated": bool(cal),
                      "has_normal_class": False,
                      "modelled_findings": GB_CLASSES,
@@ -398,7 +430,7 @@ def load_heart():
     torch = _torch()
     m = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=1,
                  classes=4)
-    m.load_state_dict(torch.load(HEART_WEIGHTS, map_location="cpu"))
+    m.load_state_dict(torch.load(HEART_WEIGHTS, map_location="cpu", weights_only=True))
     m.eval()
     _MODELS["heart"] = m
     return m
@@ -439,8 +471,40 @@ def _tta(img) -> list:
     return [a.astype("float32") for a in out]
 
 
+EF_CUTOFFS = (30.0, 55.0)
+
+# The module's own held-out mean absolute error on ejection fraction, after the area-to-volume
+# correction (Section "Ejection Fraction" of the report: 12.2 pp -> 6.9 pp).
+#
+# This is an ENGINEERING SENSITIVITY ZONE, not a clinical rule. It says nothing about which EF
+# values a cardiologist would call borderline; it says that within this distance of a cutoff,
+# THIS model cannot resolve which side it is on, because its typical error is larger than the
+# distance. Deriving it from the measured error rather than choosing a round number is the
+# whole point -- a margin of "plus or minus 5" would be an invention presented as a threshold.
+EF_SENSITIVITY_PP = 6.9
+
+
 def _ef_band(ef: float) -> str:
     return "normal" if ef >= 55 else ("reduced" if ef >= 30 else "severe")
+
+
+def _ef_boundary(ef: float) -> dict[str, Any]:
+    """Whether this EF sits close enough to a band cutoff that the band is not resolvable.
+
+    A mean absolute error of 6.9 points reads as excellent until an EF of 29 is estimated at
+    31: numerically a 2-point error, clinically the difference between severe and moderate
+    dysfunction. The band is what a clinician acts on, so the distance to the nearest cutoff
+    is reported beside it rather than left for the reader to compute.
+    """
+    nearest = min(EF_CUTOFFS, key=lambda c: abs(ef - c))
+    distance = abs(ef - nearest)
+    return {
+        "band": _ef_band(ef),
+        "nearest_cutoff": nearest,
+        "distance_pp": round(distance, 1),
+        "borderline": distance < EF_SENSITIVITY_PP,
+        "sensitivity_pp": EF_SENSITIVITY_PP,
+    }
 
 
 def predict_heart(ed_image, es_image) -> dict[str, Any]:
@@ -513,13 +577,41 @@ def predict_heart(ed_image, es_image) -> dict[str, Any]:
         measurements={"ejection_fraction": round(median_ef, 1),
                       "ef_spread_pp": round(float(np.std(efs)), 1)},
         quality={"lv_detected": True, "tta_agreement": round(raw, 3),
-                 "usable_views": len(efs), "views": len(views)},
+                 "usable_views": len(efs), "views": len(views),
+                 # Reported per prediction, because whether the band can be trusted depends on
+                 # where this particular EF fell, not on the module's average accuracy.
+                 "ef_boundary": _ef_boundary(median_ef)},
         reliability={"confidence_calibrated": bool(cal),
                      "has_normal_class": True,
                      "confidence_ceiling": (cal or {}).get("ceiling", 1.0),
                      "ece": (cal or {}).get("ece"),
                      "scope": "CAMUS-like 4CH stills; EF is an area proxy, not volumetric"},
         model="effnetb0_unet")
+
+
+def lung_reliability(fold: int = 0) -> dict[str, Any]:
+    """What the lung module can and cannot support, read from the artefacts on disk.
+
+    Exists so the two paths that produce a lung report cannot disagree about it. The deployed
+    application builds a report from an uploaded image (predict_lung) and also from findings a
+    clinician enters by hand, and the second used to declare `confidence_calibrated: True` with
+    no unreliable list at all -- so the SAME finding looked better supported when typed in than
+    when the model produced it, and pleural effusion lost the warning that is the only reason
+    its number is safe to show.
+    """
+    cal = _calibration()
+    tuned = _tuned(fold)
+    return {
+        "confidence_calibrated": bool(cal),
+        "has_normal_class": False,
+        "modelled_findings": LUNG_FINDINGS,
+        "unreliable_findings": (cal or {}).get("unreliable_findings") or tuned["unreliable"],
+        "auroc": tuned.get("auroc"),
+        "scope": "187 clips / 165 cases; pneumothorax is NOT modelled and cannot be excluded"
+                 + ("" if cal else "; confidence is a RAW sigmoid output, not a calibrated "
+                                   "probability -- the decision boundary is tuned, the number "
+                                   "is not"),
+    }
 
 
 def ultrasound_agent(organ: str, **kwargs) -> dict[str, Any]:

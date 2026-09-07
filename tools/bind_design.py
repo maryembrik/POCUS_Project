@@ -183,6 +183,76 @@ def main() -> int:
     s = sub(s, '<textarea style', '<textarea onChange="{{ onHistory }}" style',
             "workup history")
     s = re.sub(r'(<label[^>]*>Sex<select )', r'\1onChange="{{ onSex }}" ', s)
+
+    # ---- 5a. the urgency tier the clinician assesses --------------------------------
+    # The mockup had no control for this, and the form therefore sent a constant: every
+    # patient reached the reasoning layer as "medium". One escalation trigger reads the tier
+    # -- it fires when triage says LOW and imaging reports something severe -- so with the
+    # value pinned, that trigger could not fire for any patient entered through this screen.
+    # It passed its own tests the whole time, because those call detect_conflicts() directly.
+    #
+    # This is the clinician's own assessment, not a model output. The trained triage
+    # classifier is NOT wired to this control: it needs arrival mode and coded reason-for-visit
+    # categories that this intake does not collect, and a tier inferred from half the features
+    # would be worse than one a doctor stated.
+    #
+    # The select's value is BOUND, not marked with `selected` on an option. `selected` was
+    # tried first and does not survive: the runtime rebuilds each option node from the template
+    # and the attribute is dropped, so the DOM came back with defaultSelected false on all
+    # three and the browser fell back to the first -- the screen read "Low" while the form
+    # state held 'medium', the control disagreeing with what it was about to send. Binding
+    # value the way the text inputs already do is what the runtime actually supports.
+    # The suggestion sits directly above the control it fills in, so the reader sees what was
+    # proposed and what they are about to confirm in one glance. It is hidden until there is a
+    # suggestion to show: an empty "Suggested urgency —" line would read as a system that had
+    # considered the patient and declined to say anything.
+    # `sc-if value=`, not `cond=`: the runtime reads the `value` attribute (support.js walkIf),
+    # and an sc-if whose condition it does not recognise renders nothing at all -- the block was
+    # in the served page and invisible on screen, with no error anywhere.
+    #
+    # The badge's colours come from ONE bound object rather than a bound attribute beside a
+    # static style, because that is the convention the rest of the page uses and there is no
+    # sc-style in this runtime.
+    _SUGGESTION = (
+        '\n      <sc-if value="{{ hasSuggestion }}"><div style="display:flex;'
+        'align-items:center;gap:10px;margin:14px 0 2px">'
+        '<span style="font-size:12.5px;font-weight:700;color:#6A6785">'
+        '{{ suggestedLabel }}</span>'
+        '<span style="{{ suggestedStyle }}">{{ suggestedTier }}</span>'
+        '</div>'
+        '<div style="font-size:12.5px;color:#8A87A8;margin-bottom:6px">{{ suggestedBasis }}'
+        '</div></sc-if>')
+
+    # The demographics grid closes right after the Sex field. The two new SELECTS join it as
+    # further cells; the suggestion goes AFTER the closing div so it spans the full width.
+    # Inside the grid it was squeezed into one narrow column and "Based on 4 of 7 observations.
+    # Not recorded: diastolic blood pressure, temperature, pain score." wrapped over six lines
+    # beside the control it describes.
+    _SEX_FIELD = ('<option>Female</option><option>Male</option></select></label>')
+    _GRID_END = _SEX_FIELD + '\n      </div>'
+    _URGENCY = (
+        _SEX_FIELD +
+        '\n        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;'
+        'font-weight:700;color:#6A6785">{{ tierLabel }}'
+        '<select value="{{ fTier }}" onChange="{{ onTier }}" '
+        'style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;'
+        'font-size:14.5px;background:#FAFAFE">'
+        '<option>{{ tierLow }}</option>'
+        '<option>{{ tierMedium }}</option>'
+        '<option>{{ tierHigh }}</option>'
+        '</select></label>'
+        # Arrival mode sits beside the urgency because they are read together: how the patient
+        # got here is part of the same first impression the tier records.
+        '\n        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;'
+        'font-weight:700;color:#6A6785">{{ arrivalLabel }}'
+        '<select value="{{ fArrival }}" onChange="{{ onArrival }}" '
+        'style="border:1px solid #DEDCF4;border-radius:8px;padding:10px 12px;'
+        'font-size:14.5px;background:#FAFAFE">'
+        '<option>{{ arrivalWalk }}</option>'
+        '<option>{{ arrivalAmbulance }}</option>'
+        '</select></label>'
+        '\n      </div>' + _SUGGESTION)
+    s = sub(s, _GRID_END, _URGENCY, "assessed urgency control")
     # the loop inputs the design lays out are display-only in the mockup
     s = re.sub(r'(<input value="\{\{ v\.value \}\}")', r'\1 onChange="{{ v.onChange }}"', s)
     s = re.sub(r'(<input value="\{\{ l\.value \}\}")', r'\1 onChange="{{ l.onChange }}"', s)

@@ -475,11 +475,11 @@ def answer(question: str, a: dict[str, Any], lang: str = "en") -> str:
                  f"retrieved the system produces nothing rather than drawing on the language "
                  f"model's own training knowledge. It is decision support and does not "
                  f"instruct treatment.",
-                 f"Aucune recommandation thérapeutique pour ce cas : aucun protocole approuvé "
-                 f"n'est disponible. Les suggestions thérapeutiques sont conditionnées à un "
-                 f"protocole sourcé et citable ; à défaut, le système ne produit rien plutôt "
-                 f"que de puiser dans les connaissances propres du modèle de langage. C'est "
-                 f"une aide à la décision, et cela ne prescrit aucun traitement.")
+                 "Aucune recommandation thérapeutique pour ce cas : aucun protocole approuvé "
+                 "n'est disponible. Les suggestions thérapeutiques sont conditionnées à un "
+                 "protocole sourcé et citable ; à défaut, le système ne produit rien plutôt "
+                 "que de puiser dans les connaissances propres du modèle de langage. C'est "
+                 "une aide à la décision, et cela ne prescrit aucun traitement.")
 
     if has("prognos", "survive", "going to be ok", "going to be okay", "will she", "will he",
            "will they", "outcome", "die", "mortality", "chance of", "how likely is he",

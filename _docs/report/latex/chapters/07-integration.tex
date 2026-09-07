@@ -1,7 +1,7 @@
 % =========================================================================================
 % Chapter 7 -- System Integration and Prototype
 % =========================================================================================
-\section{System Integration and Prototype}
+\section{Deployment: System Integration and Prototype}
 \label{sec:integration}
 
 \subsection{End-to-End Architecture}
@@ -94,7 +94,10 @@ One encounter proceeds through five stages, each producing a named artefact.
     Stage & Artefact & Content \\
     \midrule
     1. Arrival & bundle created & demographics, presenting complaint, vitals, labs \\
-    2. Triage & \texttt{triage} section & urgency tier, calibrated confidence, features used \\
+    2. Triage & \texttt{triage} section & urgency tier, its provenance, and the vital signs
+      recorded with it. In the deployed application the tier is the clinician's own assessment,
+      entered on the intake screen; the trained classifier of
+      Section~\ref{subsec:triage-agent} is not called here \\
     3. Imaging & one section per organ & findings detected, findings screened and not detected,
       confidences, declared scope \\
     4. State & clinical state & the sections merged, plus what is \emph{missing}, the conflicts

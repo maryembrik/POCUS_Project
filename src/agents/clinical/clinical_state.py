@@ -51,6 +51,13 @@ VITAL_REFERENCE: dict[str, dict[str, Any]] = {
     "rr":   {"unit": "/min", "normal_min": 12,  "normal_max": 20},
     "spo2": {"unit": "%",    "normal_min": 94,  "normal_max": 100},
     "temp": {"unit": "C",    "normal_min": 36.0, "normal_max": 38.0},
+    # Collected because the deployed triage model is fitted on it: diastolic pressure is the
+    # other half of the same cuff reading, and it restores pulse pressure and mean arterial
+    # pressure, which are derived features rather than extra questions to a clinician.
+    "dbp":  {"unit": "mmHg", "normal_min": 60,  "normal_max": 90},
+    # 0-10 numeric rating, the scale used at triage. Bounds describe where a score stops being
+    # unremarkable, not a diagnosis.
+    "pain": {"unit": "/10",  "normal_min": 0,   "normal_max": 3},
 }
 
 # The Triage Agent emits the column names of its source data (o2sat, pulse, bpsys, respr),
@@ -63,6 +70,8 @@ VITAL_ALIASES: dict[str, tuple[str, ...]] = {
     "rr":   ("rr", "respr", "resp_rate", "respiratory_rate"),
     "spo2": ("spo2", "o2sat", "oxygen_saturation", "sao2"),
     "temp": ("temp", "temp_c", "temperature"),
+    "dbp":  ("dbp", "bpdias", "diastolic", "bp_diastolic", "diasbp"),
+    "pain": ("pain", "pain_scale", "pain_score"),
 }
 
 # Fahrenheit is converted, never aliased: 98.6 read against a 36--38 range is "high", which
@@ -114,7 +123,7 @@ def _case_quality(state: dict) -> dict[str, Any]:
     """
     reasons: list[str] = []
 
-    missing_key = [l for l in KEY_LABS if l in state["missing"]["labs"]]
+    missing_key = [lab for lab in KEY_LABS if lab in state["missing"]["labs"]]
     if missing_key:
         reasons.append(f"key lab(s) not obtained: {', '.join(missing_key)}")
 
@@ -183,6 +192,7 @@ def build_clinical_state(bundle: dict, *, labs: dict | None = None,
     findings: list[dict] = []
     not_assessed: list[str] = []
     uncalibrated: list[str] = []
+    alternatives: list[dict[str, Any]] = []
 
     for organ in sorted((bundle.get("ultrasound") or {})):
         rep = bundle["ultrasound"][organ]
@@ -221,6 +231,18 @@ def build_clinical_state(bundle: dict, *, labs: dict | None = None,
                 "calibrated": cal,
                 "low_evidence": low,
                 "evidence": _evidence_grade(cal, low, f["confidence"]),
+            })
+
+        # Mutually exclusive classes the module weighed and ranked below the one it reported.
+        # Kept OUT of `findings` deliberately, and that is the whole point of a separate list:
+        # everything in `findings` becomes enumerated evidence the language model may cite, and
+        # an alternative is not an observation about the patient -- it is a diagnosis the module
+        # considered and did not make. Citing "cholelithiasis 0.23" as evidence would be
+        # fabrication with a number attached.
+        for f in rep.get("alternatives", []):
+            alternatives.append({
+                "organ": organ, "label": f["label"], "group": f.get("group"),
+                "confidence": f["confidence"], "calibrated": cal,
             })
 
         for f in rep.get("not_detected", []):
@@ -277,6 +299,7 @@ def build_clinical_state(bundle: dict, *, labs: dict | None = None,
         "triage": {"urgency": tri.get("urgency"), "confidence": tri.get("confidence")} if tri else None,
         "imaging": {
             "findings": sorted(findings, key=lambda f: (not f["detected"], -f["confidence"])),
+            "alternatives": sorted(alternatives, key=lambda f: -f["confidence"]),
             "organs_not_assessed": not_assessed,
             "organs_uncalibrated": uncalibrated,
             "out_of_scope": out_of_scope,

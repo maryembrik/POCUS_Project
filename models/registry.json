@@ -141,7 +141,8 @@
         "v1",
         "v2",
         "v3",
-        "v4"
+        "v4",
+        "v5"
       ],
       "versions": [
         {
@@ -164,6 +165,33 @@
           "eval_set": "held-out test split of triage_combined_tier_core (16,180 rows)",
           "artifact": "models/triage_agent_tier_calibrated.joblib",
           "notes": "Calibrated XGBoost. `recall_high` is the guarded metric: a true emergency graded low is the miss that matters here."
+        }
+      ]
+    },
+    "triage_deployed": {
+      "versions": [
+        {
+          "version": "v1",
+          "stage": "production",
+          "created": "2026-09-06T13:33:46+00:00",
+          "dataset": "triage_deployed@9adc24de812b",
+          "eval_set": "held-out test split of triage_combined_tier_core (16,180 rows)",
+          "metrics": {
+            "accuracy": 0.6296,
+            "macro_f1": 0.5668,
+            "ece": 0.0301,
+            "recall_high": 0.7732,
+            "precision_high": 0.7581,
+            "recall_medium": 0.7003,
+            "precision_medium": 0.5436,
+            "recall_low": 0.2323,
+            "precision_low": 0.5283,
+            "dangerous_miss": 0.0136
+          },
+          "artifact": "models/triage_deployed_calibrated.joblib",
+          "notes": "First model in the deployed lineage. Fitted on the 21 features the clinician intake collects (10 entered + 11 derived): age, sex, HR, systolic and diastolic BP, respiratory rate, SpO2, temperature, pain score, arrival mode. Reason-for-visit codes, source and year excluded as registration artefacts a bedside form cannot supply. Training features == interface fields == deployment inputs, so the reported accuracy is the accuracy a deployed prediction can reach.",
+          "approved_by": "maryembrik -- first model in the deployed lineage; approved as the bedside triage suggestion, not as a replacement for the reference model, which stays in production on the triage line",
+          "approved_at": "2026-09-06T13:35:58+00:00"
         }
       ]
     }

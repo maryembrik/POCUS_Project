@@ -1,0 +1,28 @@
+# bandit configuration.
+#
+#   python -m bandit -r serve.py src/ tools/ -c bandit.yaml
+#
+# The first run reported 561 findings: 3 medium and 558 low. Of the low ones, 555 were B101
+# (assert_used) inside src/agents/tests/, which is pytest's entire mechanism -- a test suite
+# without asserts asserts nothing. A report in which 99% of the entries are the test suite
+# doing its job is a report nobody reads twice, and the three that mattered were below the
+# fold.
+#
+# So B101 is skipped rather than the tests being excluded from the scan: the tests are still
+# scanned for everything else, and only the rule that cannot apply to them is silenced. The
+# three medium findings it was hiding were real -- torch.load without weights_only, which
+# unpickles and therefore executes code named by the checkpoint. Those are fixed in
+# src/agents/ultrasound/agent.py rather than suppressed here.
+#
+# Nothing else is skipped. B404 and B603 (subprocess in tools/mlops.py) are left reported:
+# the call passes an argument list with no shell, and tools/ is excluded from the container
+# image, but the finding is accurate and a future edit to that command should be made to
+# argue with it rather than inherit a silence.
+
+skips:
+  - B101   # assert_used -- pytest's mechanism; see above
+
+exclude_dirs:
+  - ./_archive          # the superseded Streamlit prototype, not deployed
+  - ./notebooks
+  - ./.git

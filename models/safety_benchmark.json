@@ -1,11 +1,15 @@
 {
-  "generated_at": "2026-08-29T12:28:40+00:00",
-  "total_tests": 274,
-  "total_passed": 274,
+  "generated_at": "2026-09-07T10:17:19+00:00",
+  "total_tests": 314,
+  "total_passed": 314,
   "by_property": {
+    "API contract": {
+      "tests": 10,
+      "passed": 10
+    },
     "Absent is not normal": {
-      "tests": 22,
-      "passed": 22
+      "tests": 24,
+      "passed": 24
     },
     "Advice scope": {
       "tests": 4,
@@ -44,8 +48,8 @@
       "passed": 9
     },
     "Conflict detection": {
-      "tests": 9,
-      "passed": 9
+      "tests": 14,
+      "passed": 14
     },
     "Deterministic output control": {
       "tests": 7,
@@ -92,12 +96,16 @@
       "passed": 16
     },
     "Model promotion gate": {
-      "tests": 9,
-      "passed": 9
+      "tests": 16,
+      "passed": 16
     },
     "Model-scope propagation": {
-      "tests": 7,
-      "passed": 7
+      "tests": 8,
+      "passed": 8
+    },
+    "Monitoring without disclosure": {
+      "tests": 4,
+      "passed": 4
     },
     "Perception contract": {
       "tests": 17,
@@ -115,9 +123,17 @@
       "tests": 3,
       "passed": 3
     },
+    "Service health reporting": {
+      "tests": 4,
+      "passed": 4
+    },
     "Severity and alerts": {
       "tests": 15,
       "passed": 15
+    },
+    "Triage suggestion mapping": {
+      "tests": 7,
+      "passed": 7
     },
     "Unassessed-organ reporting": {
       "tests": 5,

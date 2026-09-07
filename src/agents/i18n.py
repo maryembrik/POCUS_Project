@@ -142,7 +142,9 @@ def alert(a: dict[str, Any]) -> str:
     is a second rendering of the same numbers -- not a translation of the English sentence.
     """
     kind = a.get("type", "")
-    level = LEVEL.get(a.get("severity", ""), a.get("severity", ""))
+    # No `level` here. It was computed and never used -- and its fallback returned the English
+    # severity without recording a miss, which is the exact shape of the bug fixed in
+    # alert_type() above. A dead line that would have failed silently once someone used it.
 
     if "measurement" in a and "threshold" in a:
         name = measure(a["measurement"])

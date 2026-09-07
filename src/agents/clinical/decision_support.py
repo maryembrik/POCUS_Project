@@ -202,7 +202,8 @@ def critical_alerts(state: dict, escalation: dict | None = None,
             "their usual weight")
 
     detected = [f for f in state["imaging"]["findings"] if f["detected"]]
-    key_missing = [l for l in ("troponin", "lactate") if l in state["missing"]["labs"]]
+    key_missing = [lab for lab in ("troponin", "lactate")
+                   if lab in state["missing"]["labs"]]
     if detected and key_missing:
         add("CRITICAL", "POSITIVE_IMAGING_KEY_LABS_ABSENT",
             f"a positive imaging finding with {', '.join(key_missing)} never measured",

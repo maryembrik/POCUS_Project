@@ -262,7 +262,6 @@ def test_every_abnormal_value_reaches_the_reader_whether_or_not_the_model_cited_
     This does not make the model more thorough, and check_evidence_coverage still says when it
     is not. It removes the consequence of the omission for the reader.
     """
-    from src.agents.clinical.clinical_state import evidence_considered
     st = _state()
     only_one = cite(st, "b_lines")
     out = reason(st, llm_fn=ScriptedBackend(json.dumps(_answer(only_one))), max_revisions=0)

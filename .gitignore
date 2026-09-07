@@ -37,6 +37,9 @@ notebooks/demo_missing_gpu*.json
 models/*.joblib
 models/triage_agent_xgb.json
 models/triage_agent_tier_xgb.json
+# Same class of artefact, same reason: 6 MB, and `python -m src.agents.triage.deployed`
+# rebuilds it from the committed manifest in under a minute.
+models/triage_deployed_xgb.json
 
 # MLflow's local tracking database. The durable record of which data produced which model is
 # models/registry.json, which IS committed; this is the queryable copy behind `mlflow ui`,

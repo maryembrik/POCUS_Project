@@ -28,7 +28,6 @@ Cleaning applied here, and why:
 import glob
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 BASE = Path(r"C:\Users\HUAWEI\Documents\POCUS-Project")

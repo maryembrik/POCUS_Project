@@ -21,8 +21,10 @@ No multipart dependency: images arrive as base64 in JSON, so this runs on a bare
 from __future__ import annotations
 
 import base64
+import collections
 import io
 import json
+import logging
 import os
 import sys
 import time
@@ -43,14 +45,17 @@ from src.agents import i18n, schema as S  # noqa: E402
 from src.agents.assistant import answer as assistant_answer  # noqa: E402
 from src.agents.clinical.clinical_state import (  # noqa: E402
     LAB_REFERENCE, VITAL_REFERENCE, build_clinical_state, build_evidence)
-from src.agents.clinical.decision_support import decision_support  # noqa: E402
+from src.agents.clinical.decision_support import decision_support, load_thresholds  # noqa: E402
 from src.agents.clinical.llm import FailingBackend  # noqa: E402
 from src.agents.clinical.reasoning import escalation_decision, reason  # noqa: E402
 from src.agents.clinical.report import build_report, render_report  # noqa: E402
 from src.agents.clinical.retrieval import Retriever  # noqa: E402
 from src.agents.clinical.run_case import SCENARIOS, build as build_scenario  # noqa: E402
+from src.agents.triage.suggest import OBSERVATIONS as triage_observations  # noqa: E402
+from src.agents.triage.suggest import suggest as triage_suggest  # noqa: E402
 from src.agents.ultrasound.agent import (  # noqa: E402
-    GB_CLASSES, GB_GROUP, LUNG_FINDINGS, finding_caption, module_status, ultrasound_agent)
+    GB_CLASSES, GB_GROUP, LUNG_FINDINGS, NOT_MODELLED, finding_caption, lung_reliability,
+    module_status, ultrasound_agent)
 
 WEB = ROOT / "web"
 FROZEN = ROOT / "models" / "clinical_reasoning_v4_final" / "results.json"
@@ -58,6 +63,7 @@ BENCH = ROOT / "models" / "safety_benchmark.json"
 
 app = FastAPI(title="POCUS Copilot")
 _retriever: Retriever | None = None
+_STARTED = time.time()                       # for /api/health; set once, at import
 _records: list[dict[str, Any]] = []          # session-scoped, exactly like the Streamlit app
 
 
@@ -127,9 +133,10 @@ def build_state(enc: dict):
         reports["lung"] = S.make_report(
             "lung", det, not_detected=neg, status="ok" if (det or neg) else "not_supported",
             quality={"no_finding_above_threshold": not det},
-            reliability={"confidence_calibrated": True, "has_normal_class": False,
-                         "modelled_findings": LUNG_FINDINGS,
-                         "scope": "pneumothorax is NOT modelled and cannot be excluded"})
+            # The module's own declaration, not a second copy of it written from memory. A
+            # finding entered by hand and the same finding produced from an image must carry
+            # the same account of what the model can support.
+            reliability=lung_reliability())
     elif organ == "Heart":
         sd = enc["findings"].get("severe dysfunction", -0.2)
         reports["heart"] = S.make_report(
@@ -153,8 +160,15 @@ def build_state(enc: dict):
 
     return build_clinical_state(
         {"encounter_id": enc.get("id", "ENC-LIVE"),
+         # model="clinician" and not a model name, because no model produced this. The tier is
+         # the assessment the clinician entered on the intake screen. The trained triage
+         # classifier exists and is evaluated in the report, but it is deliberately not wired
+         # here: it needs arrival mode and coded reason-for-visit categories this intake does
+         # not collect. Recording the provenance in the encounter itself means a reader of the
+         # archived record can tell the two apart without knowing which build produced it.
          "triage": S.make_triage(enc.get("tier", "medium"), enc.get("tconf", 0.7),
-                                 features=enc.get("vitals") or {}),
+                                 features=enc.get("vitals") or {},
+                                 model="clinician"),
          "ultrasound": reports,
          "clinical": {"age": enc.get("age"), "sex": enc.get("sex"),
                       "chief_complaint": enc.get("complaint")}},
@@ -209,11 +223,48 @@ def analyse(enc: dict, broken: bool = False) -> dict:
 
     report = build_report(state, result, support)
     mark("Report assembled", f"encounter {report['encounter_id']}")
+
+    # Recomputed here rather than accepted from the request. The suggestion is part of the
+    # record of how this encounter was graded, and a record the client can write is not a
+    # record -- a caller could report agreement that never happened.
+    #
+    # The tier that reached the reasoning layer is the clinician's either way. What this adds
+    # is whether a model proposed the same thing, which is only auditable if it is stored at
+    # the moment the assessment was made.
+    audit = None
+    suggestion = triage_suggest(enc)
+    if suggestion is not None:
+        final = enc.get("tier", "medium")
+        audit = {
+            "suggested": suggestion["tier"],
+            "final": final,
+            "probabilities": suggestion["probabilities"],
+            "model": suggestion["model"],
+            "observations_entered": suggestion["observations_entered"],
+            "observations_missing": suggestion["observations_missing"],
+            # Neither party is recorded as correct. The system detects that two assessments
+            # differ; it has no ground truth with which to say which one was right, and a field
+            # called "ai_wrong" would assert exactly that.
+            "agreement": "agreed" if suggestion["tier"] == final else "clinician_differs",
+        }
+        if audit["agreement"] == "clinician_differs":
+            mark("Urgency differs from the suggestion",
+                 f"suggested {suggestion['tier']}, recorded {final}")
+
     return dict(state=state, esc=esc, support=support, hits=hits, result=result,
-                origin=origin, report=report, marks=marks)
+                origin=origin, report=report, marks=marks, triage_audit=audit)
 
 
 # ═══════════════════════════════════════════════════════════ shaping for the design
+def _organs_examined(state: dict) -> set[str]:
+    """Organs a module actually read, which is where an unmodelled finding is worth naming.
+
+    Only these: telling a clinician that pneumothorax was not assessed on an organ nobody
+    scanned adds a row that says nothing, and the organ's own absence is already reported.
+    """
+    return {f["organ"] for f in state["imaging"]["findings"]}
+
+
 def _view(enc: dict, a: dict, lang: str = "en") -> dict:
     """Everything the design's template binds, computed rather than invented."""
     state, sup, esc = a["state"], a["support"], a["esc"]
@@ -270,9 +321,28 @@ def _view(enc: dict, a: dict, lang: str = "en") -> dict:
         "conclusion": i18n.conclusion(a["report"]) if fr else a["report"]["conclusion"],
         "vitals": vitals,
         "labs": labs,
+        # Four states, not two. "Detected" and "not detected" leave a reader to assume that
+        # anything unmentioned was checked and clear, and on this system two different things
+        # hide in that assumption: a finding the model reports but cannot support (pleural
+        # effusion rests on 16 positive cases), and a finding it never models at all
+        # (pneumothorax). Both are shown as their own state so the list a clinician reads is
+        # the whole picture rather than the part the model happened to be able to answer.
         "findings": [{"label": f["label"], "caption": finding_caption(f, f["organ"]),
-                      "conf": round(f["confidence"], 2), "detected": f["detected"]}
-                     for f in state["imaging"]["findings"]],
+                      "conf": round(f["confidence"], 2), "detected": f["detected"],
+                      "state": ("unreliable" if f["detected"] and f["low_evidence"]
+                                else "detected" if f["detected"]
+                                else "screened_negative")}
+                     for f in state["imaging"]["findings"]]
+        # The classes a single-label module ranked below the one it reported. Shown so a reader
+        # can tell a diagnosis that was weighed and rejected from one that was never in the
+        # label set -- but as their own state, because they are not independent negatives.
+        + [{"label": f["label"], "caption": f["organ"],
+            "conf": round(f["confidence"], 2), "detected": False, "state": "alternative"}
+           for f in state["imaging"].get("alternatives", [])]
+        + [{"label": label, "caption": organ, "conf": None, "detected": False,
+            "state": "not_assessed"}
+           for organ in sorted(_organs_examined(state))
+           for label in NOT_MODELLED.get(organ, [])],
         "notAssessed": ([i18n.organ(o) for o in state["imaging"]["organs_not_assessed"]] if fr
                         else state["imaging"]["organs_not_assessed"]),
         "outOfScope": ([i18n.limit(x) for x in state["imaging"]["out_of_scope"]] if fr
@@ -338,6 +408,10 @@ class Encounter(BaseModel):
     complaint: str = ""
     tier: str = "medium"
     tconf: float = 0.7
+    # Walk-in or ambulance. Not a vital sign, so it does not belong in `vitals`, but it is one
+    # of the features the deployed triage model is fitted on and one of the strongest: how a
+    # patient arrived carries information no measurement at the bedside repeats.
+    arrival: str = "walk-in"
     organ: str = "Lung"
     findings: dict[str, float] = {}
     vitals: dict[str, float] = {}
@@ -617,7 +691,7 @@ def api_record(id: str, lang: str = "en") -> JSONResponse:
 
 
 @app.post("/api/record/attach")
-def api_attach(a: Attach) -> JSONResponse:
+def api_attach(a: Attach, lang: str = "en") -> JSONResponse:
     """File a study against a patient already in the list.
 
     It does NOT re-run the assessment. The differential, alerts and severity on the record were
@@ -651,6 +725,90 @@ def api_view(lang: str = "en") -> JSONResponse:
     if not _last:
         return JSONResponse(_empty_view())
     return JSONResponse(_view(_last["enc"], _last["a"], lang))
+
+
+@app.get("/api/health")
+def api_health() -> JSONResponse:
+    """Whether this instance can actually do its job, not merely whether the socket is open.
+
+    A container that answers 200 while its perception modules failed to load is worse than one
+    that is plainly down: it takes traffic and reports nothing found, which on this system is
+    indistinguishable to a reader from an examination that found nothing. So the check reports
+    each module's real state -- weights on disk, calibrator loaded -- and degrades the overall
+    status when any of them cannot run.
+
+    `degraded` rather than a failure code when a module is missing: the deterministic layer
+    (escalation, conflicts, the missing-data account) does not need the models and remains
+    correct without them, so an instance in that state is still worth routing to. It is the
+    orchestrator's business to decide what to do about it, and it can only decide from a
+    report that distinguishes the cases.
+    """
+    modules = module_status()
+    ready = all(m["runs"] for m in modules.values())
+    return JSONResponse({
+        "status": "ok" if ready else "degraded",
+        "modules": modules,
+        # The safety layer is what must behave identically wherever this runs, so its version
+        # is reported beside the model states rather than left to be inferred from an image tag.
+        "thresholds_version": load_thresholds().get("version"),
+        "schema_version": S.SCHEMA_VERSION,
+        "encounters_held": len(_records),
+        "uptime_seconds": round(time.time() - _STARTED, 1),
+    }, headers=_NO_STORE)
+
+
+@app.post("/api/triage/suggest")
+def api_triage_suggest(enc: Encounter, lang: str = "en") -> JSONResponse:
+    """An urgency suggestion for what has been entered so far.
+
+    Returns a tier and the observations still outstanding, in clinical words. The probability
+    vector, the model name and its macro F1 are computed and recorded with the encounter, but
+    they are not what a clinician needs at intake -- a screen that reports "0.646 medium,
+    triage_deployed v1, macro F1 0.567" asks the reader to audit a classifier when their job is
+    to see a patient.
+    """
+    s = triage_suggest(enc.model_dump())
+    if s is None:
+        return JSONResponse({"available": False})
+    return JSONResponse({
+        "available": True,
+        # The tier key, not a translated word. The interface already holds both languages for
+        # these three and renders whichever it is showing.
+        "tier": s["tier"],
+        "entered": s["observations_entered"],
+        "of": len(triage_observations),
+        "missing": s["observations_missing"],
+        # Computed, recorded with the encounter, and deliberately not put on the intake screen.
+        "_audit": {"probabilities": s["probabilities"], "model": s["model"]},
+    }, headers=_NO_STORE)
+
+
+@app.get("/api/metrics")
+def api_metrics() -> JSONResponse:
+    """Traffic, latency and failures for this instance, since it started.
+
+    In-process counters, deliberately: they reset when the container does, they are not shared
+    between replicas, and they are not a substitute for a metrics backend. What they give is
+    the thing a reviewer actually needs -- that the service measures its own behaviour and can
+    report it -- without adding a database and a scrape target to a system whose deployment
+    story is one container.
+
+    Declared above the StaticFiles mount, and that is not a stylistic choice: routes match in
+    registration order and the mount answers "/", so anything declared after it is
+    unreachable. This endpoint returned 404 until it was moved here.
+    """
+    paths = {k: {"requests": v["n"],
+                 "errors": v["errors"],
+                 "mean_ms": round(v["total_ms"] / v["n"], 1) if v["n"] else 0.0,
+                 "max_ms": round(v["max_ms"], 1)}
+             for k, v in sorted(_METRICS["by_path"].items())}
+    return JSONResponse({
+        "uptime_seconds": round(time.time() - _STARTED, 1),
+        "requests": _METRICS["requests"],
+        "server_errors": _METRICS["errors"],
+        "client_errors": _METRICS["client_errors"],
+        "by_route": paths,
+    }, headers=_NO_STORE)
 
 
 @app.get("/")
@@ -689,9 +847,97 @@ async def _no_cache(request, call_next):
     return response
 
 
+# ═════════════════════════════════════════════════════════════════════════ monitoring
+#
+# What a running instance says about itself, and the one rule that shapes all of it: the log
+# records that a request happened and how it went, never what it contained.
+#
+# That rule is not decoration. The bodies passing through here are a patient's presenting
+# complaint, vital signs, laboratory values and ultrasound images. A log line is copied to
+# disk, shipped to whatever collects it, and read by people who were never in the consultation
+# -- so a logger that echoed request bodies would quietly turn every deployment into an
+# unregulated second medical record. Method, path, status and duration answer the operational
+# questions; nothing clinical is needed to answer them.
+_LOG = logging.getLogger("pocus.access")
+
+_METRICS: dict[str, Any] = {
+    "requests": 0,
+    "errors": 0,                                 # 5xx: the service failed, not the caller
+    "client_errors": 0,                          # 4xx: the caller asked for something wrong
+    "by_path": collections.defaultdict(
+        lambda: {"n": 0, "errors": 0, "total_ms": 0.0, "max_ms": 0.0}),
+}
+
+
+@app.middleware("http")
+async def _observe(request, call_next):
+    started = time.perf_counter()
+    status = 500                                 # if the handler raises, that is what happened
+    try:
+        response = await call_next(request)
+        status = response.status_code
+        return response
+    finally:
+        ms = (time.perf_counter() - started) * 1000.0
+
+        # Keyed by ROUTE, not by URL. Recording the literal path would make every encounter
+        # identifier its own metric, so the series grows without bound and no two requests
+        # ever aggregate -- and identifiers of encounters are exactly the thing not to
+        # accumulate in a metrics table.
+        route = request.scope.get("route")
+        key = getattr(route, "path", None) or ("/static" if not
+                                               request.url.path.startswith("/api/") else "/other")
+
+        _METRICS["requests"] += 1
+        if status >= 500:
+            _METRICS["errors"] += 1
+        elif status >= 400:
+            _METRICS["client_errors"] += 1
+
+        p = _METRICS["by_path"][key]
+        p["n"] += 1
+        p["total_ms"] += ms
+        p["max_ms"] = max(p["max_ms"], ms)
+        if status >= 500:
+            p["errors"] += 1
+
+        # WARNING for a server failure so it separates from ordinary traffic in a log search.
+        _LOG.log(logging.WARNING if status >= 500 else logging.INFO,
+                 "%s %s -> %d in %.1fms", request.method, key, status, ms)
+
+
+
+
 if __name__ == "__main__":
     import uvicorn
+
+    # Configured here rather than at import, so that importing serve.py -- which every API test
+    # does -- does not reconfigure the root logger of whatever imported it. A library that
+    # rearranges logging on import is a library that makes another program's diagnostics
+    # disappear.
+    #
+    # Plain stream to stdout: in a container that IS the log, collected by the runtime. Writing
+    # to a file inside a container would put the diagnostics on the one filesystem that is
+    # discarded when the container stops.
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s %(levelname)-7s %(name)s  %(message)s",
+        stream=sys.stdout,
+    )
+
     port = int(os.environ.get("PORT", 8501))
+
+    # Loopback by default, and the default is the safe one: a development server on a laptop
+    # should not be reachable from the rest of the network, least of all one that holds patient
+    # data entered during a demonstration.
+    #
+    # Inside a container that default is wrong rather than merely cautious. 127.0.0.1 there is
+    # the *container's* loopback, so the process answers itself and nothing else: `docker run
+    # -p 8600:8501` publishes a port that connects to a socket no one is listening on, and the
+    # container looks healthy from within while being unreachable from outside. The Dockerfile
+    # sets HOST=0.0.0.0 explicitly, which keeps the choice visible in the image rather than
+    # hidden in a default that differs by environment.
+    host = os.environ.get("HOST", "127.0.0.1")
     # Plain ASCII: the Windows console defaults to cp1252 and an arrow here aborts startup.
-    print(f"POCUS-Emergency running at http://localhost:{port}")
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    print(f"POCUS-Emergency running at http://localhost:{port}  (bound to {host})")
+    uvicorn.run(app, host=host, port=port, log_level="warning")

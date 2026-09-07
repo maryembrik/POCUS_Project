@@ -32,7 +32,6 @@ gets an explicit `split` column here: NHAMCS/Iran ED use their real year (train 
 train, validation+test.parquet -> test); MIMIC-demo (too small and un-split to hold anything
 out meaningfully) goes entirely to train.
 """
-import glob
 import zipfile
 from pathlib import Path
 

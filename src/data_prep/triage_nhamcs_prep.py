@@ -93,7 +93,6 @@ def process_year(year: int):
     with zipfile.ZipFile(zip_path) as z:
         raw_name = [n for n in z.namelist() if not n.endswith("/")][0]
         with z.open(raw_name) as f:
-            import io
             raw_bytes = f.read()
     raw_tmp = OUT_DIR / f"_tmp_ed{year}_raw.txt"
     raw_tmp.write_bytes(raw_bytes)

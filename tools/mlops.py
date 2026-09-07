@@ -59,6 +59,10 @@ DATASETS: dict[str, list[str]] = {
     "cardiac": ["manifests/cardiac_manifest.csv"],
     "gallbladder": ["manifests/gallbladder_manifest.csv"],
     "triage": ["manifests/triage_combined_tier_core.csv"],
+    # Same rows, different feature space. The dataset version is deliberately computed from the
+    # same manifest: both models are fitted on these encounters, and a different hash here
+    # would imply a difference in the data that does not exist.
+    "triage_deployed": ["manifests/triage_combined_tier_core.csv"],
 }
 
 # ─────────────────────────────────────────────────────────────────── promotion rules
@@ -96,6 +100,30 @@ RULES: dict[str, dict[str, Any]] = {
         "guard_tolerance": 0.01,
         "floor": {"accuracy": 0.60},
         "calibration": ("ece", 0.10),      # stated confidence must stay usable
+    },
+    # A SEPARATE LINEAGE, not a candidate to replace `triage`.
+    #
+    # `triage` is fitted on the full manifest, including reason-for-visit codes and arrival
+    # source that a hospital registration system assigns. `triage_deployed` is fitted on the
+    # fields a clinician enters at the bedside. They answer different questions -- what the
+    # classifier can do given complete records, and what it can do given what is actually
+    # typed -- and comparing them decides nothing: the second is not a worse version of the
+    # first, it is a different model with a smaller input.
+    #
+    # Registering it under `triage` produced exactly that confusion. The gate rejected it for a
+    # macro-F1 regression of 0.099, which was true and beside the point. The fix is a separate
+    # production line, so a deployed candidate is compared against the deployed model it would
+    # replace -- never against an artefact it was never built to beat.
+    #
+    # The rules are the same shape and the tolerances are NOT loosened. A future deployed model
+    # must still beat this one on the headline and must not lose high-urgency recall.
+    "triage_deployed": {
+        "key": "macro_f1",
+        "tolerance": 0.0,
+        "guard": ["recall_high"],
+        "guard_tolerance": 0.01,
+        "floor": {"accuracy": 0.60},
+        "calibration": ("ece", 0.10),
     },
 }
 

@@ -59,7 +59,8 @@ def escalation_decision(state: dict) -> dict[str, Any]:
                     f"high-risk finding below decisive confidence: {f['label']} "
                     f"({f['confidence']:.2f})")
 
-    missing_key = [l for l in ("troponin", "lactate") if l in state["missing"]["labs"]]
+    missing_key = [lab for lab in ("troponin", "lactate")
+                   if lab in state["missing"]["labs"]]
     if missing_key and detected:
         triggers.append(f"positive imaging with key lab(s) absent: {', '.join(missing_key)}")
 
@@ -289,8 +290,8 @@ def validate_llm_output(out: dict, state: dict) -> list[str]:
 
     terms = _vocabulary(state)
     absent: list[set[str]] = []
-    for l in state["missing"]["labs"]:
-        absent.append(_tokens(l))
+    for lab in state["missing"]["labs"]:
+        absent.append(_tokens(lab))
     for v in state["missing"]["vitals"]:
         for alias in _expand(v):
             if _tokens(alias):
@@ -369,7 +370,7 @@ def _decisive_for(diagnosis: str) -> set[str]:
 def check_confidence(out: dict, state: dict) -> list[str]:
     """A 'high' likelihood whose most confirmatory test was never obtained."""
     errs: list[str] = []
-    missing = {str(l).lower() for l in state["missing"]["labs"]}
+    missing = {str(lab).lower() for lab in state["missing"]["labs"]}
     for i, d in enumerate(out.get("differential", []) or []):
         if str(d.get("likelihood", "")).lower() != "high":
             continue

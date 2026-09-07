@@ -71,11 +71,19 @@ src/agents/
     thresholds.json        every alert cutoff, versioned and auditable
     corpus/                32 knowledge units incl. one sourced protocol
     run_case.py            five benchmark scenarios, runnable end to end
-  tests/                 236 tests, grouped by the safety property each exercises
+  tests/                 281 tests, grouped by the safety property each exercises
+
+serve.py                 the deployment: a FastAPI application, run by uvicorn
+web/                     the interface it serves
+  pocus-copilot.dc.html    generated page, English
+  pocus-copilot.fr.dc.html generated page, French
+  logic.js                 bindings; the binder inlines this into the pages
+tools/bind_design.py     binds the design export to the pipeline and writes both pages
 
 src/data_prep/           per-source manifest builders
 notebooks/               training and inference notebooks, one per organ
 models/                  metrics, calibration artefacts, and the frozen baseline
+requirements.txt         runtime; -dev adds tests and scanners, -train adds training
 _docs/report/latex/      internship report
 ```
 
@@ -84,18 +92,70 @@ _docs/report/latex/      internship report
 ## Running it
 
 ```bash
-python -m src.agents.tests.run_benchmark          # 236 safety tests, no model needed
+python tools/checks.py                            # every automated check, in one command
+python -m src.agents.tests.run_benchmark          # 298 safety tests, no model needed
 python -m src.agents.clinical.run_case --dry-run  # state + escalation, no model
 python tools/run_regression.py                    # 150 end-to-end checks
 run.bat                                           # clinician-facing assistant (Windows)
 ```
 
-On Windows, `streamlit run app.py` usually fails: Anaconda's `Scripts` directory is not on
-PATH, and `python` on PATH often resolves to the Windows Store stub, which runs nothing.
-`run.bat` finds an interpreter that actually has streamlit installed and sets
-`KMP_DUPLICATE_LIB_OK`, which this environment needs because torch and MKL each link their own
-OpenMP runtime. The equivalent by hand is
-`C:\path\to\anaconda3\python.exe -m streamlit run app.py`.
+Or in a container, which needs no Python on the host at all:
+
+```bash
+docker build -t pocus-emergency . && docker run --rm -p 8501:8501 pocus-emergency
+```
+
+`run.bat` starts `serve.py`, which is the deployment: a **FastAPI** application served by
+**uvicorn** on <http://localhost:8501>, delivering the generated interface in `web/` and
+computing every value on it through the pipeline. English at `/`, French at `/fr`.
+
+The port is 8501 for historical reasons only. An earlier prototype was written in Streamlit,
+whose default port that is; the number stayed so links kept working after the interface was
+replaced. Nothing in the deployment uses Streamlit.
+
+The wrapper exists because two Windows failures look identical at the prompt: Anaconda's
+`Scripts` directory is not on PATH, and `python` on PATH usually resolves to the Windows Store
+stub, which runs nothing and offers to install Python instead. `run.bat` finds an interpreter
+that actually has fastapi installed and sets `KMP_DUPLICATE_LIB_OK`, which this environment
+needs because torch and MKL each link their own OpenMP runtime. By hand:
+`C:\path\to\anaconda3\python.exe serve.py`. On PowerShell the wrapper needs its path:
+`.\run.bat`.
+
+Dependencies are pinned in `requirements.txt` — runtime only, which is what a container
+installs. `requirements-dev.txt` adds pytest, ruff, bandit and pip-audit;
+`requirements-train.txt` adds the training and experiment-tracking packages.
+
+### Container, checks and what the service says about itself
+
+The image carries the service, the pipeline and the three ultrasound checkpoints — not the
+datasets, which their licences do not permit redistributing and which the running application
+never reads. It runs as a non-root user that cannot write to its own application directory.
+
+Two endpoints exist for operating it rather than for clinical use:
+
+| endpoint | answers |
+|---|---|
+| `/api/health` | did each perception module actually load, and under which thresholds and schema version |
+| `/api/metrics` | requests, latency and failures per route since this instance started |
+
+`/api/health` reports each module's real state rather than a bare `{"ok": true}`, because a
+container that answers 200 with dead models takes traffic and reports every scan as showing
+nothing — which on this system reads exactly like a genuine negative. It earned its place
+immediately: the first image built here shipped the wrong lung checkpoint filename, started
+cleanly, and was caught by this endpoint and nothing else.
+
+The access log records method, route, status and duration, and deliberately **never the request
+body**. What passes through here is a presenting complaint, vital signs, laboratory values and
+images; a log line is copied to disk and read by people who were not in the consultation, so a
+logger that echoed bodies would turn every deployment into a second medical record nobody
+agreed to. A test asserts that a patient name posted to `/api/analyse` does not appear in the
+log.
+
+`python tools/checks.py` runs the tests, the safety benchmark, the regression suite, ruff,
+bandit and pip-audit together, and exits non-zero on any failure. Run as a set on purpose: run
+individually they get run selectively, and the one that would have failed is the one that was
+skipped — which is how a `NameError` in `/api/record/attach` survived here until a lint pass
+was finally run over it.
 
 All three perception modules run on CPU in the app: the clinician uploads a study and the module
 reports its own findings. The lung takes one image and reports four independent findings; the
@@ -113,28 +173,34 @@ minutes. The same workload on CPU takes roughly 23 minutes **per case**.
 | property | tests |
 |---|---:|
 | Hallucination rejection | 25 |
+| Absent is not normal | 22 |
 | Retrieval grounding | 19 |
-| Absent is not normal | 19 |
+| Perception contract | 17 |
 | Malformed output rejection | 16 |
-| Severity and alerts | 12 |
-| Escalation policy | 11 |
-| Perception contract | 11 |
+| Model promotion gate | 16 |
+| Severity and alerts | 15 |
+| Escalation policy | 12 |
 | Examination recommendations | 10 |
 | Benchmark scenarios | 9 |
 | Confidence calibration | 9 |
 | Conflict detection | 9 |
 | Enumerated evidence | 8 |
 | Evidence coverage | 8 |
+| French rendering coverage | 8 |
 | Automated reporting | 7 |
 | Deterministic output control | 7 |
+| Model-scope propagation | 7 |
+| Assistant knowledge boundary | 6 |
 | Case-quality grading | 6 |
 | Evidence relationships | 5 |
 | Failure severity | 5 |
 | LLM failure containment | 5 |
-| Model-scope propagation | 5 |
 | Reference-range detection | 5 |
 | Unassessed-organ reporting | 5 |
 | Advice scope | 4 |
+| Assistant French routing | 4 |
+| Assistant action boundary | 3 |
+| Assistant routing | 3 |
 | Scenario routing | 3 |
 | Value-reading consistency | 3 |
 

@@ -127,7 +127,7 @@ def test_the_lung_trainer_reports_every_metric_its_gate_guards():
     src = (ROOT / "src" / "lung" / "train.py").read_text(encoding="utf8")
     for guard in RULES["lung"]["guard"]:
         finding = guard.replace("recall_", "")
-        assert f'f"recall_{{name}}"' in src or guard in src, guard
+        assert 'f"recall_{name}"' in src or guard in src, guard
         assert finding in src, f"{finding} is guarded but the trainer never names it"
     assert "macro_f1" in src
 

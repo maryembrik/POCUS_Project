@@ -222,25 +222,45 @@ src/agents/
     thresholds.json        every alert cutoff, versioned
     corpus/                32 sourced knowledge units
     run_case.py            five benchmark scenarios, end to end
-  tests/                 236 tests, grouped by safety property
+  tests/                 281 tests, grouped by safety property
 tools/run_regression.py  150 end-to-end checks over 10 cases
-app.py                   clinician-facing Streamlit application
+serve.py                 the deployment: FastAPI application, run by uvicorn
+web/                     the interface it serves, English and French
+tools/bind_design.py     binds the design export to the pipeline
 notebooks/               training, one per organ
 models/                  metrics, calibrators, frozen baselines
 manifests/               per-source dataset manifests
+requirements*.txt        runtime, development and training dependencies
 \end{verbatim}
+
+\paragraph{Deployment.} The application is an HTTP service written with FastAPI and served
+by uvicorn on port 8501, delivering a generated HTML interface whose every displayed value
+is computed by the pipeline described in Section~\ref{sec:integration}. The port is the one
+Streamlit uses by default, which is an artefact of history rather than of design: the first
+prototype was a Streamlit application, and the port number was kept when the interface was
+rebuilt so that existing links continued to work. That prototype is retained under
+\texttt{\_archive/} as a record of the earlier iteration and forms no part of the deployed
+system.
 
 \paragraph{Environment.} Python 3.13, PyTorch 2.13, torchvision 0.28, scikit-learn 1.5,
 XGBoost 3.2, NumPy 2.3. Segmentation uses \texttt{segmentation\_models\_pytorch}; the language
 model runs through \texttt{llama-cpp-python} with a CUDA build. Training and inference ran on
 Google Colab T4 GPUs.
 
+Dependencies are pinned in three files rather than one, because the sets genuinely differ.
+\texttt{requirements.txt} holds what the running service needs and is what a container
+installs; \texttt{requirements-dev.txt} adds the test suite, the linter and the two security
+scanners; \texttt{requirements-train.txt} adds training and experiment tracking. The division
+is not cosmetic: PyTorch is pinned to its CPU build, because the deployed pipeline runs on CPU
+by design, and a scanner or a tracking client inside a production image would be surface that
+performs no work there.
+
 \paragraph{Reproducing the training runs.} Each module has one notebook under
 \texttt{notebooks/}, which loads its dataset, performs its own grouped split, trains, evaluates
 and exports both weights and calibrator. The notebooks are self-contained and were the interface
 through which every reported figure was produced.
 
-\paragraph{Reproducing the safety benchmark.} The 236 tests require no GPU, no model weights and
+\paragraph{Reproducing the safety benchmark.} The 281 tests require no GPU, no model weights and
 no dataset:
 
 \begin{verbatim}

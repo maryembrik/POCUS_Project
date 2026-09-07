@@ -24,7 +24,7 @@ import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 SCHEMA_VERSION = "1.0"
 
@@ -53,6 +53,7 @@ def make_report(
     findings: Iterable[dict] = (),
     *,
     not_detected: Iterable[dict] = (),
+    alternatives: Iterable[dict] = (),
     status: str = "ok",
     measurements: dict | None = None,
     quality: dict | None = None,
@@ -77,6 +78,19 @@ def make_report(
     Collapsing the second into the third loses real information; collapsing it into a negative
     result invents one. Only a module that screens a fixed label set can populate it.
 
+    `alternatives` is for the single-label case and is NOT a third synonym for not_detected.
+    The gallbladder module chooses one of five mutually exclusive diagnoses, so the four it did
+    not choose were never "screened and found absent" -- they were weighed against each other
+    and ranked lower. Their probabilities sum with the reported one; they are not independent
+    negatives, and presenting them as though they were would assert four negative results the
+    module never produced.
+
+        not_detected    independent findings, each looked for and not seen (lung)
+        alternatives    mutually exclusive classes, considered and ranked lower (gallbladder)
+
+    Reporting them at all matters: a clinician who sees only "carcinoma" cannot tell whether
+    the module weighed cholelithiasis and rejected it, or never had it in its label set.
+
     Unsupported organs return status='not_supported' with both lists empty -- same shape, so
     the reasoning agent never needs a special case for them.
     """
@@ -91,6 +105,7 @@ def make_report(
         "status": status,
         "findings": [dict(f) for f in findings],
         "not_detected": [dict(f) for f in not_detected],
+        "alternatives": [dict(f) for f in alternatives],
         "measurements": dict(measurements or {}),
         "quality": dict(quality or {}),
         "reliability": dict(reliability or {}),
@@ -147,7 +162,13 @@ def validate_report(report: dict) -> list[str]:
         errs.append("not_detected must be a list")
         negatives = []
 
-    for field, items in (("finding", report["findings"]), ("not_detected", negatives)):
+    alternatives = report.get("alternatives") or []
+    if not isinstance(alternatives, list):
+        errs.append("alternatives must be a list")
+        alternatives = []
+
+    for field, items in (("finding", report["findings"]), ("not_detected", negatives),
+                         ("alternatives", alternatives)):
         for i, f in enumerate(items):
             if "label" not in f or "confidence" not in f:
                 errs.append(f"{field}[{i}] missing label/confidence")
@@ -168,6 +189,20 @@ def validate_report(report: dict) -> list[str]:
     for f in negatives:
         if str(f.get("label")) in labels:
             errs.append(f"label {f.get('label')!r} appears as both detected and not detected")
+
+    # The reported class cannot also be one of the classes it was preferred over. That would
+    # make the module both choose a diagnosis and rank it below itself.
+    for f in alternatives:
+        if str(f.get("label")) in labels:
+            errs.append(f"label {f.get('label')!r} is both the reported finding and an "
+                        f"alternative to it")
+
+    # Mutually exclusive classes and independent screening are different claims about the same
+    # module, and a report making both is not interpretable: the reasoning layer would have to
+    # decide whether a label absent from `findings` was ruled out or merely outranked.
+    if alternatives and negatives:
+        errs.append("a report carries both not_detected and alternatives; a module screens "
+                    "independent findings or chooses among exclusive ones, not both")
 
     # A declared ceiling that the emitted confidence exceeds means either the calibrator was not
     # applied or the ceiling is stale. Either way the number reaching the reasoning agent is not

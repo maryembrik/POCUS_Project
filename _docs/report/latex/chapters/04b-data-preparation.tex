@@ -1,0 +1,159 @@
+% =========================================================================================
+% Chapter 5 -- Data Preparation (CRISP-DM)
+%
+% Split out of the former combined data chapter. The cut point is deliberate: this file
+% begins where the description of the data ends and the operations on it begin. No
+% paragraph was reordered in the split.
+% =========================================================================================
+\section{Data Preparation}
+\label{sec:dataprep}
+
+\subsection{Introduction}
+
+Chapter~\ref{sec:data} established what these datasets contain and what counts as one
+independent observation in each. This chapter describes what was then done to them: the
+exclusions applied, the distributions that remained afterwards, the baselines those
+distributions imply, and the partitioning that keeps a case on one side of the split.
+
+The order matters. Every count reported here is a count after exclusion, and every baseline
+is computed on the partition the module is actually evaluated on rather than on the pooled
+data --- which is why they appear after the cleaning that produced them and not before.
+
+\subsection{Cleaning and Exclusions}
+\label{subsec:data-cleaning}
+
+\paragraph{Lung.} Eleven files were excluded as off-target (not showing lung) and one as
+flagged unusable by the dataset curators, reducing 198 files to the 187 used.
+
+\paragraph{Gallbladder.} One class was found, on inspection, not to match its label. The
+error is worth recording because of how it was made rather than merely that it occurred: the
+class was first judged from a handful of images and appeared unremarkable. Viewing one image
+per case, across all cases, showed otherwise.
+
+\begin{keystatement}
+Images from one case are not a sample of a class. They are a sample of a patient.
+\end{keystatement}
+
+The rule generalises beyond this incident and was applied to every subsequent inspection.
+The affected class was excluded from training; the reasoning is given in
+Section~\ref{subsec:gallbladder-module}.
+
+\paragraph{Triage.} Vital signs recorded as zero are not physiological readings but an
+encoding of ``not measured'', and were converted to genuine missing values. Fields knowable
+only after triage --- final diagnosis, waiting time, disposition --- were removed, since a
+model that sees them predicts the past rather than the future.
+
+\subsection{Class Distribution and Baselines}
+\label{subsec:data-distribution}
+
+No score means anything on its own. A result must be read against what could be achieved
+without a model at all, and the appropriate reference depends on the metric.
+
+\begin{itemize}[label=$\bullet$]
+  \setlength\itemsep{0.2em}
+  \item For plain \textbf{accuracy}, the reference is the \textit{majority-class baseline}:
+    the score obtained by always predicting the commonest class, ignoring the patient
+    entirely.
+  \item For \textbf{balanced accuracy} --- the mean of the per-class recalls --- that
+    strategy scores no better than guessing, so the reference is the \textit{chance level},
+    \(1/K\) for \(K\) classes.
+  \item For \textbf{AUROC}, the reference is 0.500 regardless of how imbalanced the classes
+    are, since the measure is invariant to prevalence.
+\end{itemize}
+
+Tab.~\ref{tab:baselines} gives the reference for each module.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{lllr}
+    \toprule
+    \textbf{Module} & \textbf{Metric reported} & \textbf{Reference} &
+    \textbf{Value} \\
+    \midrule
+    Triage      & accuracy          & majority class, test split & 40.0\% \\
+    Triage      & balanced accuracy & chance, 3 classes          & 33.3\% \\
+    Gallbladder & balanced accuracy & chance, 5 classes          & 20.0\% \\
+    Gallbladder & accuracy          & majority class             & 33.2\% \\
+    Lung        & AUROC             & chance                     & 0.500 \\
+    \bottomrule
+  \end{tabular}
+  \caption{The reference each module's results must be read against. Baselines are computed
+    on the partition the module is evaluated on, not on the pooled data.}
+  \label{tab:baselines}
+\end{table}
+
+One subtlety in the triage figures deserves stating, because using the wrong number would
+misrepresent the result in both directions. Across the pooled data, 95{,}234 of 164{,}700
+visits are \textit{high} urgency, giving a majority baseline of 57.8\%. But the model is
+trained on earlier years and evaluated on the most recent, and in that test partition the
+class mix is different: the majority baseline there is 40.0\%. The test-set figure is the
+one a reported accuracy must be compared against.
+
+The class imbalance is real in every module. At case level the gallbladder classes range
+from 66 cases (inflammatory conditions) down to 25 (wall thickening) out of 199. In the lung
+data the four findings appear in 63, 60, 46 and 24 of 187 clips --- so pleural effusion
+rests on 24 positive examples, which is why it is later marked unreliable rather than
+reported as a result.
+
+One finding was dropped entirely. Pneumothorax was in the intended label set but has zero
+positive examples in the usable data, so the lung module reports four findings rather than
+five. A class with no positives cannot be learned, and a model claiming to detect it would
+be claiming something it had never seen.
+
+\subsection{Partitioning and Leakage Prevention}
+\label{subsec:data-splits}
+
+\paragraph{Imaging modules.} All three use grouped cross-validation by case: every file
+belonging to one case is assigned to the same fold, so no fold is evaluated on a patient it
+was trained on. Calibration data is held out separately, because fitting a calibrator on the
+same predictions used to evaluate it would make the resulting confidence circular.
+
+\paragraph{Triage.} The split is temporal rather than random --- earlier years for training,
+the most recent year for testing --- giving 148{,}520 training and 16{,}180 test visits. A
+random split would let the model learn from visits that occurred after the ones it is tested
+on, which no deployed system could do.
+
+\paragraph{A leak found by inspection, not by metrics.} Pooling four sources initially
+produced a markedly higher accuracy than any single source, which is the wrong direction for
+a harder, more heterogeneous problem. Investigation showed one source recorded vital signs
+almost exclusively for a particular urgency grade, as an artefact of its collection process.
+The model was not learning that abnormal vitals indicate urgency; it was learning that the
+\emph{presence of a vitals record} indicates a label.
+
+The fix was to null the affected fields for that source, keeping only those independently
+reliable. The cost is visible in the data: roughly 87--91\% of the pooled visits now carry no
+vital signs at all. That is a large loss of information, accepted because the alternative was
+a higher number that meant nothing.
+
+\subsection{Limitations}
+\label{subsec:data-limits}
+
+Stated as bounds on what may later be claimed:
+
+\begin{itemize}[label=$\bullet$]
+  \setlength\itemsep{0.2em}
+  \item \textbf{Case counts are small.} 220 gallbladder cases across nine classes, and 165
+    lung cases, are the true sample sizes. Confidence intervals on per-class results are
+    correspondingly wide.
+  \item \textbf{The lung case mapping is inferred.} Residual leakage is possible, and can
+    only act in the optimistic direction.
+  \item \textbf{The sources are public collections, not consecutive clinical series.} They
+    are not a random sample of any population, so prevalence in these data implies nothing
+    about prevalence in an emergency department.
+  \item \textbf{Most vital-sign data was discarded.} The triage model operates largely on
+    demographics and presenting complaint, which bounds how well it could possibly perform.
+  \item \textbf{No external validation cohort} was available for the lung, gallbladder or
+    triage modules. Only the cardiac module was tested on data from a different source.
+\end{itemize}
+
+\subsection{Conclusion}
+
+The work described here produced no model and improved no metric. It did the opposite: by
+establishing that the unit of analysis is the case rather than the file, it reduced the
+apparent size of every imaging dataset --- most dramatically from 10{,}694 to 220 --- and
+lowered every score that followed.
+
+That is the point. The numbers reported in Chapter~\ref{sec:perception} are smaller than
+those a file-level evaluation would have produced, and they are the ones that describe how
+the models behave on a patient they have not seen.

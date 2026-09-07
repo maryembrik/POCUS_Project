@@ -1,0 +1,25 @@
+# Development dependencies: the test suite, the linter and the two security scanners.
+#
+# Installed in CI and on a developer machine, never in the deployed image -- a scanner in a
+# production container is attack surface that does no work there.
+#
+#   pytest      the 281 tests under src/agents/tests/ and the regression harness
+#   pytest-cov  coverage measurement over those tests
+#   ruff        lint and format check; fast enough to run on every commit
+#   bandit      scans this project's own source for unsafe patterns
+#   pip-audit   checks the pinned versions in requirements.txt against known CVEs
+#
+# bandit and pip-audit answer different questions and neither substitutes for the other:
+# bandit reads the code we wrote, pip-audit reads the dependencies we did not.
+#
+# Every version here has been installed and run in this environment. None is a guess: an
+# unexecuted pin records an assumption in the same notation as a measurement, and the person
+# who discovers the difference is whoever builds from it next.
+
+-r requirements.txt
+
+pytest==8.4.2
+pytest-cov==7.1.0
+ruff==0.12.0
+bandit==1.9.4
+pip-audit==2.10.1

@@ -6,7 +6,7 @@
 % configuration retained. Rejected experiments belong inside the module that prompted them.
 % Cross-module synthesis is Chapter 8, not here.
 % =========================================================================================
-\section{Perception Agents}
+\section{Modeling: Perception Agents}
 \label{sec:perception}
 
 \subsection{General Architecture}
@@ -216,6 +216,53 @@ The retained threshold of 0.20 removes more than half the dangerous misses --- 3
 the model is overriding so often that it has stopped discriminating. The knee of that curve was
 found by measurement, and 0.20 sits at it.
 
+\subsubsection{A Sanity Check on Constructed Cases}
+
+Alongside the test-set metrics, five cases were written by hand to span the acuity spectrum and
+the model was asked to grade them. The purpose is not measurement --- five constructed cases
+support no statistical claim --- but a check that the model moves in the direction a clinician
+would expect as the presentation changes, which an aggregate accuracy cannot show.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{Xllr}
+    \toprule
+    \textbf{Constructed case} & \textbf{Expected} & \textbf{Predicted} & \textbf{Conf.} \\
+    \midrule
+    Healthy young adult, minor ankle sprain, walk-in & low & low & 52.2\% \\
+    Middle-aged, moderate abdominal pain, stable vitals, walk-in & medium & medium & 47.8\% \\
+    Elderly, tachycardic, hypotensive and hypoxic, ambulance & high & high & 83.2\% \\
+    \addlinespace[2pt]
+    Elderly, ambulance, severe chest pain, tachycardic & high & \emph{medium} & 61.9\% \\
+    Young adult, high fever and tachycardic, walk-in & medium & \emph{high} & 37.9\% \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Five hand-constructed cases. Three recover the expected tier.}
+  \label{tab:triage-sanity}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{fig_triage_sanity.png}
+  \caption{Predicted tier probabilities for the cases of Tab.~\ref{tab:triage-sanity}. The
+    septic-shock-like presentation, where several vital signs are simultaneously abnormal, is
+    the only one graded with high confidence (0.832); the remaining four distribute their mass
+    across two or three tiers. This is a behavioural check on constructed inputs, not a
+    performance measure.}
+  \label{fig:triage-sanity}
+\end{figure}
+
+Both failures are confusions between \emph{adjacent} tiers, and neither confuses low with high
+in either direction. They are not equivalent, however. The febrile young adult is over-triaged
+at 37.9\% confidence --- the harmless direction, and without conviction. The elderly patient
+with severe chest pain is under-triaged at 61.9\%, which is the combination that matters: the
+wrong direction, stated with some confidence.
+
+That case is the reason the tier is never the sole determinant of urgency. Reaching the
+reasoning layer as \emph{medium}, it can still be escalated by an imaging finding, a missing key
+laboratory value, or disagreement between the agents.
+
 \subsubsection{Calibration}
 
 Confidence is calibrated by Platt scaling fitted on a held-out slice of the training data,
@@ -236,6 +283,44 @@ safety threshold of 0.20 on the high-urgency probability.
 The limitations declared to the reasoning layer are that the model sees no imaging, that its
 accuracy varies by source from 0.617 to 0.789, and that it estimates urgency rather than
 diagnosis.
+
+\subsubsection{What is Deployed, and What is Not}
+\label{subsec:triage-deployment}
+
+\begin{keystatement}
+This classifier was built, calibrated and evaluated. It is not called by the deployed
+application. In the running system the urgency tier is entered by the clinician.
+\end{keystatement}
+
+The reason is a mismatch between what the model needs and what the clinical intake collects.
+The features that carry most of its signal --- arrival mode, and the coded reason-for-visit
+categories --- are administrative fields recorded by a hospital registration system. The intake
+screen of this application asks a clinician for a presenting complaint in free text. Connecting
+the two would mean inferring a coded category from a free-text complaint, and a tier predicted
+from features that were guessed at is not the tier the reported accuracy describes.
+
+Presenting a number produced that way as ``calibrated'' would be the more serious error, since
+the whole purpose of calibrating this output was to make it comparable with an imaging
+confidence. So the deployed interface offers the clinician a three-way control ---
+\textsc{low}, \textsc{medium}, \textsc{high} --- and records the tier with its provenance, as
+\texttt{model: "clinician"}, so that a reader of an archived encounter can tell a stated
+assessment from a predicted one.
+
+\paragraph{Why this is not merely a gap.} The tier is not decoration in the reasoning layer.
+One of the escalation triggers compares it against the imaging findings: when triage says
+\textsc{low} and a module reports something severe, the two disagree, and the system escalates
+rather than choosing between them. A clinician-entered tier is a sound input to that
+comparison --- arguably a better one than a prediction, since it is a second independent
+judgement rather than another model reading the same record.
+
+\paragraph{A defect this exposed.} The control described here did not exist until late in the
+project. The intake form carried a fixed value of \textsc{medium} and sent it with every
+encounter, so the disagreement trigger could not fire for any patient entered through the
+interface. The rule itself was correct and its own tests passed throughout, because those
+tests call the conflict detector directly with a \textsc{low} tier. A rule can be correct and
+still never run, and no test that exercises the rule can reveal that: it took following the
+value from the screen to the reasoning layer. The end-to-end checks added with the control
+now traverse that path over HTTP, which is where the gap was.
 
 % =========================================================================================
 \subsection{Ultrasound Agent: Organ Routing}
@@ -508,6 +593,50 @@ per-split results files, are described in Section~\ref{subsubsec:agent-extractio
 thresholds were retrievable; the calibrators were not. An artefact that exists only in the
 memory of a notebook session does not exist.
 
+\paragraph{Whether they could simply be refitted.} The obvious remedy is to regenerate the
+out-of-fold predictions and fit the calibrators again. That was examined and rejected, on the
+data rather than on effort. Calibration must be fitted on cases held out from both training
+and threshold tuning, or the resulting probabilities are fitted to the same evidence they are
+later scored against. Carving such a split out of this dataset leaves too little to fit
+anything on:
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{lrrr}
+    \toprule
+    \textbf{Finding} & \textbf{Positive clips} & \textbf{Positive cases} &
+    \textbf{In a 20\% split} \\
+    \midrule
+    B-lines             & 63 & 53 & $\approx$ 11 \\
+    Consolidation       & 60 & 46 & $\approx$ 9 \\
+    Pleural thickening  & 46 & 39 & $\approx$ 8 \\
+    \textbf{Pleural effusion} & \textbf{24} & \textbf{16} & $\approx$ \textbf{3} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Case-level positives per lung finding, and what a held-out calibration split would
+    contain. The unit is the case, not the clip, for the reason established in
+    Chapter~\ref{sec:data}.}
+  \label{tab:lung-calibration-budget}
+\end{table}
+
+A Platt scaling fitted on three positive cases is not a calibration; it is a curve through
+noise that would then be printed beside a clinical finding as a probability. The decision was
+therefore to leave the module uncalibrated and to say so everywhere the number appears: the
+report declares \texttt{confidence\_calibrated: false}, the scope string states that the
+confidence is a raw sigmoid output and that the decision boundary is tuned while the number is
+not, and \texttt{/api/health} reports the module as \emph{ready, uncalibrated}.
+
+\begin{keystatement}
+Reporting a raw score labelled as raw is honest. Manufacturing a calibration from three
+positive cases and labelling it calibrated is not, and the label is what a clinician would
+act on.
+\end{keystatement}
+
+This is the one place where the lung module is deliberately weaker than the cardiac and
+gallbladder modules, which do carry fitted calibrators. It is a consequence of the dataset
+size, not of the method, and it is the first thing additional lung data would fix.
+
 \subsubsection{Final Decision}
 
 The retained configuration is EfficientNet-B0 with the last blocks unfrozen, multi-label over
@@ -604,6 +733,24 @@ The reversal is reported as method rather than concealed as an embarrassment. A 
 drawn from a handful of images and overturned by measurement over the full dataset is the same
 error, in miniature, that the gallbladder module also produced
 (Section~\ref{subsec:gallbladder-module}), and the recurrence is why it is stated twice.
+
+Fig.~\ref{fig:cardiac-external-grid} shows what that failure looks like on individual frames,
+and the visual form matters as much as the number. The predicted regions are single, smooth and
+correctly placed over the ventricle; they are simply too small, cut off well inside the true
+boundary. That is the signature of a decision threshold displaced by domain shift, not of a
+model searching in the wrong part of the image.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{fig_cardiac_external_grid.png}
+  \caption{Five frames drawn at random from the external collection: the image, the reference
+    left-ventricle mask, and the prediction with its own Dice. The five values, 0.49 to 0.66,
+    bracket the collection mean of 0.534 and are therefore representative rather than selected.
+    Every prediction is one coherent region in approximately the right place and every one
+    under-segments, which is the same conclusion the fragmentation measurement reached and the
+    opposite of what a localisation failure would look like.}
+  \label{fig:cardiac-external-grid}
+\end{figure}
 
 \subsubsection{Ejection Fraction}
 
@@ -884,6 +1031,31 @@ in each image, and this project has none. The gallbladder module in particular s
 pronounced central prior consistent with either a genuine anatomical focus or an acquisition
 convention, and nothing measured here separates the two.
 
+Fig.~\ref{fig:lung-gradcam} shows the lung maps, one clip drawn at random from the positives of
+each of the four findings. It is included to make the measured statistics legible, and it
+requires one caveat that the panel labels do not carry themselves.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{fig_lung_gradcam.png}
+  \caption{Grad-CAM for the lung module: one clip per finding, top row the frame and bottom row
+    the attention. The \textsc{pred} label is the \emph{highest-scoring} of the four findings,
+    not the module's decision --- the module is multi-label and reports each finding
+    independently against its own threshold, so a clip may carry two findings while only one
+    can be named here. These panels therefore say nothing about whether the module classified
+    the clip correctly.}
+  \label{fig:lung-gradcam}
+\end{figure}
+
+The maps vary in how concentrated they are, and the first panel is the least concentrated of
+the four. That is consistent with the statistics rather than in tension with them: the claim
+established is that attention is concentrated \emph{on average} and moves with content, not
+that every individual map is tight. Attention reaching the edge of the sector in several panels
+is the observation that most warrants caution here, since the sector boundary is an artefact of
+the acquisition geometry and carries no clinical information --- a model attending to it would
+be reading the machine rather than the patient. Nothing measured here settles that, which is
+why the boundary below is stated as firmly as it is.
+
 Grad-CAM is therefore reported as a plausibility check that the models are not obviously
 responding to the wrong thing, and explicitly not as evidence of clinical validity.
 Section~\ref{subsec:results-explainability} states the same boundary at system level.
@@ -920,6 +1092,40 @@ Four validation rules are enforced, each for a reason established by a failure:
         lists make contradictory claims about the same finding, and silently preferring one
         would decide a contradiction the module should not have produced.
 \end{itemize}
+
+\paragraph{Four states on the screen the clinician reads.} The contract carries three states;
+the interface shows four, because one of the three splits in two once a reader is involved.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{State} & \textbf{What it asserts} \\
+    \midrule
+    Detected & The module saw the finding and can support the claim \\
+    \addlinespace[2pt]
+    Detected --- weak evidence & The module reports it, on evidence too thin to act on alone.
+      Pleural effusion rests on 16 positive cases and carries this permanently \\
+    \addlinespace[2pt]
+    Screened, not detected & The module looked for it and did not see it. An informative
+      negative \\
+    \addlinespace[2pt]
+    NOT assessed --- not modelled & The module does not cover this finding at all. It appears
+      in the list with no confidence value, because no examination of it took place \\
+    \bottomrule
+  \end{tabularx}
+  \caption{The four states a lung finding can occupy in the interface.}
+  \label{tab:four-states}
+\end{table}
+
+The fourth state exists for pneumothorax specifically. It was in the intended label set, has
+zero positive examples in the usable data, and was therefore dropped --- and it is among the
+findings lung ultrasound is most often used to look for. A list showing B-lines, consolidation
+and pleural thickening all negative, with pneumothorax simply absent from it, invites the one
+inference the whole system is built to prevent: the scan did not mention it, so it is not
+there. Giving it a row of its own, with a dash where a confidence would be, makes the silence
+visible.
 
 The distinction the contract exists to preserve is between three states, not two: a finding
 detected, a finding screened for and not seen, and a finding never assessed. The first two are

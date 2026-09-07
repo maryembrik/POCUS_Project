@@ -48,6 +48,21 @@
         "ece",
         0.1
       ]
+    },
+    "triage_deployed": {
+      "key": "macro_f1",
+      "tolerance": 0.0,
+      "guard": [
+        "recall_high"
+      ],
+      "guard_tolerance": 0.01,
+      "floor": {
+        "accuracy": 0.6
+      },
+      "calibration": [
+        "ece",
+        0.1
+      ]
     }
   },
   "dataset_versioning": {
@@ -65,13 +80,17 @@
       ],
       "triage": [
         "manifests/triage_combined_tier_core.csv"
+      ],
+      "triage_deployed": [
+        "manifests/triage_combined_tier_core.csv"
       ]
     },
     "current": {
       "lung": "lung@11075e6a4296",
       "cardiac": "cardiac@47b4d1a7ecb3",
       "gallbladder": "gallbladder@1241e9f93928",
-      "triage": "triage@9adc24de812b"
+      "triage": "triage@9adc24de812b",
+      "triage_deployed": "triage_deployed@9adc24de812b"
     }
   },
   "evaluation_protocol": {
@@ -84,5 +103,8 @@
     "lung": "manifests/pulmonary_manifest.csv, 187 usable clips, 165 case groups",
     "triage": "manifests/triage_combined_tier_core.csv, 164,700 rows"
   },
-  "fingerprint": "f9fbcf50efa70b00"
+  "fingerprint": "cea9c143147a7e6e",
+  "previous_fingerprint": "f9fbcf50efa70b00",
+  "changed_because": "Added the triage_deployed lineage: a model fitted on the fields the clinician intake collects, with its own production line. Its rules are a copy of triage's and no tolerance was loosened -- the separate line exists so a deployed candidate is compared against the deployed model it would replace, not against the full-feature reference model it was never built to beat.",
+  "changed_at": "2026-09-06T13:43:31+00:00"
 }

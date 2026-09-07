@@ -18,7 +18,7 @@ from src.agents import schema as S
 from src.agents.clinical.clinical_state import build_clinical_state
 from src.agents.clinical.decision_support import (
     critical_alerts, decision_support, load_thresholds, recommended_examinations,
-    route_scenario, severity_level, therapeutic_considerations)
+    route_scenario, therapeutic_considerations)
 from src.agents.clinical.llm import ScriptedBackend
 from src.agents.clinical.reasoning import escalation_decision, reason
 from src.agents.clinical.report import (
@@ -331,7 +331,9 @@ def test_an_unsourced_protocol_passage_is_not_surfaced():
 
 # ------------------------------------------------------------------ reporting
 def _full_report(state):
-    esc = escalation_decision(state)
+    # No escalation_decision() call here: its result was computed and discarded. It only reads
+    # the state -- it builds a local trigger list and returns it -- so nothing downstream
+    # depended on having called it, and reason() derives the decision itself.
     ids = cite(state, "b_lines")
     answer = {"differential": [{"diagnosis": "Pulmonary oedema", "likelihood": "moderate",
                                 "supporting": ids, "contradicting": [], "limitations": []}],

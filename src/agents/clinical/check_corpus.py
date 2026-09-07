@@ -10,7 +10,6 @@ grounding it does not have.
 """
 from __future__ import annotations
 
-import sys
 from collections import Counter
 
 from .retrieval import Retriever, load_corpus

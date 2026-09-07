@@ -45,6 +45,20 @@ const SUGGESTIONS = FR ? [
 // The language rides on every request, so the server renders the clinical text in the same
 // language as the page that asked for it.
 const _lang = u => u + (u.indexOf('?') < 0 ? '?' : '&') + 'lang=' + LANG;
+
+// The API sends observation KEYS, not sentences, so a French screen never receives an English
+// phrase. Naming them the way a clinician would say them out loud, not the way the model's
+// training columns spell them.
+const VITAL_WORDS = {
+  hr: T('heart rate', 'fréquence cardiaque'),
+  sbp: T('systolic blood pressure', 'pression artérielle systolique'),
+  dbp: T('diastolic blood pressure', 'pression artérielle diastolique'),
+  rr: T('respiratory rate', 'fréquence respiratoire'),
+  spo2: T('oxygen saturation', 'saturation en oxygène'),
+  temp: T('temperature', 'température'),
+  pain: T('pain score', 'niveau de douleur'),
+};
+const VITAL_WORD = k => VITAL_WORDS[k] || k;
 const post = (u, b) => fetch(_lang(u), { method: 'POST',
   headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
   .then(r => r.json());
@@ -55,7 +69,8 @@ class Component extends DCLogic {
     screen: 'home', recTab: 'images', draft: '', busy: false, grown: false, fabOpen: false,
     boot: null, view: null, preset: '', upload: null, previews: [],
     form: { name: '', age: 60, sex: 'F', complaint: '', history: '', tier: 'medium',
-            tconf: 0.8, organ: 'Lung', vitals: {}, labs: {}, findings: {} },
+            tconf: 0.8, arrival: 'walk-in', organ: 'Lung',
+            vitals: {}, labs: {}, findings: {} },
     // What was TYPED, kept beside what was parsed. The box showed the parsed number, so
     // "20." came back as "20" and the decimal point could never be entered at all.
     typed: { vitals: {}, labs: {} },
@@ -84,7 +99,40 @@ class Component extends DCLogic {
   // next analyse still carries the benchmark key and the server compares the typed patient
   // against a scenario it is no longer describing.
   setForm(p) {
+    // A tier the clinician set themselves is never overwritten by a later suggestion. Without
+    // this, entering the urgency and then recording one more observation would silently move
+    // it back -- the interface changing a clinical judgement while the clinician's attention
+    // was on a different field.
+    if (p.tier !== undefined) this._tierSetByClinician = true;
     this.setState(s => ({ form: Object.assign({}, s.form, p), preset: '' }));
+    this.refreshSuggestion();
+  }
+
+  // Ask for an urgency suggestion from what has been entered so far.
+  //
+  // Debounced, because it fires on every keystroke in every vitals box. Guarded by a token so
+  // that a slow reply for an earlier state cannot land after a newer one and show a suggestion
+  // for data the screen no longer holds -- the same race that once made an upload's findings
+  // arrive after the assessment that was supposed to use them.
+  refreshSuggestion() {
+    clearTimeout(this._suggestTimer);
+    this._suggestTimer = setTimeout(async () => {
+      const token = (this._suggestToken = (this._suggestToken || 0) + 1);
+      try {
+        const r = await fetch(_lang('/api/triage/suggest'), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.state.form),
+        });
+        const s = await r.json();
+        if (token !== this._suggestToken) return;
+        if (!s.available) return;
+        this.setState({ suggestion: s });
+        // Pre-fill only while the clinician has not chosen for themselves.
+        if (!this._tierSetByClinician && s.tier !== this.state.form.tier) {
+          this.setState(st => ({ form: Object.assign({}, st.form, { tier: s.tier }) }));
+        }
+      } catch (e) { /* a suggestion is an aid; its absence must not block intake */ }
+    }, 400);
   }
 
   // parseFloat('') and parseFloat('abc') are both NaN, and JSON.stringify writes NaN as null.
@@ -268,6 +316,17 @@ class Component extends DCLogic {
              color: !flag ? '#9C99B8' : bad ? '#C13238' : '#5A7A0F' };
   }
 
+  // The word a clinician reads. Kept separate from the key flagStyle() compares against: that
+  // comparison is `flag !== 'normal'`, so translating the key in place would paint every
+  // normal French value in the red reserved for abnormal ones -- the same failure the severity
+  // colours already had once, in the one place a reader trusts without reading.
+  flagText(flag) {
+    return { 'not measured': T('not measured', 'non mesuré'),
+             low: T('low', 'bas'),
+             high: T('high', 'élevé'),
+             normal: T('normal', 'normal') }[flag] || flag || '';
+  }
+
   renderVals() {
     const st = this.state, v = st.view || {}, boot = st.boot || {};
     const has = !!v.hasEncounter;
@@ -351,6 +410,71 @@ class Component extends DCLogic {
       onName: e => this.setForm({ name: e.target.value }),
       onAge: e => this.setForm({ age: parseInt(e.target.value || '0', 10) || 0 }),
       onSex: e => this.setForm({ sex: e.target.value === 'Male' ? 'M' : 'F' }),
+
+      // ---- the urgency the CLINICIAN assesses, not a model output -----------------
+      // Sent with the encounter and read by the escalation policy, which fires when this
+      // says LOW and an imaging module reports something severe. Before this control
+      // existed the form sent 'medium' for every patient and that trigger was unreachable.
+      //
+      // Mapped back to the schema's lowercase tiers by POSITION rather than by matching the
+      // displayed word: the French page shows "Faible / Moyenne / Élevée", and comparing
+      // against an English label there would silently fall through to a default -- which is
+      // exactly how the severity colours were once broken on the French screens.
+      tierLabel: T('Assessed urgency', 'Urgence évaluée'),
+      tierLow: T('Low', 'Faible'),
+      tierMedium: T('Medium', 'Moyenne'),
+      tierHigh: T('High', 'Élevée'),
+      // The displayed word for whatever the state currently holds, so the control shows the
+      // value that will actually be sent. Without this the select falls back to its first
+      // option and the screen contradicts the request.
+      fTier: { low: T('Low', 'Faible'), medium: T('Medium', 'Moyenne'),
+               high: T('High', 'Élevée') }[f.tier] || T('Medium', 'Moyenne'),
+      onTier: e => this.setForm({
+        tier: ['low', 'medium', 'high'][e.target.selectedIndex] || 'medium',
+      }),
+
+      // How the patient arrived. Mapped by position for the same reason as the tier: the
+      // French page reads "À pied / Ambulance" and matching the displayed word there would
+      // fall through to the default.
+      // What the clinician reads about the suggestion, and all they need to read. The model
+      // name, its probability vector and its evaluation figures are recorded with the
+      // encounter for audit -- a screen that reported "0.646 medium, triage_deployed, macro F1
+      // 0.567" would ask a reader to audit a classifier when their job is to see a patient.
+      //
+      // The observations line is deliberately a count of MEASUREMENTS and not a completeness
+      // percentage: "based on 3 of 7 observations" is a fact a clinician can act on by taking
+      // the fourth, whereas "input completeness 43%" is a property of a feature vector.
+      hasSuggestion: !!(st.suggestion && st.suggestion.available),
+      suggestedLabel: T('Suggested urgency', 'Urgence suggérée'),
+      suggestedTier: st.suggestion ? {
+        low: T('Low', 'Faible'), medium: T('Medium', 'Moyenne'), high: T('High', 'Élevée'),
+      }[st.suggestion.tier] || '' : '',
+      suggestedBasis: st.suggestion
+        ? (st.suggestion.missing && st.suggestion.missing.length
+            ? T(`Based on ${st.suggestion.entered} of ${st.suggestion.of} observations. `
+                + `Not recorded: ${st.suggestion.missing.map(VITAL_WORD).join(', ')}.`,
+                `D'après ${st.suggestion.entered} observation(s) sur ${st.suggestion.of}. `
+                + `Non relevé : ${st.suggestion.missing.map(VITAL_WORD).join(', ')}.`)
+            : T('Based on all recorded observations.',
+                'D’après toutes les observations relevées.'))
+        : '',
+      suggestedStyle: Object.assign(
+        { borderRadius: '999px', padding: '5px 14px', fontSize: '13px', fontWeight: 800 },
+        st.suggestion ? {
+          low: { background: '#EAF3DC', color: '#3F5A0E' },
+          medium: { background: '#FDF0D5', color: '#7A5300' },
+          high: { background: '#FBE3E4', color: '#8E2226' },
+        }[st.suggestion.tier] || {} : {}),
+
+      arrivalLabel: T('Arrival', 'Arrivée'),
+      arrivalWalk: T('Walk-in', 'À pied'),
+      arrivalAmbulance: T('Ambulance', 'Ambulance'),
+      fArrival: f.arrival === 'ambulance'
+        ? T('Ambulance', 'Ambulance') : T('Walk-in', 'À pied'),
+      onArrival: e => this.setForm({
+        arrival: ['walk-in', 'ambulance'][e.target.selectedIndex] || 'walk-in',
+      }),
+
       onComplaint: e => this.setForm({ complaint: e.target.value }),
       onHistory: e => this.setForm({ history: e.target.value }),
       // A placeholder, not content: the box used to arrive holding a fabricated history.
@@ -404,7 +528,7 @@ class Component extends DCLogic {
         const typed = (st.typed.vitals || {})[k.key];
         return { label: k.key, unit: k.unit,
           value: typed !== undefined ? typed : (val === undefined ? '' : String(val)),
-          flag: flag, flagStyle: this.flagStyle(val === undefined ? '' : flag),
+          flag: this.flagText(flag), flagStyle: this.flagStyle(val === undefined ? '' : flag),
           inputStyle: { border: '1px solid #DEDCF4', borderRadius: '10px',
                         padding: '10px 12px', fontSize: '14.5px', background: '#FCFBFF',
                         width: '100%' },
@@ -422,7 +546,7 @@ class Component extends DCLogic {
         const typed = (st.typed.labs || {})[k.key];
         return { name: k.key,
           value: typed !== undefined ? typed : (val === undefined ? '' : String(val)),
-          flag: flag,
+          flag: this.flagText(flag),
           nameStyle: { fontWeight: 600, fontSize: '14px',
                        color: val === undefined ? '#9C99B8' : '#1B1A3A' },
           flagStyle: this.flagStyle(val === undefined ? '' : flag),
@@ -461,13 +585,48 @@ class Component extends DCLogic {
         textStyle: { fontSize: '13.5px', color: '#6A6785' } })),
 
       // ---- imaging ---------------------------------------------------------------
+      // Four states, and they are four different claims a clinician must be able to tell
+      // apart at a glance:
+      //
+      //   detected           the model saw it
+      //   screened_negative  the model looked for it and did not see it
+      //   unreliable         the model reports it, on evidence too thin to act on alone
+      //   not_assessed       the model does not cover this finding at all
+      //
+      // The last two are the ones that matter. Collapsing them into "not detected" produces
+      // the one inference this system exists to prevent: the scan did not mention it, so it
+      // is not there.
       findings: (v.findings || []).map(x => ({
-        label: x.label, caption: x.caption, conf: x.conf.toFixed(2),
-        status: x.detected ? T('Detected', 'Détecté') : T('Not detected', 'Non détecté'),
-        statusStyle: x.detected
-          ? { background: '#E4E2F8', color: '#2E2A78', borderRadius: '999px',
-              padding: '5px 12px', fontSize: '12.5px', fontWeight: 700 }
-          : { color: '#6A6785', fontSize: '13.5px' } })),
+        label: x.label,
+        caption: x.caption,
+        conf: x.conf === null || x.conf === undefined ? '—' : x.conf.toFixed(2),
+        status: {
+          detected: T('Detected', 'Détecté'),
+          unreliable: T('Detected — weak evidence', 'Détecté — preuve faible'),
+          screened_negative: T('Screened, not detected', 'Recherché, non détecté'),
+          // Not "not detected": these classes are mutually exclusive with the reported one, so
+          // the module never produced a negative result for them -- it ranked them lower.
+          alternative: T('Considered, ranked lower', 'Envisagé, classé plus bas'),
+          not_assessed: T('NOT assessed — not modelled', 'NON évalué — hors modèle'),
+        }[x.state] || (x.detected ? T('Detected', 'Détecté') : T('Not detected', 'Non détecté')),
+        statusStyle: {
+          // Violet: a positive read the model can support.
+          detected: { background: '#E4E2F8', color: '#2E2A78', borderRadius: '999px',
+                      padding: '5px 12px', fontSize: '12.5px', fontWeight: 700 },
+          // Amber: reported, but not on its own a basis for action.
+          unreliable: { background: '#FDEBD0', color: '#8A5B00', borderRadius: '999px',
+                        padding: '5px 12px', fontSize: '12.5px', fontWeight: 700 },
+          // Grey and quiet: an informative negative.
+          screened_negative: { color: '#6A6785', fontSize: '13.5px' },
+          // Quieter still, and italic: a diagnosis the module weighed, not a result about the
+          // patient. It must not read with the weight of either a positive or a negative.
+          alternative: { color: '#8A87A8', fontSize: '13px', fontStyle: 'italic' },
+          // Outlined rather than filled: this is an absence of examination, not a result, and
+          // it should not read as one.
+          not_assessed: { background: '#FFFFFF', color: '#8A5B00',
+                          border: '1px dashed #C9A227', borderRadius: '999px',
+                          padding: '5px 12px', fontSize: '12.5px', fontWeight: 700 },
+        }[x.state] || { color: '#6A6785', fontSize: '13.5px' } })),
       topFinding: v.topFinding || '—',
       hasUpload: !!st.upload,
       uploadSeconds: st.upload ? String(st.upload.seconds) : '',
@@ -478,8 +637,10 @@ class Component extends DCLogic {
       vitals: (v.vitals || []).map(x => ({
         label: x.label, unit: x.unit,
         value: x.value === null ? T('Not measured', 'Non mesuré') : x.value,
-        note: x.value === null ? 'Not the same as normal' : (x.flag || ''),
-        flag: x.flag || 'not measured', flagStyle: this.flagStyle(x.flag),
+        note: x.value === null
+          ? T('Not the same as normal', "Ce n'est pas la même chose que normal")
+          : this.flagText(x.flag || ''),
+        flag: this.flagText(x.flag || 'not measured'), flagStyle: this.flagStyle(x.flag),
         style: x.value === null
           ? { background: '#FAFAFE', border: '1px dashed #DCD4F7', borderRadius: '18px',
               padding: '20px 22px' }
