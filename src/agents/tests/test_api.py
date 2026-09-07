@@ -122,15 +122,18 @@ def test_the_access_log_records_the_request_and_not_its_contents():
     previous = log.level
     log.setLevel(logging.INFO)
     try:
-        secret = "Zzyzx-Quenneville-773"
-        _analyse(_client(), name=secret, complaint="haemoptysis", vitals={"spo2": 89.0})
+        # A name no other fixture uses, so finding it in the log proves it came from
+        # THIS request body and not from some other part of the suite.
+        patient_name = "Zzyzx-Quenneville-773"
+        _analyse(_client(), name=patient_name, complaint="haemoptysis",
+                 vitals={"spo2": 89.0})
         written = "\n".join(r.getMessage() for r in records)
     finally:
         log.removeHandler(handler)
         log.setLevel(previous)
 
     assert written, "no access log line was produced at all"
-    assert secret not in written, "the patient name reached the access log"
+    assert patient_name not in written, "the patient name reached the access log"
     assert "haemoptysis" not in written, "the presenting complaint reached the access log"
 
 

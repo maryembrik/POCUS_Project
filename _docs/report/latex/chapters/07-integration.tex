@@ -1,7 +1,7 @@
 % =========================================================================================
 % Chapter 7 -- System Integration and Prototype
 % =========================================================================================
-\section{Deployment: System Integration and Prototype}
+\section{Deployment: Integration and the Clinical Platform}
 \label{sec:integration}
 
 \subsection{End-to-End Architecture}
@@ -364,6 +364,192 @@ are what they would read while waiting. The architecture already separates these
 safety reasons, and the timing measurements suggest the same separation is right for
 interaction as well.
 
+% =========================================================================================
+\subsection{The Served Application}
+\label{subsec:deployment-service}
+
+Everything described so far is a pipeline. This section is about the thing that runs.
+
+The application is a \gls{http} service written with FastAPI and served by uvicorn. It
+delivers the generated interface of Section~\ref{subsec:integration-ui} and answers the
+\texttt{/api/*} endpoints behind it; every value on every screen is computed by the pipeline
+in this chapter. English is served at \texttt{/} and French at \texttt{/fr}, as two generated
+pages rather than one page translated at runtime, so the language is settled before any script
+executes.
+
+\paragraph{A correction, stated plainly.} An earlier prototype of this interface was written
+with Streamlit, and for some time this report described that prototype as the deployment. It
+was not: the deployed application had been rebuilt on FastAPI, and the earlier file was
+superseded. The port kept its original value --- 8501, which is Streamlit's default --- so
+that existing links continued to work, and that inherited number was what kept the older
+description looking plausible. The prototype is retained under \texttt{\_archive/} with a note
+explaining why it must not be run: the fabricated screens described in
+Section~\ref{subsec:integration-ui} were corrected in the current interface and never
+back-ported to it.
+
+\subsubsection{Containerisation}
+
+The service is packaged as a container image. The motivation is narrower than portability in
+the abstract: this project spent real time on failures that were entirely environmental --- an
+interpreter that resolved to a stub which installs nothing, a library search path that omitted
+the one directory holding the dependencies, and two OpenMP runtimes linked into the same
+process, which aborts at import. None of those is a property of the software. All of them stop
+it running.
+
+What the image contains is deliberately smaller than the repository:
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Included} & \textbf{Excluded, and why} \\
+    \midrule
+    \texttt{serve.py}, the pipeline under \texttt{src/}, both generated interface pages &
+      The datasets. Their licences do not permit redistribution, and the running application
+      never reads them --- only training does \\
+    \addlinespace[2pt]
+    The three ultrasound checkpoints and their calibration files, about 58\,MB &
+      The 4.9\,GB language model. The deployed clinical agent runs on a test backend, and the
+      escalation decision does not depend on it \\
+    \addlinespace[2pt]
+    The pinned runtime dependencies &
+      Training and experiment tracking, the notebooks, and the archived prototype \\
+    \bottomrule
+  \end{tabularx}
+  \caption{What the container image carries.}
+  \label{tab:image-contents}
+\end{table}
+
+The result is an image of approximately 2.2\,GB, most of which is PyTorch. It runs as a
+non-root user that cannot write to its own application directory, and it declares a health
+check that calls the endpoint described below rather than merely opening a socket.
+
+\paragraph{Two defects the container found.} Building it was not a packaging exercise; it
+exposed two faults that no test had.
+
+The first is that the service bound to \texttt{127.0.0.1}. On a laptop that is the cautious
+choice --- a development server holding patient data entered during a demonstration should not
+be reachable from the rest of the network. Inside a container it is the wrong one, because
+\texttt{127.0.0.1} there is the \emph{container's} loopback: the process answers itself and
+nothing else, and a published port connects to a socket no one is listening on. The container
+looked healthy from within while being unreachable from outside. The bind address is now
+explicit in the image rather than inherited from a default that means different things in
+different places.
+
+The second is that the lung checkpoint never entered the image. The module selects its weights
+by pattern --- \texttt{lung\_finding\_classifier\_efficientnet\_b0\_split*\_best.pth} --- and
+the image had been given \texttt{..\_final\_best.pth}, which does not match it. The container
+started cleanly, served every screen, and reported the lung module as having no weights while
+the other two worked. It was found by the health endpoint on its first run, which is the whole
+argument for that endpoint reporting what it reports.
+
+\subsubsection{Health and Monitoring}
+
+Two endpoints exist for operating the service rather than for clinical use.
+
+\texttt{/api/health} reports whether each perception module actually loaded --- weights present,
+calibrator present, and the reason if not --- together with the thresholds version and schema
+version in force. It does not return a bare acknowledgement, and the reason is specific to this
+system: a container that answers \texttt{200} while its models failed to load would take
+traffic and report every scan as showing nothing, which is indistinguishable to a reader from a
+genuine negative examination. Reporting \emph{degraded} rather than failing outright is
+deliberate too. The deterministic layer --- escalation, conflict detection, the account of what
+is missing --- needs no model and remains correct without one, so an instance in that state is
+still worth routing to; what it must not do is stay silent about it.
+
+\texttt{/api/metrics} reports requests, latency and failures per route since the instance
+started. Client errors and server errors are counted separately, because they answer different
+questions: a run of \texttt{404}s means callers are asking for things that do not exist, while
+a run of \texttt{500}s means this instance is broken, and a single combined counter says only
+that something is happening. Metrics are keyed by \emph{route} and not by \gls{url}, so that
+encounter identifiers do not each become their own unbounded series in a table whose purpose is
+to be exported.
+
+\begin{keystatement}
+The access log records that a request happened and how it went. It never records what the
+request contained.
+\end{keystatement}
+
+That rule is the one thing about the logging that is not a matter of taste. The bodies passing
+through this service carry a presenting complaint, vital signs, laboratory values and
+ultrasound images. A log line is written to disk, shipped to whatever collects it, and read by
+people who were not in the consultation --- so a logger that echoed request bodies would turn
+every deployment into a second medical record that nobody consented to. Method, route, status
+and duration answer every operational question; none of them requires a clinical detail. A test
+posts a distinctive patient name and asserts that it does not appear in the log.
+
+\subsubsection{Automated Checks}
+
+Six checks run as one command, and running them as a set is the point rather than a
+convenience: run individually they get run selectively, and the check that would have failed is
+the one that was skipped.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{llX}
+    \toprule
+    \textbf{Check} & \textbf{Result} & \textbf{What it answers} \\
+    \midrule
+    \texttt{pytest} & 314 pass & does the system behave as specified \\
+    safety benchmark & 314 pass & the same tests, grouped by the property each exercises \\
+    regression & 150 checks & do the frozen cases still produce the frozen outputs \\
+    \texttt{ruff} & clean & undefined names and unreachable code, not style opinions \\
+    \texttt{bandit} & 0 high, 0 medium & unsafe patterns in the code written here \\
+    \texttt{pip-audit} & 0 advisories & known vulnerabilities in the pinned dependencies \\
+    \bottomrule
+  \end{tabularx}
+  \caption{The automated checks, and what each is for.}
+  \label{tab:checks}
+\end{table}
+
+\paragraph{What the checks found.} Reporting only that they now pass would omit the reason for
+running them.
+
+\texttt{bandit} reported three medium findings, all of them the same: model weights loaded
+without restricting deserialisation. A checkpoint file is not data --- loading one executes
+code that the file names --- and these checkpoints are produced on one machine and copied to
+another. The three call sites now restrict loading to tensors, which is all a state dictionary
+contains, and all three models still load. Six low findings remain and are reported rather than
+suppressed: subprocess invocations in three development tools, each passing an argument list
+with no shell, in files the container image excludes.
+
+\texttt{pip-audit} reported 36 advisories against the pinned versions. Two packages accounted
+for all of them, and one matters more than its count suggests: Pillow is what decodes the image
+a clinician uploads, so an image-parsing flaw there is reachable by anyone who can submit a
+study. Both were raised and the audit is now clean. Two packages \emph{cannot} be audited ---
+the CPU builds of PyTorch and torchvision are not published to the index the auditor queries
+--- and that gap is stated here rather than left implied by a clean report.
+
+\texttt{ruff} found a defect that the entire test suite had missed. The endpoint that files an
+image against an existing patient read a parameter it had never declared, so every
+\emph{successful} call raised and returned \texttt{500}; attaching to an unknown patient
+worked, because that branch never reached the offending line. The failure was invisible to the
+rest of the suite for a structural reason worth naming: those tests import the pipeline, and a
+missing function parameter is not a pipeline defect. It is a defect of the web service, and
+until this work there were no tests that made requests.
+
+A container scan of the built image completes the picture: no critical findings, four
+high-severity findings, all of them in operating-system packages inherited from the base image
+and unchanged by moving to a newer base. One has no fix published upstream.
+
+\subsubsection{What Deployment Here Does Not Mean}
+
+The system is built for use by emergency physicians, and the interface, the escalation policy
+and the clinician-confirmed triage tier of Section~\ref{subsec:triage-deployment} are all
+designed around that use. What has been carried out is \emph{technical} deployment: a service
+that runs reproducibly, is tested, is scanned, reports its own state, and can be rebuilt from
+the repository by anyone with a container runtime.
+
+What has not been carried out is installation in a hospital or prospective validation with real
+patients and real clinicians. No part of this work establishes diagnostic accuracy in a clinical
+setting; the evaluations in this report are controlled measurements on retrospective data, and
+Chapter~\ref{sec:results} states what they do and do not support. The distinction is not
+administrative caution --- a system that runs correctly and a system that has been shown to help
+a patient are different claims, and only the first is demonstrated here.
+
+% =========================================================================================
 \subsection{A Controlled Path for Future Model Updates}
 \label{subsec:mlops}
 

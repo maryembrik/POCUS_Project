@@ -244,12 +244,23 @@ objectives and the environment in which the work was carried out. The second par
 methodology is legible from the table of contents. The third closes the objectives stated
 here.
 
-Within the second part the chapters follow the order in which the system was built, so that
-each depends only on what precedes it. That ordering places integration before the synthesis
-of results, which inverts the usual sequence of the two phases; it is deliberate. The
-evaluation of each module is reported inside the chapter that builds it, where the reader has
-the method in view, and Chapter~\ref{sec:results} draws those results together across modules
-once the assembled system exists to be discussed.
+The second part follows the \gls{crisp} phases in their own order --- business understanding,
+data understanding, data preparation, modeling, evaluation, deployment --- so that the process
+model and the table of contents agree without a reader having to reconcile them.
+
+Two chapters carry the modeling phase because the system has two distinct modeling
+responsibilities. Chapter~\ref{sec:perception} presents the specialised agents that extract
+evidence independently of one another: triage reads structured patient data, and the three
+ultrasound modules read images. Chapter~\ref{sec:reasoning} presents the agent that combines
+what those branches produce. The separation is architectural rather than editorial --- the two
+branches genuinely run in parallel and neither can see the other's input --- and it is what
+makes the safety layer's central question, whether two independent assessments disagree,
+a question the system is able to ask at all.
+
+Evaluation therefore precedes deployment: what the modules achieve is established first, and
+the chapter on the served platform then shows what was integrated and how. Per-module results
+still appear inside the chapter that builds each module, where the reader has the method in
+view; Chapter~\ref{sec:results} draws them together and discusses them across modules.
 
 \begin{itemize}[label=$\bullet$]
   \setlength\itemsep{-0.1em}
@@ -265,17 +276,20 @@ once the assembled system exists to be discussed.
   \item \textbf{Chapter~\ref{sec:dataprep} --- Data Preparation.} The exclusions applied, the
     class distributions and baselines that remain after them, and the partitioning that keeps
     a case on one side of the split.
-  \item \textbf{Chapter~\ref{sec:perception} --- Modeling: Perception Agents.} Development
-    and evaluation of the triage, lung, cardiac and gallbladder modules, including the
+  \item \textbf{Chapter~\ref{sec:perception} --- Modeling: Perception and Triage Agents.}
+    The specialised agents that extract evidence independently: triage from structured
+    patient data, and the lung, cardiac and gallbladder modules from images. Includes the
     experiments that failed and the corrections they prompted.
-  \item \textbf{Chapter~\ref{sec:reasoning} --- Modeling: Clinical Reasoning Agent.} The
-    clinical state representation, conflict detection, retrieval, the medical language model,
-    output validation and the escalation policy.
-  \item \textbf{Chapter~\ref{sec:integration} --- Deployment: System Integration and
-    Prototype.} The end-to-end pipeline, the contract through which the agents communicate,
-    worked clinical scenarios, and how the assembled system is served.
+  \item \textbf{Chapter~\ref{sec:reasoning} --- Modeling: Clinical Reasoning Agent.} How the
+    outputs of those two branches are combined: the clinical state representation, conflict
+    detection, retrieval, the medical language model, output validation and the escalation
+    policy.
   \item \textbf{Chapter~\ref{sec:results} --- Evaluation and Discussion.} The measured
     results for each module, what they mean clinically, and the limitations that remain.
+  \item \textbf{Chapter~\ref{sec:integration} --- Deployment: Integration and the Clinical
+    Platform.} The end-to-end pipeline, the contract through which the agents communicate,
+    worked clinical scenarios, and the served application: containerisation, automated
+    checks, security scanning and monitoring.
   \item \textbf{Chapter~\ref{sec:conclusion} --- Conclusion and Perspectives.} The
     contributions, the objectives achieved, and directions for future work.
 \end{itemize}
