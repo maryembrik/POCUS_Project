@@ -47,3 +47,9 @@ models/triage_deployed_xgb.json
 models/mlflow.db
 models/mlruns/
 outputs/
+
+# The compiled report. `python tools/build_report.py` regenerates it from the sources in
+# _docs/report/latex/, and a 3 MB PDF plus a directory of .aux/.bbl/.toc intermediates would
+# churn a binary on every compile. The zip in _docs/report/ IS committed -- that is the
+# hand-off artefact; this is the local build tree.
+_docs/report/build/

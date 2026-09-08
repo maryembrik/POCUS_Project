@@ -206,6 +206,10 @@ subset, together with an explicit test for centre bias.
 
 \paragraph{Repository structure.}
 
+% \small, because the longest line -- the one describing agent.py -- ran 10.4pt past the right
+% margin at the normal size. verbatim does not wrap, so an over-long line simply leaves the
+% text block; shrinking the whole listing keeps the alignment that makes it readable.
+{\small
 \begin{verbatim}
 src/agents/
   schema.py              the contract all agents write through
@@ -232,6 +236,7 @@ models/                  metrics, calibrators, frozen baselines
 manifests/               per-source dataset manifests
 requirements*.txt        runtime, development and training dependencies
 \end{verbatim}
+}
 
 \paragraph{Deployment.} The application is an HTTP service written with FastAPI and served
 by uvicorn on port 8501, delivering a generated HTML interface whose every displayed value
