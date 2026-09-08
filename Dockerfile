@@ -43,7 +43,20 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# The application. Ordered least- to most-frequently changed, again for the layer cache.
+
+# ── the application ────────────────────────────────────────────────────────────────────
+# A second stage on top of the first, and the split is not cosmetic. `base` contains the
+# interpreter and the pinned dependencies and nothing from this repository except the
+# requirements file, so it can be built anywhere -- including in CI, where the model weights
+# are not present and every COPY below would fail.
+#
+# Building `--target base` therefore checks the three things that rot quietly between releases:
+# that the base image is still pullable, that the pinned set still resolves and installs on a
+# clean machine, and that this file still parses. The layers below need the weights and are
+# exercised by a full build, which is run where the weights are.
+FROM base AS app
+
+# Ordered least- to most-frequently changed, for the layer cache.
 #
 # models/ is copied file by file rather than wholesale. The directory holds 77 MB, of which
 # 76 MB is the triage classifier in three serialisations -- and the deployed application never

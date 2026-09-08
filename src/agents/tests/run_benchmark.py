@@ -14,6 +14,7 @@ import importlib
 import json
 import sys
 import traceback
+import unittest
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -53,6 +54,15 @@ def run() -> dict:
             record = {"test": f"{mod_name.split('.')[-1]}::{name}", "passed": True}
             try:
                 fn()
+            # A test that could not run is not a test that passed. Some tests need an artefact
+            # that is not in the repository -- the deployed triage model is 6 MB and rebuilt by
+            # a command -- and in a clean checkout they have nothing to exercise. Counting them
+            # as passing would make this table report full coverage of a property nothing
+            # checked, which is the failure mode this benchmark exists to prevent elsewhere.
+            except unittest.SkipTest as exc:
+                record["passed"] = False
+                record["skipped"] = True
+                record["error"] = str(exc)
             except Exception as exc:                      # noqa: BLE001
                 record["passed"] = False
                 record["error"] = f"{type(exc).__name__}: {exc}"
@@ -73,20 +83,29 @@ def report(results: dict) -> dict:
     print(f"{'Safety property':<{width}} {'Tests':>6} {'Passed':>7}")
     print("-" * (width + 22))
 
-    total = passed_total = 0
+    total = passed_total = skipped_total = 0
     summary = {}
     for prop in sorted(by_prop):
         recs = by_prop[prop]
-        n, p = len(recs), sum(r["passed"] for r in recs)
+        n = len(recs)
+        p = sum(r["passed"] for r in recs)
+        s = sum(bool(r.get("skipped")) for r in recs)
         total += n
         passed_total += p
-        summary[prop] = {"tests": n, "passed": p}
-        mark = "" if p == n else "   <-- FAILING"
+        skipped_total += s
+        summary[prop] = {"tests": n, "passed": p, "skipped": s}
+        mark = ("" if p + s == n else "   <-- FAILING") + (
+            f"   ({s} skipped)" if s else "")
         print(f"{prop:<{width}} {n:>6} {p:>7}{mark}")
 
     print("-" * (width + 22))
+    ran = total - skipped_total
     print(f"{'TOTAL':<{width}} {total:>6} {passed_total:>7}"
-          f"   ({passed_total / total * 100:.1f}%)" if total else "no tests found")
+          f"   ({passed_total / ran * 100:.1f}% of {ran} run)" if ran else "no tests found")
+    if skipped_total:
+        # Named, not folded into the percentage. A skipped test is a property this run did not
+        # check, and the number is only useful if a reader can see it.
+        print(f"{skipped_total} test(s) skipped: an artefact they need is not in this checkout.")
     print()
 
     if results["failures"]:
@@ -98,7 +117,8 @@ def report(results: dict) -> dict:
     else:
         print("No failures.")
 
-    return {"summary": summary, "total": total, "passed": passed_total}
+    return {"summary": summary, "total": total, "passed": passed_total,
+            "skipped": skipped_total}
 
 
 if __name__ == "__main__":
@@ -108,6 +128,9 @@ if __name__ == "__main__":
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "total_tests": agg["total"],
         "total_passed": agg["passed"],
+        # Recorded so that a reader of this file can tell a run that checked everything from
+        # one that could not, which the pass count alone does not distinguish.
+        "total_skipped": agg["skipped"],
         "by_property": agg["summary"],
         "failures": [{k: v for k, v in f.items() if k != "traceback"}
                      for f in results["failures"]],
@@ -116,4 +139,7 @@ if __name__ == "__main__":
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(out, indent=2), encoding="utf8")
     print(f"\nwritten: {dest}")
-    sys.exit(0 if agg["passed"] == agg["total"] else 1)
+    # Non-zero on a FAILURE, not on a skip. Comparing passed against total treated a test that
+    # could not run as one that broke, which turned every clean checkout red -- and a build
+    # that is red for a reason nobody can fix is one people learn to ignore.
+    sys.exit(1 if results["failures"] else 0)

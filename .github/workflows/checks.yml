@@ -1,0 +1,84 @@
+# Every automated check, on every push and pull request.
+#
+# The command is the same one a developer runs locally -- `python tools/checks.py` -- rather
+# than a re-listing of the individual tools here. Two definitions of "the checks" drift, and
+# the one that drifts is always the local one, so the failure arrives as a red build for a
+# change that passed on the machine that made it.
+#
+# What this job does NOT do is train anything or run a model. The repository carries manifests,
+# metrics and the frozen baselines; it does not carry weights, which are large and rebuildable.
+# Seven tests need the deployed triage model and are skipped here -- reported as skipped, not
+# counted as passed, so a green build never claims coverage this run did not have.
+
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          # requirements.txt pins the CPU build of torch, which the cache key covers along
+          # with the dev tools; without this every run downloads roughly 200 MB again.
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install
+        # -dev includes -r requirements.txt, so this installs the runtime and the checkers in
+        # one resolution rather than two that could disagree.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run every check
+        # torch and MKL each link their own OpenMP runtime; without this the interpreter can
+        # abort at import. Harmless where it is not needed.
+        env:
+          KMP_DUPLICATE_LIB_OK: "TRUE"
+        run: python tools/checks.py
+
+      - name: Report the safety benchmark
+        # Runs even when the checks fail, because the per-property table is what says WHICH
+        # safety property broke -- and that is most worth having on the run that went red.
+        if: always()
+        env:
+          KMP_DUPLICATE_LIB_OK: "TRUE"
+        run: python -m src.agents.tests.run_benchmark
+
+  # The image is built on its own, so a build failure is distinguishable from a test failure.
+  # It is not pushed anywhere: this proves the Dockerfile still describes something buildable,
+  # which is the property that rots silently as dependencies and paths change.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image, as far as this checkout allows
+        # Only the `base` stage. The perception checkpoints are not in the repository, so the
+        # COPY steps naming them cannot succeed here -- and a build step that falls back until
+        # something exits zero would be green whatever happened, which is worse than not
+        # running it.
+        #
+        # Stopping at `base` still checks the three things that rot silently: that the base
+        # image is still pullable, that the pinned dependency set resolves and installs on a
+        # clean machine, and that the Dockerfile parses. The COPY layers are exercised by a
+        # full local build, which is where the weights are.
+        run: docker build --target base -t pocus-emergency:ci .

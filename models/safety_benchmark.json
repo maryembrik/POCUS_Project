@@ -1,151 +1,188 @@
 {
-  "generated_at": "2026-09-08T11:42:39+00:00",
+  "generated_at": "2026-09-08T12:12:48+00:00",
   "total_tests": 322,
   "total_passed": 322,
+  "total_skipped": 0,
   "by_property": {
     "API contract": {
       "tests": 10,
-      "passed": 10
+      "passed": 10,
+      "skipped": 0
     },
     "Absent is not normal": {
       "tests": 24,
-      "passed": 24
+      "passed": 24,
+      "skipped": 0
     },
     "Advice scope": {
       "tests": 4,
-      "passed": 4
+      "passed": 4,
+      "skipped": 0
     },
     "Assistant French routing": {
       "tests": 4,
-      "passed": 4
+      "passed": 4,
+      "skipped": 0
     },
     "Assistant action boundary": {
       "tests": 3,
-      "passed": 3
+      "passed": 3,
+      "skipped": 0
     },
     "Assistant knowledge boundary": {
       "tests": 6,
-      "passed": 6
+      "passed": 6,
+      "skipped": 0
     },
     "Assistant routing": {
       "tests": 3,
-      "passed": 3
+      "passed": 3,
+      "skipped": 0
     },
     "Automated reporting": {
       "tests": 7,
-      "passed": 7
+      "passed": 7,
+      "skipped": 0
     },
     "Benchmark scenarios": {
       "tests": 9,
-      "passed": 9
+      "passed": 9,
+      "skipped": 0
     },
     "Case-quality grading": {
       "tests": 6,
-      "passed": 6
+      "passed": 6,
+      "skipped": 0
     },
     "Confidence calibration": {
       "tests": 9,
-      "passed": 9
+      "passed": 9,
+      "skipped": 0
     },
     "Conflict detection": {
       "tests": 14,
-      "passed": 14
+      "passed": 14,
+      "skipped": 0
     },
     "Deterministic output control": {
       "tests": 7,
-      "passed": 7
+      "passed": 7,
+      "skipped": 0
     },
     "Enumerated evidence": {
       "tests": 8,
-      "passed": 8
+      "passed": 8,
+      "skipped": 0
     },
     "Escalation policy": {
       "tests": 12,
-      "passed": 12
+      "passed": 12,
+      "skipped": 0
     },
     "Evidence coverage": {
       "tests": 8,
-      "passed": 8
+      "passed": 8,
+      "skipped": 0
     },
     "Evidence relationships": {
       "tests": 5,
-      "passed": 5
+      "passed": 5,
+      "skipped": 0
     },
     "Examination recommendations": {
       "tests": 10,
-      "passed": 10
+      "passed": 10,
+      "skipped": 0
     },
     "Failure severity": {
       "tests": 5,
-      "passed": 5
+      "passed": 5,
+      "skipped": 0
     },
     "French rendering coverage": {
       "tests": 8,
-      "passed": 8
+      "passed": 8,
+      "skipped": 0
     },
     "Hallucination rejection": {
       "tests": 25,
-      "passed": 25
+      "passed": 25,
+      "skipped": 0
     },
     "Human-AI assessment agreement": {
       "tests": 8,
-      "passed": 8
+      "passed": 8,
+      "skipped": 0
     },
     "LLM failure containment": {
       "tests": 5,
-      "passed": 5
+      "passed": 5,
+      "skipped": 0
     },
     "Malformed output rejection": {
       "tests": 16,
-      "passed": 16
+      "passed": 16,
+      "skipped": 0
     },
     "Model promotion gate": {
       "tests": 16,
-      "passed": 16
+      "passed": 16,
+      "skipped": 0
     },
     "Model-scope propagation": {
       "tests": 8,
-      "passed": 8
+      "passed": 8,
+      "skipped": 0
     },
     "Monitoring without disclosure": {
       "tests": 4,
-      "passed": 4
+      "passed": 4,
+      "skipped": 0
     },
     "Perception contract": {
       "tests": 17,
-      "passed": 17
+      "passed": 17,
+      "skipped": 0
     },
     "Reference-range detection": {
       "tests": 5,
-      "passed": 5
+      "passed": 5,
+      "skipped": 0
     },
     "Retrieval grounding": {
       "tests": 19,
-      "passed": 19
+      "passed": 19,
+      "skipped": 0
     },
     "Scenario routing": {
       "tests": 3,
-      "passed": 3
+      "passed": 3,
+      "skipped": 0
     },
     "Service health reporting": {
       "tests": 4,
-      "passed": 4
+      "passed": 4,
+      "skipped": 0
     },
     "Severity and alerts": {
       "tests": 15,
-      "passed": 15
+      "passed": 15,
+      "skipped": 0
     },
     "Triage suggestion mapping": {
       "tests": 7,
-      "passed": 7
+      "passed": 7,
+      "skipped": 0
     },
     "Unassessed-organ reporting": {
       "tests": 5,
-      "passed": 5
+      "passed": 5,
+      "skipped": 0
     },
     "Value-reading consistency": {
       "tests": 3,
-      "passed": 3
+      "passed": 3,
+      "skipped": 0
     }
   },
   "failures": []
