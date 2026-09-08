@@ -289,7 +289,10 @@ block declaring scope. Section~\ref{subsec:output-contract} states the four vali
 the reason for each.
 
 % =========================================================================================
-\chapter{Finding and Choosing the Data}
+% \chapter does not exist in the article class this document uses, and an undefined control
+% sequence stops the compile rather than degrading. The other six appendices are \subsection,
+% under the unnumbered \section*{Appendices} above; this one is now the seventh.
+\subsection{Finding and Choosing the Data}
 \label{app:data-search}
 
 The single largest cost of this project was not training models. It was deciding what to train
@@ -297,7 +300,7 @@ them on. This appendix records that work, because the report as a whole shows th
 were chosen and says little about the ones that were not, and because the difficulty was
 methodological rather than clerical: at no point was the obstacle a shortage of files.
 
-\section{The constraint that shaped everything}
+\subsubsection{The constraint that shaped everything}
 
 The subject requires point-of-care ultrasound from an emergency department, labelled with
 clinical findings, linked to the patient's physiological state, and usable outside the
@@ -314,7 +317,7 @@ option available, and it turned out to be the safer architecture as well: the es
 that runs before any model can be tested independently precisely because it takes structured
 inputs rather than pixels.
 
-\section{What was searched, and what was rejected}
+\subsubsection{What was searched, and what was rejected}
 
 Candidate sources were assessed against four criteria: whether the labels were clinical
 findings rather than diagnostic categories, whether the case identity was recoverable, whether
@@ -351,7 +354,7 @@ hidden by it. The clinical scenario router expects a FAST examination for a trau
 presentation, finds no module able to provide one, and reports the modality as never assessed
 --- which is the behaviour the whole project argues for, applied to its own gaps.
 
-\section{The Iran ED vital signs, and why apparent richness was not richness}
+\subsubsection{The Iran ED vital signs, and why apparent richness was not richness}
 \label{app:data-search-iran}
 
 The most instructive rejection concerns the triage data. The Iran ED dataset (143{,}582 visits,
@@ -372,7 +375,7 @@ presenting complaint, and roughly 88\% of every vital sign is missing in the poo
 data. That is also the origin of the missing-data behaviour the system is built around; the
 architecture treats absence as a first-class state because the data forced the question early.
 
-\section{Direction verified rather than assumed}
+\subsubsection{Direction verified rather than assumed}
 
 The Iran dataset's triage grade does not state its direction, and the source paper is
 paywalled. Rather than assume the common convention, the direction was established from the
@@ -382,7 +385,7 @@ the assumption been made the wrong way round, every downstream result would have
 inverted while remaining internally consistent, and nothing in the training process would have
 signalled it.
 
-\section{Licensing, and what it prevents}
+\subsubsection{Licensing, and what it prevents}
 
 The imaging sources are released under research licences, several non-commercial
 (CC~BY--NC~4.0), and none permits redistribution of the media. This is why the repository
@@ -391,7 +394,7 @@ sources themselves, and why the MLOps dataset versioning hashes the manifest rat
 files (Section~\ref{subsec:mlops}). A constraint of this kind is easy to discover late and
 expensive to discover late; it was checked before the datasets were adopted.
 
-\section{What the search cost, and what it produced}
+\subsubsection{What the search cost, and what it produced}
 
 The most valuable outcome of this phase was a definition rather than a dataset: the decision
 that the unit of analysis is the \emph{case}, not the file. Applying it reduced the gallbladder

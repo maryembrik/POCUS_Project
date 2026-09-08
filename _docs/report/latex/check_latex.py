@@ -7,7 +7,12 @@ missing graphics. It cannot replace a real compile.
 import re
 from pathlib import Path
 
-ROOT = Path(r'C:\Users\HUAWEI\Documents\POCUS-Project\_docs\report\latex')
+# The directory this file sits in, NOT a hardcoded path. It was hardcoded, which meant the
+# checker always read the working copy no matter where it was run from -- so running it inside
+# an extracted zip silently checked the original sources instead, and reported that the zip was
+# complete without having opened a single file in it. A check that cannot be pointed at a
+# different copy cannot verify a copy.
+ROOT = Path(__file__).resolve().parent
 tex = sorted(ROOT.rglob('*.tex'))
 src = {p: p.read_text(encoding='utf8') for p in tex}
 allsrc = '\n'.join(src.values())
@@ -139,6 +144,22 @@ for p, text in src.items():
         if name in RESERVED:
             problems.append(f'{p.name}: tikz style "{name}" shadows a built-in TikZ key '
                             f'-- rename it (e.g. "{name}box")')
+
+# ---------------------------------------------------------------- sectioning depth -----
+# \chapter does not exist in the article class. An appendix heading was written with it, and
+# because an undefined control sequence stops the compile rather than degrading, the whole
+# document would have failed at that line -- while every check above passed, since the braces
+# balance, the label resolves and nothing is missing. The class is read rather than assumed,
+# so this stays correct if the document ever moves to report or book.
+cls = re.search(r'\\documentclass(?:\[[^\]]*\])?\{(\w+)\}',
+                strip_comments(''.join(t for p, t in src.items() if p.name == 'main.tex')))
+if cls and cls.group(1) in ('article', 'proc', 'letter'):
+    for p, text in src.items():
+        for i, line in enumerate(strip_comments(text).split('\n'), 1):
+            if re.match(r'\s*\\chapter\*?\{', line):
+                problems.append(f'{p.name}:{i}: \\chapter does not exist in the '
+                                f'{cls.group(1)} class -- the compile stops here '
+                                f'({line.strip()[:46]})')
 
 # ---------------------------------------------------------------- report ---------------
 print('files:', ', '.join(p.name for p in tex))
