@@ -145,6 +145,13 @@ the second is not attempted, and the report says which claims that removes.
 The sensitivity zone is derived from the module's own measured error — 6.9 pp MAE — not from an
 invented ±5%. Near a cutoff the system says the value could fall on either side.
 
+**How do you know your checks actually check anything?**
+Because one of them did not, and it was caught by injecting the fault it was supposed to catch
+and watching it stay silent — a checker was reading the working copy instead of the files it
+was pointed at. See [Final-Verification-Record-2026-09.md](Final-Verification-Record-2026-09.md).
+Every property in the safety benchmark is asserted the same way: by a test that has been seen
+to fail.
+
 ---
 
 ## 7. Volunteer the limitations before you are asked
