@@ -115,6 +115,59 @@ def _evidence_grade(calibrated: bool, low_evidence: bool, confidence: float) -> 
     return "strong"
 
 
+URGENCY_ORDER = ("low", "medium", "high")
+
+
+def _triage_agreement(bundle: dict) -> dict[str, Any] | None:
+    """Whether the clinician's urgency and the model's suggestion agree, and in which direction.
+
+    A third kind of uncertainty, distinct from the two the system already carries. The imaging
+    modules express uncertainty about a finding; the missing-data account expresses uncertainty
+    about what was ever measured. This expresses uncertainty about the ASSESSMENT itself: two
+    independent judgements of the same patient that did not coincide.
+
+    Three things it deliberately does not do.
+
+    It does not decide who is right. Neither party is scored, and no field records the model as
+    wrong: there is no ground truth here, and a system that resolved the disagreement by rule
+    would be choosing a winner it has no basis to choose. What it detects is inconsistency.
+
+    It does not change the tier. The clinician's assessment is what reaches the reasoning layer
+    and the escalation policy, before this is computed and after.
+
+    It does not escalate. Escalation is a judgement about the PATIENT, made from evidence about
+    the patient; a disagreement between two assessors is a fact about the assessment. Wiring it
+    to the escalation policy would let a model that graded higher than the clinician raise the
+    urgency of the case indirectly, which is the authority the design gives the clinician and
+    not the model.
+
+    `direction` is recorded because the two directions are not equivalent. A clinician grading
+    ABOVE the suggestion is being more cautious than the model, which needs no attention. A
+    clinician grading BELOW it is the direction where a missed deterioration would sit, and it
+    is the one worth reviewing later -- not now, and not by this system.
+    """
+    s = bundle.get("triage_suggestion")
+    tri = bundle.get("triage") or {}
+    if not s or not tri.get("urgency"):
+        return None
+
+    suggested, final = s.get("urgency"), tri["urgency"]
+    if suggested not in URGENCY_ORDER or final not in URGENCY_ORDER:
+        return None
+
+    delta = URGENCY_ORDER.index(final) - URGENCY_ORDER.index(suggested)
+    return {
+        "suggested": suggested,
+        "final": final,
+        "agree": delta == 0,
+        "direction": "same" if delta == 0 else
+                     ("clinician_higher" if delta > 0 else "clinician_lower"),
+        "steps": abs(delta),
+        "probabilities": s.get("probabilities") or {},
+        "model": s.get("model"),
+    }
+
+
 def _case_quality(state: dict) -> dict[str, Any]:
     """How much the reasoning layer should trust this case as a whole.
 
@@ -297,6 +350,7 @@ def build_clinical_state(bundle: dict, *, labs: dict | None = None,
         "built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "demographics": demographics,
         "triage": {"urgency": tri.get("urgency"), "confidence": tri.get("confidence")} if tri else None,
+        "triage_agreement": _triage_agreement(bundle),
         "imaging": {
             "findings": sorted(findings, key=lambda f: (not f["detected"], -f["confidence"])),
             "alternatives": sorted(alternatives, key=lambda f: -f["confidence"]),

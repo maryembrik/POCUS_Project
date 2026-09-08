@@ -67,6 +67,11 @@ def build_report(state: dict, result: dict, support: dict) -> dict[str, Any]:
         "triage": {
             "urgency": (state.get("triage") or {}).get("urgency"),
             "confidence": (state.get("triage") or {}).get("confidence"),
+            # Present only when a model proposed a tier for this encounter. The archived record
+            # is where this belongs: it is not something a clinician needs while assessing the
+            # patient, and it is exactly what someone reviewing the encounter afterwards --
+            # or auditing how the two assessments compare over many encounters -- would need.
+            "agreement": state.get("triage_agreement"),
         },
 
         "pocus": {

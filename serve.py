@@ -118,6 +118,19 @@ CASES = {
 
 
 # ═══════════════════════════════════════════════════════════════════════ pipeline
+def _suggestion_for(enc: dict) -> dict[str, Any] | None:
+    """The deployed model's proposal for this encounter, or None if it is not installed.
+
+    Shaped for the clinical state rather than for the screen: `urgency` to match the key the
+    triage section uses, so the two can be compared without either side knowing where the
+    other came from.
+    """
+    s = triage_suggest(enc)
+    if s is None:
+        return None
+    return {"urgency": s["tier"], "probabilities": s["probabilities"], "model": s["model"]}
+
+
 def build_state(enc: dict):
     if enc.get("frozen_key") and enc.get("report") is None:
         return build_scenario(enc["frozen_key"])
@@ -169,6 +182,10 @@ def build_state(enc: dict):
          "triage": S.make_triage(enc.get("tier", "medium"), enc.get("tconf", 0.7),
                                  features=enc.get("vitals") or {},
                                  model="clinician"),
+         # The model's proposal, kept beside the clinician's tier and never in place of it.
+         # Recomputed here from the encounter rather than taken from the request: a record the
+         # caller can write is not a record, and this one exists to be reviewed afterwards.
+         "triage_suggestion": _suggestion_for(enc),
          "ultrasound": reports,
          "clinical": {"age": enc.get("age"), "sex": enc.get("sex"),
                       "chief_complaint": enc.get("complaint")}},

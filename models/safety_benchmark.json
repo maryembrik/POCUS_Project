@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T09:55:44+00:00",
-  "total_tests": 314,
-  "total_passed": 314,
+  "generated_at": "2026-09-08T11:42:39+00:00",
+  "total_tests": 322,
+  "total_passed": 322,
   "by_property": {
     "API contract": {
       "tests": 10,
@@ -86,6 +86,10 @@
     "Hallucination rejection": {
       "tests": 25,
       "passed": 25
+    },
+    "Human-AI assessment agreement": {
+      "tests": 8,
+      "passed": 8
     },
     "LLM failure containment": {
       "tests": 5,

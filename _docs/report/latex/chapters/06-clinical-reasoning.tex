@@ -84,6 +84,50 @@ settle it. It has no information that would say which source is wrong, so averag
 or preferring the more confident one would be a guess presented as a judgement. The
 disagreement is reported and the case is escalated.
 
+\subsubsection{A Second Kind of Disagreement}
+\label{subsec:reasoning-human-ai}
+
+The conflict above is between two of the system's own agents. Once the triage tier is proposed
+by a model and confirmed or changed by a clinician
+(Section~\ref{subsec:triage-deployment}), a second kind becomes observable: two independent
+assessments of the same patient, one of them human, that did not coincide.
+
+It is recorded with the encounter --- what was suggested, what the clinician settled on, and in
+which direction they differ. Three properties of that record are deliberate, and each is
+enforced by a test.
+
+\begin{keystatement}
+The system detects that two assessments differ. It does not conclude that either is wrong,
+because it has no ground truth with which to decide.
+\end{keystatement}
+
+\paragraph{It does not change the tier.} The clinician's assessment is what reaches the
+reasoning layer, before this comparison is computed and after it. Were the recorded tier ever
+to become the model's, the control on the intake screen would be advisory rather than
+decisive, and every rule reading the tier --- the conflict detector above among them --- would
+be reading a number the clinician did not choose.
+
+\paragraph{It does not escalate.} This is the least obvious of the three and the one most worth
+stating. Escalation is a judgement about the \emph{patient}, made from evidence about the
+patient; a disagreement between two assessors is a fact about the \emph{assessment}. Connecting
+it to the escalation policy would mean a model that graded a case higher than the clinician
+could raise its urgency indirectly --- taking, through a side channel, the authority the design
+gives the clinician. A test compares the trigger list for a disagreeing encounter against the
+identical encounter with no suggestion at all, and requires them to be the same.
+
+\paragraph{The direction is recorded, because the two are not equivalent.} A clinician grading
+\emph{above} the suggestion is being more cautious than the model, which warrants no attention.
+Grading \emph{below} it is the direction in which a missed deterioration would sit. That is
+worth reviewing --- afterwards, across many encounters, by a person --- and the record exists so
+that it can be. It is not a signal to act on during the consultation, and it is not shown as
+one: it lives in the archived report, not on the assessment screen.
+
+Taken with the other two, the system now distinguishes three kinds of uncertainty rather than
+conflating them: uncertainty about a \emph{finding} (a module reporting evidence too thin to
+act on), uncertainty about the \emph{record} (a measurement never taken, an organ never
+examined, a finding outside a model's scope), and uncertainty about the \emph{assessment}
+itself.
+
 \subsection{Escalation}
 \label{subsec:reasoning-escalation}
 
