@@ -66,7 +66,13 @@ const get = u => fetch(_lang(u)).then(r => r.json());
 
 class Component extends DCLogic {
   state = {
-    screen: 'home', recTab: 'images', draft: '', busy: false, grown: false, fabOpen: false,
+    // The screen may be named in the URL: /?screen=alerts opens there directly. A single page
+    // whose every view is unreachable by link cannot be bookmarked, cannot be sent to a
+    // colleague, and cannot be captured reproducibly for documentation -- each figure would
+    // otherwise depend on someone clicking the same sequence again.
+    screen: (typeof location !== 'undefined'
+             && new URLSearchParams(location.search).get('screen')) || 'home',
+    recTab: 'images', draft: '', busy: false, grown: false, fabOpen: false,
     boot: null, view: null, preset: '', upload: null, previews: [],
     form: { name: '', age: 60, sex: 'F', complaint: '', history: '', tier: 'medium',
             tconf: 0.8, arrival: 'walk-in', organ: 'Lung',
@@ -354,6 +360,8 @@ class Component extends DCLogic {
       analyzing: st.busy, analyzed: has,
       analyzeLabel: st.busy ? T('Analyzing…', 'Analyse en cours…') : (has ? T('Re-analyze patient', 'Réanalyser le patient') : T('Analyze patient', 'Analyser le patient')),
       filledCount: String(filled),
+      filledLabel: T(`${filled} of 5 sections filled`,
+                     `${filled} section(s) sur 5 renseignée(s)`),
       onAnalyze: () => this.analyse(),
       analyseLabel: st.busy ? T('Reading the study…', 'Lecture de l’examen…') : T('✦ Analyze patient', '✦ Analyser le patient'),
       emptyMessage: v.message || 'No encounter has been analysed yet.',
@@ -376,6 +384,10 @@ class Component extends DCLogic {
       pOrgan: (v.patient || {}).organ || '—',
       pId: (v.patient || {}).id || '—',
       severity: sev, scenario: v.scenario || '—',
+      // The whole heading in one language. The severity word is already translated by the
+      // server; the two words that followed it were not, so the French screen read
+      // "ELEVEE CLINICAL PRIORITY" at the top of the assessment.
+      severityHeading: T(`${sev} clinical priority`, `Priorité clinique ${sev}`),
       thresholdsVersion: v.thresholdsVersion || '—',
       conclusion: v.conclusion || '',
       escalateText: v.escalate ? T('escalation required', 'escalade requise') : T('no escalation', 'pas d’escalade'),
@@ -562,7 +574,8 @@ class Component extends DCLogic {
           label: n.replace(/_/g, ' '), detected: false, conf: null, caption: '' })))
         .map(r => ({
           name: r.label,
-          value: r.conf === null || r.conf === undefined ? 'not read yet'
+          value: r.conf === null || r.conf === undefined
+                 ? T('not read yet', 'pas encore analysé')
                  : (r.detected ? T('Detected ', 'Détecté ') + r.conf : T('Not detected ', 'Non détecté ') + r.conf),
           nameStyle: { fontWeight: 600, fontSize: '14px' },
           segStyle: { fontSize: '12.5px', fontWeight: 700,

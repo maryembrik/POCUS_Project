@@ -192,10 +192,11 @@ record actually lacks.
 \subsection{User Interface}
 \label{subsec:integration-ui}
 
-A browser application was built with Streamlit. Its design follows from a measurement rather
-than from a mock-up: Section~\ref{subsec:integration-execution} shows that everything except
-the language model completes in under two seconds, which means the safety layer is fast enough
-to be \emph{interactive} while the differential is not.
+A browser application is served by the \gls{http} service of
+Section~\ref{subsec:deployment-service}. Its design follows from a measurement rather than from
+a mock-up: Section~\ref{subsec:integration-execution} shows that everything except the language
+model completes in under two seconds, which means the safety layer is fast enough to be
+\emph{interactive} while the differential is not.
 
 The interface is built around that asymmetry. It is organised as a clinician would work rather
 than as the pipeline is built: a four-step intake --- patient, clinical measurements,
@@ -265,6 +266,59 @@ than derived from them, and had drifted: a different age, a sex, one missing blo
 recorded differential was therefore about to appear next to a record it had not been computed
 from. The presets are now derived from the scenarios, and the alert counts the interface
 reports agree exactly with those the regression harness reports for the same encounters.
+
+\subsubsection{The Interface as Delivered}
+
+Figures~\ref{fig:ui-assessment} to~\ref{fig:ui-assessment-fr} are captured from the running
+application. Every value in them was computed by the pipeline for the encounter shown: a
+78-year-old presenting with shortness of breath, arriving by ambulance, graded \textsc{low}
+urgency by the clinician, with a lung study read.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{fig_ui_assessment.png}
+  \caption{The assessment screen. The point-of-care block shows the four states a finding can
+    occupy --- \emph{detected}, \emph{detected with weak evidence}, \emph{screened and not
+    detected}, and \emph{not assessed because the model does not cover it}. Pneumothorax
+    appears with a dash where a confidence would be. The laboratory column reports
+    \emph{not measured} rather than leaving a blank, and the right-hand panel names what would
+    clarify the case, with the reason each item matters.}
+  \label{fig:ui-assessment}
+\end{figure}
+
+The differential panel is worth noting for what it declines to do. This deployment has no
+GPU and does not load the language model, and the panel says so: it reports that no
+differential was generated and that everything else on the screen was computed. The mock-up it
+replaced carried a confident diagnosis with a percentage beside it.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{fig_ui_alerts.png}
+  \caption{The alerts screen for a second encounter, in which the clinician assessed urgency as
+    \textsc{low} while the cardiac module reported severe dysfunction at 0.74. The first alert
+    is the disagreement itself: the system states that the two assessments conflict and that it
+    cannot determine which is correct, rather than choosing one. Below it, a positive imaging
+    finding with key laboratory values never measured, and a case-quality warning.}
+  \label{fig:ui-alerts}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{fig_ui_report.png}
+  \caption{The generated clinical report for the same encounter, assembled from the clinical
+    state rather than written by the language model.}
+  \label{fig:ui-report}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{fig_ui_assessment_fr.png}
+  \caption{The same assessment in French. The clinical sentences are not translations of the
+    English strings: they are composed by \texttt{src/agents/i18n.py} from the same computed
+    fields, so a French screen cannot state something the English record does not. Only the
+    patient's own free-text complaint stays as it was entered.}
+  \label{fig:ui-assessment-fr}
+\end{figure}
 
 \subsubsection{Where the visual design and the system disagreed}
 

@@ -273,8 +273,13 @@ def main() -> int:
             '{{ o.label }}</button>\n        </sc-for>', "organ chips")
 
     # ---- 5b2. surface a rejected analysis instead of leaving the old encounter up -----
+    # One binding, not a binding followed by static words. Split as "{{ filledCount }} of 5
+    # sections filled" the English tail is prose the French page needs translated, and the
+    # coverage check never saw it: the visible-string extractor skips text interleaved with
+    # bindings, so it reported full coverage while this sentence sat in English on the French
+    # screen. A check that cannot see a string cannot certify it.
     s = sub(s, '{{ filledCount }} of 5 sections filled',
-            '{{ filledCount }} of 5 sections filled'
+            '{{ filledLabel }}'
             '<sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">'
             '<span style="display:block;margin-top:6px;color:#C13238;font-weight:700;'
             'font-size:12.5px;max-width:46ch">{{ error }}</span></sc-if>',
@@ -318,7 +323,12 @@ def main() -> int:
     s = sub(s, "The current findings suggest a significant respiratory problem requiring "
                "prompt clinical evaluation.",
             "{{ conclusion }}", "assessment conclusion")
-    s = sub(s, ">High clinical priority</div>", ">{{ severity }} clinical priority</div>",
+    # One binding for the whole phrase. Written as "{{ severity }} clinical priority" the
+    # severity was translated and the two words after it were not, so the French screen read
+    # "ELEVEE CLINICAL PRIORITY" -- a heading in two languages, at the top of the screen a
+    # clinician reads first. Interleaving a binding with static prose is the same mistake that
+    # left the section counter in English; the fix is the same.
+    s = sub(s, ">High clinical priority</div>", ">{{ severityHeading }}</div>",
             "assessment priority kicker")
 
     s = sub(s, '<div style="margin:8px 0 18px;font-size:14.5px">Acute breathlessness, '

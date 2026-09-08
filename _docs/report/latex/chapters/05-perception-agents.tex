@@ -284,43 +284,109 @@ The limitations declared to the reasoning layer are that the model sees no imagi
 accuracy varies by source from 0.617 to 0.789, and that it estimates urgency rather than
 diagnosis.
 
-\subsubsection{What is Deployed, and What is Not}
+\subsubsection{Two Models, and Why There Are Two}
 \label{subsec:triage-deployment}
 
+The model described above is fitted on the full manifest, and part of its signal comes from
+fields a hospital registration system assigns: the coded reason-for-visit categories, and the
+source and year of the record. A clinician entering a patient at the bedside supplies none of
+those. The intake screen asks for a presenting complaint in free text.
+
+Restricting the fitted model to what the intake does supply was measured rather than assumed,
+and the result was decisive: accuracy fell from 0.680 to 0.495, and on the held-out split the
+model stopped predicting \textsc{low} altogether. A model starved of the features it was fitted
+with is not the model whose accuracy was reported, and deploying it that way would put a figure
+in this report that no deployed prediction could reach.
+
 \begin{keystatement}
-This classifier was built, calibrated and evaluated. It is not called by the deployed
-application. In the running system the urgency tier is entered by the clinician.
+The response was not to restrict the model but to fit a second one, on exactly the fields the
+interface collects. Training features, interface fields and deployment inputs are the same set.
 \end{keystatement}
 
-The reason is a mismatch between what the model needs and what the clinical intake collects.
-The features that carry most of its signal --- arrival mode, and the coded reason-for-visit
-categories --- are administrative fields recorded by a hospital registration system. The intake
-screen of this application asks a clinician for a presenting complaint in free text. Connecting
-the two would mean inferring a coded category from a free-text complaint, and a tier predicted
-from features that were guessed at is not the tier the reported accuracy describes.
+That second model is trained by the same procedure as the first --- the same temporal split, the
+same class weighting, the same calibration slice carved out of the training data, the same
+safety threshold --- so the two differ in their features and in nothing else.
 
-Presenting a number produced that way as ``calibrated'' would be the more serious error, since
-the whole purpose of calibrating this output was to make it comparable with an imaging
-confidence. So the deployed interface offers the clinician a three-way control ---
-\textsc{low}, \textsc{medium}, \textsc{high} --- and records the tier with its provenance, as
-\texttt{model: "clinician"}, so that a reader of an archived encounter can tell a stated
-assessment from a predicted one.
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{lrr}
+    \toprule
+    & \textbf{Reference} & \textbf{Deployed} \\
+    \midrule
+    Macro F1                    & 0.666 & 0.567 \\
+    Accuracy                    & 0.680 & 0.630 \\
+    Expected calibration error  & 0.036 & \textbf{0.030} \\
+    Recall, \textsc{high}       & 0.784 & 0.773 \\
+    Recall, \textsc{medium}     & 0.595 & \textbf{0.700} \\
+    Recall, \textsc{low}        & \textbf{0.638} & 0.232 \\
+    True \textsc{high} graded \textsc{low} & 1.55\% & \textbf{1.36\%} \\
+    \bottomrule
+  \end{tabular}
+  \caption{The reference model and the deployed model on the same held-out split of 16,180
+    visits. The deployed model is fitted on 21 features derived from the ten the intake
+    collects; the reference model adds the registration fields.}
+  \label{tab:triage-two-models}
+\end{table}
 
-\paragraph{Why this is not merely a gap.} The tier is not decoration in the reasoning layer.
-One of the escalation triggers compares it against the imaging findings: when triage says
-\textsc{low} and a module reports something severe, the two disagree, and the system escalates
-rather than choosing between them. A clinician-entered tier is a sound input to that
-comparison --- arguably a better one than a prediction, since it is a second independent
-judgement rather than another model reading the same record.
+The headline metric is lower, and the loss is not spread evenly. Recall on \textsc{high} is
+essentially preserved and the dangerous miss --- a genuinely high-acuity patient graded
+\textsc{low} --- is slightly \emph{better} than the reference model's. Almost the whole cost
+falls on \textsc{low}: without the registration fields the model cannot confidently identify
+low-acuity patients and errs towards \textsc{medium} instead. For decision support that is the
+safe direction to lose accuracy in, and it is worth saying so explicitly rather than letting a
+reader infer it from a table.
 
-\paragraph{A defect this exposed.} The control described here did not exist until late in the
-project. The intake form carried a fixed value of \textsc{medium} and sent it with every
-encounter, so the disagreement trigger could not fire for any patient entered through the
-interface. The rule itself was correct and its own tests passed throughout, because those
-tests call the conflict detector directly with a \textsc{low} tier. A rule can be correct and
-still never run, and no test that exercises the rule can reveal that: it took following the
-value from the screen to the reasoning layer. The end-to-end checks added with the control
-now traverse that path over HTTP, which is where the gap was.
+\paragraph{The two are registered separately.} Offering the deployed model as a replacement for
+the reference model was tried and refused by the promotion gate of
+Section~\ref{subsec:mlops}, for a macro-F1 regression of 0.099 that was both true and beside
+the point. The gate compares successive versions of one model on one task; these are two models
+answering different questions --- what the classifier achieves given complete records, and what
+it achieves given what is actually typed. They now occupy separate production lines with
+identical rules and unloosened tolerances, so a future deployed model is compared against the
+deployed model it would replace and never against an artefact it was never built to beat.
+
+\subsubsection{Suggestion, Confirmation, and Who Decides}
+
+The deployed model does not set the urgency tier. It proposes one, and the clinician confirms
+or changes it; the tier that reaches the reasoning layer is whichever the clinician left in the
+control.
+
+The interface shows the proposal and the observations it rests on, in clinical terms --- the
+suggested tier, and either \emph{based on all recorded observations} or a count and the names
+of those not taken. It does not show the probability vector, the model's name, or its
+evaluation figures. A screen reporting \emph{0.646 medium, macro F1 0.567} asks a reader to
+audit a classifier when their task is to see a patient, and those figures belong in this report
+rather than at the bedside.
+
+What is recorded with the encounter is fuller than what is displayed: the suggested tier, the
+probability distribution behind it, the tier the clinician settled on, which observations were
+available, and whether the two agreed. The record is written by the server from the state at
+the moment of assessment, not accepted from the request, because a record a caller can write is
+not a record --- it could report an agreement that never happened.
+
+\begin{keystatement}
+When the two differ, the system records that they differ. It does not record that the model was
+wrong, because it has no ground truth with which to decide that.
+\end{keystatement}
+
+\paragraph{A defect this exposed.} The urgency control did not exist until late in the project.
+The intake form carried a fixed value of \textsc{medium} and sent it with every encounter, so
+the escalation trigger that fires when triage and imaging disagree could not fire for any
+patient entered through the interface. The rule was correct throughout and its own tests passed,
+because those tests call the conflict detector directly with a \textsc{low} tier. A rule can be
+correct and never run, and no test that exercises the rule can reveal that: it took following
+the value from the screen to the reasoning layer. The end-to-end checks added with the control
+traverse that path over HTTP, which is where the gap was.
+
+\paragraph{A second defect, in the suggestion itself.} The first implementation read the
+model's probability vector in clinical order --- low, medium, high. The label encoder sorts its
+classes, so the columns are ordered high, low, medium, and a hypotensive, hypoxic, tachycardic
+81-year-old arriving by ambulance was graded \textsc{low} urgency at 0.87. Nothing raised: the
+shapes matched, the probabilities summed to one, and every field was populated. The mapping is
+now read from the artefact rather than written as a literal, and a test compares two
+constructed patients by \emph{order} rather than by label, so that it survives retraining and
+still fails if the vector is ever inverted again.
 
 % =========================================================================================
 \subsection{Ultrasound Agent: Organ Routing}
@@ -784,6 +850,39 @@ of 100 cases confused a severe ventricle with a normal one}. The dangerous error
 failing heart as healthy --- did not occur in this cohort, though with 11 severe cases that is
 a bound rather than a guarantee.
 
+\subsubsection{A Small Error at a Cutoff is a Category Error}
+\label{subsec:cardiac-boundary}
+
+A mean absolute error of 6.9 points reads as a good result, and on its own it is. But the number
+is not what a clinician acts on --- the band is, and the bands are separated by cutoffs at 30
+and 55. An error far smaller than the reported average can move a patient across one.
+
+The effect is visible on individual cases. Estimating a reference ejection fraction of 29 as 31
+is a numeric error of 2.0 points, well inside the module's typical accuracy, and it changes the
+clinical statement from \emph{severe} to \emph{moderate} dysfunction. The same arithmetic
+applies at the upper cutoff, where an error of 3.7 points moved a reference value of 54 to 57.7
+and turned a mildly reduced ventricle into a normal one.
+
+The module therefore reports, with every ejection fraction, how far that value sits from the
+nearest cutoff and whether it lies within the module's own measured error of one.
+
+\begin{keystatement}
+The margin is the module's held-out mean absolute error, not a chosen number. It is an
+engineering sensitivity zone: it says this model cannot resolve which side of the cutoff the
+patient is on, not that a cardiologist would call the value borderline.
+\end{keystatement}
+
+The distinction matters because a margin invented for the purpose --- five points, three points
+--- would be presented to a clinician as though it carried clinical meaning. Deriving it from
+the measured error makes it a statement about the instrument, which is what it is.
+
+The consequence is visible and worth stating plainly: because 6.9 points is wide relative to a
+\emph{reduced} band only 25 points across, a substantial share of predictions fall inside the
+zone and are flagged. That is the honest reading of an error of this size, and a narrower margin
+chosen to reduce the flag rate would have missed both of the band crossings described above.
+This is also the reason balanced accuracy over the three bands, at 63.4\%, is a far less
+flattering headline than the 6.9-point error --- and the more truthful one.
+
 \subsubsection{Rejected Adaptations}
 
 Six strategies were tried against the external gap and four were rejected.
@@ -997,6 +1096,45 @@ them means ``no disease''. The module therefore cannot exclude anything, and the
 is told so explicitly: a gallbladder report is evidence about \emph{which} pathology, never
 evidence that there is none. The remaining declared limitations are the 199-case sample, the
 burned-in annotation markers present in 15--50\% of frames, and the teaching-atlas provenance.
+
+\subsubsection{Reporting the Classes That Were Not Chosen}
+\label{subsec:gallbladder-alternatives}
+
+A module that names one diagnosis and stops leaves a reader unable to distinguish two very
+different situations: a diagnosis that was weighed against the alternatives and preferred, and
+a diagnosis reported because the alternatives were never in the label set at all. The lung
+module does not have this problem --- it reports all four findings it screens, positive or
+negative --- but a single-label module does, and the gallbladder module is single-label.
+
+It therefore reports the four classes it ranked below the one it chose, with their
+probabilities and the margin between the first and the second. On a cholecystitis case the
+report reads: acute cholecystitis at 0.541, then cholelithiasis 0.234, carcinoma 0.175, polyps
+0.039 and wall thickening 0.011.
+
+\begin{keystatement}
+These are not negative results. The five probabilities sum to one and describe one mutually
+exclusive choice, so a class ranked lower was never screened for and found absent --- it was
+outranked.
+\end{keystatement}
+
+The distinction is enforced in the schema rather than left to a convention. The ranked classes
+occupy their own field, separate from the list of findings a module screened and did not see,
+and a report carrying both is rejected as invalid: a module either screens independent findings
+or chooses among exclusive ones, and one claiming to do both cannot be interpreted --- a reader
+could not tell whether a label absent from the findings had been ruled out or merely outranked.
+
+\paragraph{They are shown to the clinician and withheld from the language model.} The ranked
+alternatives reach the interface but never enter the clinical state, and that is the point of
+keeping them in a separate field. Everything in the clinical state becomes enumerated evidence
+that the reasoning layer may cite; an alternative is not an observation about the patient but a
+diagnosis the module considered and did not make. Citing ``cholelithiasis 0.23'' as evidence
+would be fabrication with a number attached, and the separation makes it unrepresentable rather
+than merely discouraged.
+
+The margin is reported for a related reason. A confidence of 0.541 says how sure the module is;
+it does not say how close the runner-up was. A margin near zero means the module effectively
+could not separate two diagnoses, which is a different warning from low confidence and is not
+recoverable from the top-line number alone.
 
 % =========================================================================================
 \subsection{Explainability Across the Imaging Modules}

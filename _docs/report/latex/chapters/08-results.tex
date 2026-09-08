@@ -41,7 +41,10 @@ the baseline appropriate to its own task.
     \toprule
     Module & Task & Headline & Baseline & Cases \\
     \midrule
-    Triage & 3-tier urgency, tabular & macro F1 0.666 & 0.333 (chance) & 16\,180 enc. \\
+    Triage, reference & 3-tier urgency, tabular & macro F1 0.666 & 0.333 (chance) &
+      16\,180 enc. \\
+    Triage, deployed & the same, intake features only & macro F1 0.567 & 0.333 (chance) &
+      16\,180 enc. \\
     Lung & 4 findings, multi-label & macro AUROC 0.788 & 0.500 (chance) & 165 \\
     Cardiac & segmentation $\rightarrow$ EF band & bal.\ acc.\ 63.4\% & 33.3\% (chance) &
       100 patients \\
@@ -56,6 +59,15 @@ and triage models roughly twice theirs on three-class ones; the lung classifier 
 the uninformative 0.5 on every finding it models. None of them is close to the accuracy a
 deployed clinical tool would require, and all of them are clearly doing something other than
 guessing.
+
+Triage appears twice because two models exist, and reporting only the higher figure would
+describe a system that was never deployed. The reference model uses the registration fields a
+hospital assigns; the deployed model uses only what a clinician types at the bedside, and it is
+the one whose suggestions reach a screen. Section~\ref{subsec:triage-deployment} sets out the
+full comparison. The single line worth carrying here is that the 0.099 of macro F1 separating
+them is almost entirely recall on \textsc{low}: high-urgency recall is preserved, and the
+dangerous miss --- a genuinely high-acuity patient graded low --- is marginally lower in the
+deployed model than in the reference one.
 
 The cardiac row needs a note, because the module produces two things. Its segmentation is
 strong and close to the published benchmark --- Dice 0.928, 0.837 and 0.875 for left ventricle,

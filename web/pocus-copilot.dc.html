@@ -200,7 +200,7 @@ input,textarea,select,button{font-family:inherit}
       <p style="margin:8px 0 0;color:#6A6785;font-size:15.5px;max-width:70ch;text-wrap:pretty">Enter everything you have on one page — history, vital signs, laboratory results and POCUS. Then analyze. Anything left blank is recorded as not provided, never as normal.</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <span style="background:#E9E8FB;color:#2E2A78;border-radius:999px;padding:8px 15px;font-size:13px;font-weight:700">{{ filledCount }} of 5 sections filled<sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}"><span style="display:block;margin-top:6px;color:#C13238;font-weight:700;font-size:12.5px;max-width:46ch">{{ error }}</span></sc-if></span>
+      <span style="background:#E9E8FB;color:#2E2A78;border-radius:999px;padding:8px 15px;font-size:13px;font-weight:700">{{ filledLabel }}<sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}"><span style="display:block;margin-top:6px;color:#C13238;font-weight:700;font-size:12.5px;max-width:46ch">{{ error }}</span></sc-if></span>
       <button type="button" onClick="{{ onAnalyze }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:14.5px;padding:13px 24px;border-radius:999px">{{ analyseLabel }}</button>
     </div>
   </div>
@@ -307,7 +307,7 @@ input,textarea,select,button{font-family:inherit}
   <div style="display:flex;flex-direction:column;gap:20px">
     <section class="alertpulse rise" style="background:#FFF1F1;border:1px solid #F6CFCF;border-left:5px solid #E5484D;border-radius:14px;padding:20px 26px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center">
       <div>
-        <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">{{ severity }} clinical priority</div>
+        <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">{{ severityHeading }}</div>
         <p style="margin:8px 0 0;font-size:16px;max-width:70ch;text-wrap:pretty">{{ conclusion }}</p>
       </div>
       <button type="button" onClick="{{ goAlerts }}" style="appearance:none;border:1px solid #E9B4B4;background:#fff;cursor:pointer;color:#C13238;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:999px">Review alerts →</button>
@@ -600,7 +600,7 @@ input,textarea,select,button{font-family:inherit}
 
   <section class="alertpulse rise" style="background:#FFF1F1;border:1px solid #F6CFCF;border-left:5px solid #E5484D;border-radius:18px;padding:20px 24px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center">
     <div>
-      <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">{{ severity }} clinical priority</div>
+      <div style="font-size:12.5px;letter-spacing:.11em;text-transform:uppercase;color:#C13238;font-weight:800">{{ severityHeading }}</div>
       <p style="margin:8px 0 0;font-size:16px;max-width:70ch;text-wrap:pretty">{{ conclusion }}</p>
     </div>
     <button type="button" onClick="{{ goAlerts }}" style="appearance:none;border:1px solid #E9B4B4;background:#fff;cursor:pointer;color:#C13238;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">Review alerts →</button>
@@ -1029,7 +1029,13 @@ const get = u => fetch(_lang(u)).then(r => r.json());
 
 class Component extends DCLogic {
   state = {
-    screen: 'home', recTab: 'images', draft: '', busy: false, grown: false, fabOpen: false,
+    // The screen may be named in the URL: /?screen=alerts opens there directly. A single page
+    // whose every view is unreachable by link cannot be bookmarked, cannot be sent to a
+    // colleague, and cannot be captured reproducibly for documentation -- each figure would
+    // otherwise depend on someone clicking the same sequence again.
+    screen: (typeof location !== 'undefined'
+             && new URLSearchParams(location.search).get('screen')) || 'home',
+    recTab: 'images', draft: '', busy: false, grown: false, fabOpen: false,
     boot: null, view: null, preset: '', upload: null, previews: [],
     form: { name: '', age: 60, sex: 'F', complaint: '', history: '', tier: 'medium',
             tconf: 0.8, arrival: 'walk-in', organ: 'Lung',
@@ -1317,6 +1323,8 @@ class Component extends DCLogic {
       analyzing: st.busy, analyzed: has,
       analyzeLabel: st.busy ? T('Analyzing…', 'Analyse en cours…') : (has ? T('Re-analyze patient', 'Réanalyser le patient') : T('Analyze patient', 'Analyser le patient')),
       filledCount: String(filled),
+      filledLabel: T(`${filled} of 5 sections filled`,
+                     `${filled} section(s) sur 5 renseignée(s)`),
       onAnalyze: () => this.analyse(),
       analyseLabel: st.busy ? T('Reading the study…', 'Lecture de l’examen…') : T('✦ Analyze patient', '✦ Analyser le patient'),
       emptyMessage: v.message || 'No encounter has been analysed yet.',
@@ -1339,6 +1347,10 @@ class Component extends DCLogic {
       pOrgan: (v.patient || {}).organ || '—',
       pId: (v.patient || {}).id || '—',
       severity: sev, scenario: v.scenario || '—',
+      // The whole heading in one language. The severity word is already translated by the
+      // server; the two words that followed it were not, so the French screen read
+      // "ELEVEE CLINICAL PRIORITY" at the top of the assessment.
+      severityHeading: T(`${sev} clinical priority`, `Priorité clinique ${sev}`),
       thresholdsVersion: v.thresholdsVersion || '—',
       conclusion: v.conclusion || '',
       escalateText: v.escalate ? T('escalation required', 'escalade requise') : T('no escalation', 'pas d’escalade'),
@@ -1525,7 +1537,8 @@ class Component extends DCLogic {
           label: n.replace(/_/g, ' '), detected: false, conf: null, caption: '' })))
         .map(r => ({
           name: r.label,
-          value: r.conf === null || r.conf === undefined ? 'not read yet'
+          value: r.conf === null || r.conf === undefined
+                 ? T('not read yet', 'pas encore analysé')
                  : (r.detected ? T('Detected ', 'Détecté ') + r.conf : T('Not detected ', 'Non détecté ') + r.conf),
           nameStyle: { fontWeight: 600, fontSize: '14px' },
           segStyle: { fontSize: '12.5px', fontWeight: 700,
