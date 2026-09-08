@@ -39,6 +39,11 @@
 \begin{titlepage}
   \begin{center}
 
+    % One logo, because there is only one institution on this page. The host organisation is
+    % Esprit Tech, the research entity OF ESPRIT -- not a separate company -- so a second
+    % logo slot beside this one had nothing to put in it. It used to sit here, permanently
+    % empty, and its absence was repeatedly mistaken for a missing asset.
+    %
     % Either extension is accepted, so the file that was actually downloaded works without
     % anyone having to convert it. Note the name: this must be the ESPRIT mark (the one
     % reading "Se former autrement"), NOT ESPRIM -- the Ecole Superieure Privee d'Ingenieurs
@@ -48,12 +53,6 @@
       {\IfFileExists{logos/esprit.jpg}
         {\includegraphics[width=0.28\textwidth]{esprit.jpg}}
         {\rmq{[ add the ESPRIT logo as logos/esprit.png or logos/esprit.jpg ]}}}
-    \hfill
-    \IfFileExists{logos/host.png}
-      {\includegraphics[width=0.22\textwidth]{host.png}}
-      {\IfFileExists{logos/host.jpg}
-        {\includegraphics[width=0.22\textwidth]{host.jpg}}
-        {}}
 
     \vspace{1.2cm}
     \noindent\rule{\textwidth}{1.2pt}
@@ -205,7 +204,10 @@ aide à la décision clinique, systèmes multi-agents, génération augmentée p
 % belong to, so the process model is visible in the table of contents rather than only
 % described in Section~\ref{subsec:methodology}.
 
-\part{Mise en contexte}
+% "Context", not "Mise en contexte". The report is written in English, and this was the one
+% heading left in French. The grouping the supervisor asked for is unchanged -- introduction
+% and project environment, before the methodology begins -- only its name is translated.
+\part{Context}
 \include{chapters/01-introduction}
 \include{chapters/02-environment}
 
