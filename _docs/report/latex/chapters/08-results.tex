@@ -242,7 +242,9 @@ visible.
     \toprule
     Change & Hypothesis and measured outcome & Decision \\
     \midrule
-    External-dataset integration & \rmq{one line: what was added, what it cost} & rejected \\
+    External-dataset integration & Adding the external cardiac collection to training would
+      bridge the generalisation gap; both integrations degraded in-domain performance without
+      closing it & rejected \\
     Augmentation upgrade & Stronger augmentation would improve generalisation; the measured
       difference was within run-to-run variation & rejected \\
     USCL initialisation & Ultrasound-specific pretraining would beat ImageNet weights; it
@@ -255,8 +257,8 @@ visible.
     Triage class weighting & Aggressive weighting would improve safety on the
       under-represented tier; it cost substantial accuracy for negligible safety gain &
       rejected \\
-    Reason-for-visit grouping & A coarser grouping would generalise across sources;
-      \rmq{measured outcome} & rejected \\
+    Reason-for-visit grouping & A coarser grouping would generalise across sources; it lost
+      accuracy, the fine-grained codes carrying signal the grouping discards & rejected \\
     \bottomrule
   \end{tabularx}
 \end{table}
