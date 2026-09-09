@@ -35,7 +35,7 @@ reassuring.
 \paragraph{A deterministic escalation policy independent of the language model.} The
 safety-critical decision is computed from the structured state before the model is consulted and
 is unchanged by anything the model does, including failing entirely. This is demonstrated rather
-than asserted: 335 tests exercise it with no model present, and the decision was verified
+than asserted: 339 tests exercise it with no model present, and the decision was verified
 identical across three backends including one that raises on every call.
 
 \paragraph{An evidence interface that makes fabrication unrepresentable.} The reasoning layer
@@ -84,7 +84,7 @@ validation against expert ground truth remains outside the current internship sc
 \end{keystatement}
 
 Every word of that is checkable. \emph{Implemented} and \emph{technically verified} are claims
-about software, evidenced by 335 tests. \emph{Deterministic safety controls} names a property
+about software, evidenced by 339 tests. \emph{Deterministic safety controls} names a property
 demonstrated by running the pipeline against a failing model backend. And the final sentence
 states what the work does not establish, in the same breath as what it does, because the two
 are not separable here.

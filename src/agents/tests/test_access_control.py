@@ -306,16 +306,107 @@ def test_the_session_cookie_is_not_readable_by_script():
         f"session cookie has no SameSite protection: {header}"
 
 
+# -------------------------------------------------------------------------- registration ----
+# Doctors create their own accounts. The risk that comes with that is stated in serve.py; what
+# these tests establish is the part that must hold regardless: registering adds a person to the
+# system and adds nothing to what any person can see.
 @prop(ACCESS)
-def test_there_is_no_endpoint_that_creates_an_account():
-    """Accounts are issued from the command line; the absence of a route is the control.
+def test_a_newly_registered_doctor_sees_nobody_elses_patients():
+    """The property that makes open registration survivable.
 
-    Checked against the app's own route table rather than by trying a few guessed URLs, so a
-    sign-up endpoint added later under any path fails this test.
+    If sign-up were a way to reach existing data, it would be a way in for anyone. A new
+    account starts empty, and stays empty until its owner records something.
     """
-    paths = {getattr(r, "path", "") for r in serve.app.routes}
-    for suspicious in ("/api/register", "/api/signup", "/api/accounts", "/api/doctors"):
-        assert suspicious not in paths, f"{suspicious} exists: accounts must not be self-served"
-    creators = [p for p in paths if any(w in p.lower()
-                                        for w in ("register", "signup", "sign-up"))]
-    assert not creators, f"routes that look like account creation: {creators}"
+    a, _ = _doctors()
+    _a_patient_of_alice(a)
+
+    fresh = TestClient(serve.app)
+    r = fresh.post("/api/register", json={"username": "newcomer", "name": "Dr Newcomer",
+                                          "password": "newcomer-password-1"})
+    assert r.status_code == 200, f"registration failed: {r.text}"
+
+    assert fresh.get("/api/patients").json()["patients"] == []
+    assert fresh.get("/api/bootstrap").json()["records"] == []
+    counts = fresh.get("/api/me").json()
+    assert counts["patients"] == 0 and counts["examinations"] == 0
+
+
+@prop(ACCESS)
+def test_registration_signs_the_new_doctor_in_and_stores_only_a_hash():
+    from sqlalchemy import select
+
+    from src.auth import db
+    from src.auth.models import Doctor
+
+    temp_database()
+    client = TestClient(serve.app)
+    secret = "register-password-4471"
+    r = client.post("/api/register", json={"username": "regcheck", "name": "Dr Reg",
+                                           "password": secret})
+    assert r.status_code == 200
+    assert client.cookies.get(sessions.COOKIE), "registration did not sign the doctor in"
+    assert client.get("/api/me").json()["name"] == "Dr Reg"
+
+    with db.session() as s:
+        stored = s.scalar(select(Doctor.password_hash).where(Doctor.username == "regcheck"))
+    assert stored.startswith("scrypt$") and secret not in stored
+
+
+@prop(ACCESS)
+def test_registration_refuses_a_duplicate_username_and_a_short_password():
+    temp_database()
+    first = TestClient(serve.app)
+    assert first.post("/api/register", json={"username": "taken", "name": "Dr First",
+                                             "password": "first-password-1"}).status_code == 200
+
+    second = TestClient(serve.app)
+    dup = second.post("/api/register", json={"username": "taken", "name": "Dr Second",
+                                             "password": "second-password-1"})
+    assert dup.status_code == 400, "a second account took an existing username"
+
+    short = second.post("/api/register", json={"username": "shorty", "name": "Dr Short",
+                                               "password": "abc"})
+    assert short.status_code == 400, "an account was created with a three-character password"
+
+    # And the refusals must not have signed anybody in.
+    assert second.get("/api/me").status_code == 401
+
+
+@prop(ACCESS)
+def test_registration_cannot_be_used_to_take_over_an_existing_account():
+    """Re-registering a username must not overwrite the password on the existing account.
+
+    This is the attack the duplicate check actually prevents, and asserting the 400 alone would
+    not catch a version that returned 400 after having already written the new hash.
+    """
+    temp_database()
+    victim = TestClient(serve.app)
+    victim.post("/api/register", json={"username": "victim", "name": "Dr Victim",
+                                       "password": "victim-password-1"})
+
+    attacker = TestClient(serve.app)
+    attacker.post("/api/register", json={"username": "victim", "name": "Dr Attacker",
+                                         "password": "attacker-password-1"})
+
+    assert sessions.login("victim", "attacker-password-1") is None, \
+        "re-registering overwrote the existing account's password"
+    assert sessions.login("victim", "victim-password-1") is not None, \
+        "the original password stopped working"
+
+
+@prop(ACCESS)
+def test_registration_can_be_closed_for_a_deployment():
+    """POCUS_OPEN_REGISTRATION=0 is what a real deployment would set."""
+    import os
+
+    temp_database()
+    client = TestClient(serve.app)
+    os.environ["POCUS_OPEN_REGISTRATION"] = "0"
+    try:
+        r = client.post("/api/register", json={"username": "blocked", "name": "Dr Blocked",
+                                               "password": "blocked-password-1"})
+        assert r.status_code == 400
+        assert sessions.login("blocked", "blocked-password-1") is None, \
+            "the account was created even though registration was closed"
+    finally:
+        os.environ.pop("POCUS_OPEN_REGISTRATION", None)

@@ -41,11 +41,16 @@ def main(argv: list[str]) -> int:
         "ORDER BY name")]
 
     if len(argv) > 1:
-        want = argv[1]
-        if want not in tables:
-            print(f"no table {want!r}; there is {', '.join(tables)}")
+        if argv[1] not in tables:
+            print(f"no table {argv[1]!r}; there is {', '.join(tables)}")
             return 1
-        rows = con.execute(f"SELECT * FROM {want} LIMIT 50").fetchall()  # noqa: S608
+        # The name interpolated below is the one READ BACK from sqlite_master, not the one
+        # typed on the command line -- the argument is only used to select from that list. A
+        # table name cannot be a bound parameter in SQL, so a whitelist is the available
+        # control, and taking the string from the database rather than from argv is what makes
+        # it one rather than a check someone can later move or forget.
+        want = tables[tables.index(argv[1])]
+        rows = con.execute(f"SELECT * FROM {want} LIMIT 50").fetchall()  # nosec B608  # noqa: S608
         if not rows:
             print(f"{want}: empty")
             return 0
@@ -61,7 +66,8 @@ def main(argv: list[str]) -> int:
         return 0
 
     for t in tables:
-        n = con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]      # noqa: S608
+        # t comes from sqlite_master, never from an argument. Same reasoning as above.
+        n = con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]  # nosec B608  # noqa: S608
         cols = [f"{c[1]}" for c in con.execute(f"PRAGMA table_info({t})")]
         print(f"  {t:14s} {n:4d} row(s)")
         print(f"                 {', '.join(cols)}\n")

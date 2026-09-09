@@ -54,6 +54,42 @@ def create_patient(doctor_id: str, *, name: str, reference: str | None = None,
                 "examinations": 0, "lastSeen": None}
 
 
+def find_or_create_patient(doctor_id: str, *, name: str, age: int | None = None,
+                           sex: str | None = None) -> dict[str, Any] | None:
+    """The patient this encounter is about, created on first sight.
+
+    The clinician already types a name, an age and a sex into the intake form. Asking them to
+    ALSO pick a patient record from a list, before the system will think about the case, is
+    paperwork the tool imposes on itself -- and in an emergency department it is paperwork at
+    exactly the wrong moment. So the record is made from what was already entered.
+
+    Matched on name, age and sex together rather than on name alone: two patients called the
+    same thing would otherwise share one history, which is a worse failure than two records for
+    one person. It is still a heuristic, and the honest description of it is that this is a
+    prototype's substitute for a hospital's patient index, not a replacement for one.
+
+    Returns None for a blank name -- an unnamed encounter is not filed under a patient rather
+    than being filed under a patient called "Unnamed patient", which would collect every
+    unnamed case from every session into one person's record.
+    """
+    name = (name or "").strip()
+    if not name or name.lower() in ("unnamed patient", "no patient"):
+        return None
+
+    with db.session() as s:
+        q = select(Patient).where(Patient.doctor_id == doctor_id, Patient.name == name)
+        for p in s.scalars(q).all():
+            if (age is None or p.date_of_birth is None or str(age) == p.date_of_birth) \
+                    and (sex is None or p.sex is None or sex == p.sex):
+                return {"id": p.id, "reference": p.reference, "name": p.name,
+                        "dateOfBirth": p.date_of_birth, "sex": p.sex}
+    # date_of_birth carries the AGE as entered, because the form collects an age and not a date
+    # of birth. Storing an age in a column named for a birth date would be a lie the next reader
+    # has to discover, so the interface reports it as an age and this note says why.
+    return create_patient(doctor_id, name=name, date_of_birth=str(age) if age else None,
+                          sex=sex)
+
+
 def get_patient(doctor_id: str, patient_id: str) -> dict[str, Any] | None:
     with db.session() as s:
         p = s.scalar(select(Patient).where(Patient.id == patient_id,

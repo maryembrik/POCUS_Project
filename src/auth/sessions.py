@@ -11,10 +11,13 @@ Authentication is deliberately boring here. The only judgements worth stating:
 """
 from __future__ import annotations
 
+import os
+import re
 import secrets
 from datetime import timedelta
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 
 from . import db
 from .models import Doctor, Session, utcnow
@@ -22,6 +25,9 @@ from .passwords import hash_password, verify_password
 
 SESSION_HOURS = 12
 COOKIE = "pocus_session"
+# A floor, not a policy. Complexity rules push people towards Passw0rd!; length is the property
+# that actually costs an attacker anything.
+MIN_PASSWORD = 8
 
 # Verified against when no such user exists, purely so that the failure takes the same time as
 # a real one. Built once at import: hashing here costs the same ~100 ms as any other scrypt call
@@ -43,6 +49,50 @@ def login(username: str, password: str) -> str | None:
                       expires_at=utcnow() + timedelta(hours=SESSION_HOURS)))
         s.commit()
         return token
+
+
+def register(username: str, name: str, password: str,
+             email: str | None = None) -> tuple[str | None, str | None]:
+    """Create an account and sign it in. Returns (token, error); exactly one is None.
+
+    Registration is open by default and can be closed with POCUS_OPEN_REGISTRATION=0. The
+    switch exists because "anyone who reaches this URL may create an account and store patient
+    data" is the correct behaviour for a demonstration and the wrong one for a deployment, and
+    which of those a given instance is cannot be decided here.
+
+    Unlike login, this endpoint cannot avoid disclosing whether a username is taken -- it has
+    to refuse the second one. That is inherent to sign-up rather than a flaw in this
+    implementation, and it is the reason login is careful about it: an attacker who can
+    enumerate usernames here still learns nothing about which of them have which passwords.
+    """
+    if os.environ.get("POCUS_OPEN_REGISTRATION", "1") == "0":
+        return None, "registration is closed on this instance"
+
+    username = (username or "").strip().lower()
+    name = (name or "").strip()
+    if not username or not name:
+        return None, "a username and a name are required"
+    if len(username) < 3 or not re.fullmatch(r"[a-z0-9._-]+", username):
+        return None, "the username may use letters, digits, dot, dash and underscore only"
+    if len(password or "") < MIN_PASSWORD:
+        return None, f"the password must be at least {MIN_PASSWORD} characters"
+
+    with db.session() as s:
+        if s.scalar(select(Doctor).where(Doctor.username == username)):
+            return None, "that username is already taken"
+        doctor = Doctor(username=username, name=name, email=(email or None),
+                        password_hash=hash_password(password))
+        s.add(doctor)
+        try:
+            s.commit()
+        except IntegrityError:
+            # Two sign-ups racing for the same username. The unique index is what actually
+            # decides it; the check above only makes the common case a tidy message.
+            s.rollback()
+            return None, "that username is already taken"
+
+    token = login(username, password)
+    return token, None if token else "the account was created but could not be signed in"
 
 
 def logout(token: str | None) -> None:

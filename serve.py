@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import base64
 import collections
+import contextlib
 import io
 import json
 import logging
@@ -64,7 +65,23 @@ WEB = ROOT / "web"
 FROZEN = ROOT / "models" / "clinical_reasoning_v4_final" / "results.json"
 BENCH = ROOT / "models" / "safety_benchmark.json"
 
-app = FastAPI(title="POCUS Copilot")
+@contextlib.asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """Seed the demo account named by POCUS_DEMO_PASSWORD, if there is one, once at startup.
+
+    Absent that variable nothing is created. An image that ships with a known password
+    reachable from the network is a back door however clearly it is labelled a demo, so the
+    password is supplied at run time and never lives in the repository.
+    """
+    made = accounts.ensure_demo()
+    if made:
+        # The username only. Logging the password would put it in exactly the place the
+        # monitoring section of this file exists to keep secret material out of.
+        logging.getLogger("pocus.access").info("seeded demo account %r", made[0])
+    yield
+
+
+app = FastAPI(title="POCUS Copilot", lifespan=_lifespan)
 _retriever: Retriever | None = None
 _STARTED = time.time()                       # for /api/health; set once, at import
 
@@ -613,6 +630,15 @@ def _remember(ws: Workspace, enc: dict, a: dict, patient_id: str | None) -> str 
     in a list. The old `str(len(records) + 1)` was guessable, which mattered not at all while
     every user saw everything and matters entirely now that records have owners.
     """
+    # No patient chosen means one is made from what the clinician already typed, rather than
+    # the examination being stored unfiled. The intake form collects a name, an age and a sex;
+    # requiring the doctor to ALSO pick a record from a list before the system will look at the
+    # case is paperwork imposed at the worst possible moment.
+    if patient_id is None:
+        found = store.find_or_create_patient(ws.doctor_id, name=enc.get("name"),
+                                             age=enc.get("age"), sex=enc.get("sex"))
+        patient_id = found["id"] if found else None
+
     saved = store.save_examination(ws.doctor_id, patient_id, encounter=enc, assessment=a,
                                    studies=_studies_of(ws, enc))
     if saved is None:                      # the patient is not this doctor's; nothing is filed
@@ -968,30 +994,28 @@ def api_metrics() -> JSONResponse:
 
 # ═════════════════════════════════════════════════════════════════════ accounts and access
 #
-# There is no route here that creates an account. Accounts are issued from the command line
-# (`python -m src.auth.accounts`), because a public sign-up form on a clinical tool lets anyone
-# who reaches the URL start storing patient data under a name of their choosing. The absence of
-# the endpoint is the control; a hidden or unlinked one would not be.
-
-
-@app.on_event("startup")
-def _seed_demo_account() -> None:
-    """Create the demo account named by POCUS_DEMO_PASSWORD, if there is one, once.
-
-    Absent that variable nothing is created. An image that ships with a known password
-    reachable from the network is a back door however clearly it is labelled a demo, so the
-    password is supplied at run time and never lives in the repository.
-    """
-    made = accounts.ensure_demo()
-    if made:
-        # The username only. Logging the password would put it in exactly the place the
-        # monitoring section of this file exists to keep clinical and secret material out of.
-        logging.getLogger("pocus.access").info("seeded demo account %r", made[0])
+# A doctor may create their own account. That is a deliberate choice with a real cost, stated
+# plainly: an open sign-up form means anyone who reaches this URL can create an account and
+# begin storing patient data under a name of their own choosing. It is the right behaviour for
+# a system being demonstrated and the wrong one for a hospital deployment, and which of those
+# an instance is cannot be settled in this file -- so POCUS_OPEN_REGISTRATION=0 closes it, and
+# `python -m src.auth.accounts` continues to issue accounts from the command line.
+#
+# What registration does NOT do is widen anyone's reach. A new account starts empty and every
+# query in store.py takes a doctor id it cannot be called without, so adding a person to the
+# system adds nothing to what any person can see.
 
 
 class Credentials(BaseModel):
     username: str
     password: str
+
+
+class Registration(BaseModel):
+    username: str
+    password: str
+    name: str
+    email: str | None = None
 
 
 class NewPatient(BaseModel):
@@ -1015,6 +1039,27 @@ def api_login(c: Credentials, response: Response) -> JSONResponse:
     # samesite     the cookie does not ride along on a request another site caused
     # secure       only when actually behind TLS: setting it on plain http makes the cookie
     #              silently undeliverable, which presents as "login does nothing"
+    out.set_cookie(sessions.COOKIE, token, httponly=True, samesite="lax",
+                   secure=os.environ.get("POCUS_HTTPS") == "1",
+                   max_age=sessions.SESSION_HOURS * 3600, path="/")
+    return out
+
+
+@app.post("/api/register")
+def api_register(r: Registration, response: Response) -> JSONResponse:
+    """Create an account and sign it in.
+
+    A new doctor starts with nothing: no patients, no examinations, and no way to reach
+    anyone else's. That is not a property of this endpoint but of every query in store.py,
+    each of which takes a doctor id it cannot be called without -- so registration adds a
+    person to the system without widening what any person can see.
+    """
+    token, error = sessions.register(r.username, r.name, r.password, r.email)
+    if token is None:
+        return JSONResponse({"error": error}, status_code=400)
+    doctor = sessions.doctor_for(token)
+    assert doctor is not None
+    out = JSONResponse({"doctor": {"name": doctor.name, "username": doctor.username}})
     out.set_cookie(sessions.COOKIE, token, httponly=True, samesite="lax",
                    secure=os.environ.get("POCUS_HTTPS") == "1",
                    max_age=sessions.SESSION_HOURS * 3600, path="/")

@@ -55,6 +55,11 @@
   .error {
     min-height: 18px; margin: 12px 0 0; font-size: 13px; color: var(--bad); text-align: center;
   }
+  .hint { margin: -10px 0 14px; font-size: 12px; color: var(--muted); }
+  .switch { margin: 18px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+  .link { display: inline; width: auto; padding: 0; background: none; color: var(--brand);
+          font-weight: 600; text-decoration: underline; }
+  .link:hover { background: none; color: var(--brand-dark); }
   .foot { margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--line);
           font-size: 12px; color: var(--muted); text-align: center; }
 </style>
@@ -66,6 +71,14 @@
     <p class="sub">Sign in to reach your patients.</p>
 
     <form id="f" autocomplete="on">
+      <!-- Only shown when creating an account. Ordered first because it is what the new
+           account will be called on screen, and asking for it after the password reads as an
+           afterthought. -->
+      <div id="nameRow" hidden>
+        <label for="n">Full name</label>
+        <input id="n" name="name" autocomplete="name" placeholder="Dr Mariem Brik">
+      </div>
+
       <label for="u">Username</label>
       <!-- autocomplete lets a password manager fill these, which is the one thing that
            actually improves password quality in practice. -->
@@ -73,6 +86,7 @@
 
       <label for="p">Password</label>
       <input id="p" name="password" type="password" autocomplete="current-password" required>
+      <p class="hint" id="hint" hidden>At least 8 characters.</p>
 
       <button id="b" type="submit">Sign in</button>
       <!-- aria-live so the failure is announced, not only drawn: a screen reader user
@@ -80,24 +94,55 @@
       <p class="error" id="e" role="alert" aria-live="polite"></p>
     </form>
 
+    <p class="switch">
+      <span id="swText">New here?</span>
+      <button type="button" id="sw" class="link">Create an account</button>
+    </p>
+
     <p class="foot">Clinical decision support. The clinician decides.</p>
   </main>
 
 <script>
-  const f = document.getElementById('f'), e = document.getElementById('e'),
-        b = document.getElementById('b');
+  const $ = id => document.getElementById(id);
+  const f = $('f'), e = $('e'), b = $('b'), p = $('p');
+
+  // One form, two modes, because they differ by one field. Two separate forms would duplicate
+  // the submit handling, the error display and the password rules, and the duplicates are what
+  // drift apart.
+  let creating = false;
+
+  function setMode(next) {
+    creating = next;
+    e.textContent = '';
+    $('nameRow').hidden = !creating;
+    $('n').required = creating;
+    $('hint').hidden = !creating;
+    b.textContent = creating ? 'Create account' : 'Sign in';
+    $('swText').textContent = creating ? 'Already have an account?' : 'New here?';
+    $('sw').textContent = creating ? 'Sign in' : 'Create an account';
+    document.querySelector('.sub').textContent = creating
+      ? 'Create your account to start recording patients.'
+      : 'Sign in to reach your patients.';
+    // The browser will not fill a new password from a saved one, and must not save the new
+    // one as though it were the existing one for this site.
+    p.setAttribute('autocomplete', creating ? 'new-password' : 'current-password');
+    (creating ? $('n') : $('u')).focus();
+  }
+
+  $('sw').addEventListener('click', () => setMode(!creating));
 
   f.addEventListener('submit', async ev => {
     ev.preventDefault();
     e.textContent = '';
     b.disabled = true;
-    b.textContent = 'Signing in…';
+    b.textContent = creating ? 'Creating…' : 'Signing in…';
     try {
-      const r = await fetch('/api/login', {
+      const body = { username: $('u').value, password: p.value };
+      if (creating) body.name = $('n').value;
+      const r = await fetch(creating ? '/api/register' : '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: document.getElementById('u').value,
-                               password: document.getElementById('p').value })
+        body: JSON.stringify(body)
       });
       if (r.ok) {
         // replace(), not href: the back button must not return to a form that has already
@@ -105,17 +150,20 @@
         location.replace('/');
         return;
       }
-      const body = await r.json().catch(() => ({}));
-      e.textContent = body.error || 'Sign-in failed.';
+      const out = await r.json().catch(() => ({}));
+      e.textContent = out.error || (creating ? 'Could not create the account.'
+                                             : 'Sign-in failed.');
     } catch {
       // A network failure is not a wrong password, and saying so would send someone off to
       // reset a password that was never the problem.
       e.textContent = 'Could not reach the server.';
     }
     b.disabled = false;
-    b.textContent = 'Sign in';
-    document.getElementById('p').value = '';
-    document.getElementById('p').focus();
+    b.textContent = creating ? 'Create account' : 'Sign in';
+    // The password is cleared on failure; the username and name are not, because retyping
+    // them is the annoyance that makes people choose shorter passwords.
+    p.value = '';
+    p.focus();
   });
 </script>
 </body>

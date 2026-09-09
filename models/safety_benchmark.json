@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T11:54:21+00:00",
-  "total_tests": 335,
-  "total_passed": 335,
+  "generated_at": "2026-09-09T12:27:29+00:00",
+  "total_tests": 339,
+  "total_passed": 339,
   "total_skipped": 0,
   "by_property": {
     "API contract": {
@@ -15,8 +15,8 @@
       "skipped": 0
     },
     "Access control": {
-      "tests": 13,
-      "passed": 13,
+      "tests": 17,
+      "passed": 17,
       "skipped": 0
     },
     "Advice scope": {
