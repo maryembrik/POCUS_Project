@@ -53,3 +53,10 @@ opencv-python-headless==4.13.0.92
 # matters more than its count suggests -- Pillow is what decodes the image a clinician uploads,
 # so an image-parsing flaw here is reachable by anyone who can submit a study.
 pillow==12.3.0
+
+# -- accounts and stored records ---------------------------------------------------------
+# The only dependency added for the doctor accounts. SQLite itself is in the standard library
+# (`sqlite3`), and so are the two things that must not be got wrong: scrypt for the password
+# hashes and secrets for the session tokens. SQLAlchemy is here for the schema and the queries,
+# not for the security.
+sqlalchemy==2.0.43

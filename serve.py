@@ -36,10 +36,13 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from fastapi import FastAPI  # noqa: E402
-from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
+from fastapi import Depends, FastAPI, HTTPException, Request, Response  # noqa: E402
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
+
+from src.auth import accounts, sessions, store  # noqa: E402
+from src.auth.models import Doctor  # noqa: E402
 
 from src.agents import i18n, schema as S  # noqa: E402
 from src.agents.assistant import answer as assistant_answer  # noqa: E402
@@ -64,7 +67,73 @@ BENCH = ROOT / "models" / "safety_benchmark.json"
 app = FastAPI(title="POCUS Copilot")
 _retriever: Retriever | None = None
 _STARTED = time.time()                       # for /api/health; set once, at import
-_records: list[dict[str, Any]] = []          # session-scoped, exactly like the Streamlit app
+
+
+class Workspace:
+    """One doctor's working set: their records, their studies, their current encounter.
+
+    These three were module globals, which was correct while the application had exactly one
+    user and became a patient-data leak the moment it had accounts. `_last` in particular was a
+    single dict holding "the encounter being looked at" -- so with two clinicians signed in, one
+    analysing a patient would change what the other's next screen refresh showed, and
+    /api/ask would answer questions about the wrong patient. Nothing in the interface would
+    have looked wrong; it would simply have been someone else's case.
+
+    Keyed by doctor id below. The database is the durable record; this is the per-doctor cache
+    the screens read, hydrated from it on first use after signing in.
+    """
+
+    def __init__(self, doctor_id: str) -> None:
+        self.doctor_id = doctor_id
+        self.records: list[dict[str, Any]] = []
+        self.studies: dict[str, dict[str, Any]] = {}
+        self.last: dict[str, Any] = {}
+        self.hydrated = False
+
+    def hydrate(self) -> Workspace:
+        """Load this doctor's stored examinations once per process, newest last.
+
+        Without this, signing in after a restart would show an empty patient list beside a
+        database that holds every case -- the screens would report no history where history
+        exists, which is worse than an error because it looks like an answer.
+        """
+        if self.hydrated:
+            return self
+        self.hydrated = True
+        for row in reversed(store.list_examinations(self.doctor_id)):
+            full = store.load_examination(self.doctor_id, row["id"])
+            if not full or not full.get("assessment"):
+                continue
+            for st in full.get("studies") or []:
+                self.studies[st["id"]] = st
+            self.records.append(_record_row(full["id"], full["encounter"], full["assessment"],
+                                            self, at=row["at"][11:16],
+                                            patient_id=full.get("patientId")))
+        return self
+
+
+_workspaces: dict[str, Workspace] = {}
+
+
+def _ws(doctor: Doctor) -> Workspace:
+    ws = _workspaces.get(doctor.id)
+    if ws is None:
+        ws = _workspaces[doctor.id] = Workspace(doctor.id)
+    return ws.hydrate()
+
+
+def current_doctor(request: Request) -> Doctor:
+    """Who is asking. 401 when the answer is nobody.
+
+    Every endpoint that can reach clinical data depends on this, so there is no route that
+    reads a record without a doctor bound to the request. /api/health and /api/metrics are the
+    two deliberate exceptions: the container's HEALTHCHECK runs without credentials, and
+    neither reports anything about a patient.
+    """
+    doctor = sessions.doctor_for(request.cookies.get(sessions.COOKIE))
+    if doctor is None:
+        raise HTTPException(status_code=401, detail="sign in required")
+    return doctor
 
 
 def retriever() -> Retriever:
@@ -282,7 +351,7 @@ def _organs_examined(state: dict) -> set[str]:
     return {f["organ"] for f in state["imaging"]["findings"]}
 
 
-def _view(enc: dict, a: dict, lang: str = "en") -> dict:
+def _view(enc: dict, a: dict, lang: str = "en", ws: Workspace | None = None) -> dict:
     """Everything the design's template binds, computed rather than invented."""
     state, sup, esc = a["state"], a["support"], a["esc"]
     diff = (a["result"].get("differential") or {}).get("differential") or []
@@ -402,7 +471,7 @@ def _view(enc: dict, a: dict, lang: str = "en") -> dict:
                   "source": h["source"], "text": h["text"]} for h in a["hits"]],
         "timeline": [{"time": f"+{m['t'] * 1000:.0f} ms", "title": m["title"],
                       "detail": m["detail"], "hl": m["hl"]} for m in a["marks"]],
-        "images": _studies_of(enc),
+        "images": _studies_of(ws, enc) if ws else [],
         "reportText": render_report(a["report"]),
         "generatedAt": a["report"]["generated_at"][:16].replace("T", " "),
         "topFinding": (f"{det[0]['label']} {det[0]['confidence']:.2f}" if det
@@ -433,6 +502,13 @@ class Encounter(BaseModel):
     findings: dict[str, float] = {}
     vitals: dict[str, float] = {}
     labs: dict[str, float] = {}
+    # The patient this assessment is filed against, or None for one not yet filed. It MUST be
+    # declared here: pydantic drops fields a model does not declare, silently and by default,
+    # so while this line was missing the browser's patientId never arrived. The ownership check
+    # in api_analyse read None every time and passed, and every examination was stored unfiled
+    # -- a security control that could not fire and a feature that did not work, from one
+    # absent field and no error anywhere.
+    patientId: str | None = None
     preset: str | None = None
     broken: bool = False
     reportJson: dict[str, Any] | None = None
@@ -461,12 +537,10 @@ class Ask(BaseModel):
     question: str
 
 
-_last: dict[str, Any] = {}
-_studies: dict[str, dict[str, Any]] = {}     # study id -> the stored copy and its reading
 _NO_STORE = {"Cache-Control": "no-store, must-revalidate", "Pragma": "no-cache"}
 
 
-def _store_study(b64: str, organ: str, rep: dict, zone: str) -> str:
+def _store_study(ws: Workspace, b64: str, organ: str, rep: dict, zone: str) -> str:
     """Keep a study beside the reading the module made of it.
 
     Stored at 320 px as a JPEG rather than as the uploaded file. The record grid shows it at
@@ -484,8 +558,8 @@ def _store_study(b64: str, organ: str, rep: dict, zone: str) -> str:
     im.save(buf, format="JPEG", quality=72)
 
     det = rep.get("findings") or []
-    sid = f"IMG-{len(_studies) + 1:03d}"
-    _studies[sid] = {
+    sid = f"IMG-{len(ws.studies) + 1:03d}"
+    ws.studies[sid] = {
         "id": sid,
         "src": "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode(),
         "organ": organ.title(),
@@ -501,11 +575,12 @@ def _store_study(b64: str, organ: str, rep: dict, zone: str) -> str:
     return sid
 
 
-def _studies_of(enc: dict) -> list[dict[str, Any]]:
-    return [_studies[i] for i in (enc.get("images") or []) if i in _studies]
+def _studies_of(ws: Workspace, enc: dict) -> list[dict[str, Any]]:
+    return [ws.studies[i] for i in (enc.get("images") or []) if i in ws.studies]
 
 
-def _remember(enc: dict, a: dict) -> None:
+def _record_row(rid: str, enc: dict, a: dict, ws: Workspace, *, at: str | None = None,
+                patient_id: str | None = None) -> dict[str, Any]:
     """Keep the whole encounter, not a summary of it.
 
     The patient record is a list a clinician opens, so re-opening one has to restore the case
@@ -513,24 +588,41 @@ def _remember(enc: dict, a: dict) -> None:
     only a headline would mean re-deriving the rest, and a record that reconstructs itself is
     a record that can differ from what was shown at the time.
     """
-    rid = str(len(_records) + 1)
-    _records.append({
+    return {
         "id": rid,
+        "patientId": patient_id,
         "name": enc.get("name") or "Unnamed patient",
         "age": enc.get("age"), "sex": enc.get("sex"),
         "complaint": enc.get("complaint") or "no complaint given",
-        "at": datetime.now().strftime("%H:%M"),
+        "at": at or datetime.now().strftime("%H:%M"),
         "severity": a["support"]["severity"]["severity"],
         "alerts": len(a["support"]["alerts"]), "organ": enc.get("organ"),
         "encounterId": a["report"]["encounter_id"],
         "findings": [f["label"] for f in a["state"]["imaging"]["findings"] if f["detected"]],
-        "images": [s["id"] for s in _studies_of(enc)],
+        "images": [s["id"] for s in _studies_of(ws, enc)],
         "_enc": enc, "_a": a,
-    })
+    }
+
+
+def _remember(ws: Workspace, enc: dict, a: dict, patient_id: str | None) -> str | None:
+    """Write the assessment to the database, then cache it for this doctor's screens.
+
+    The database first, deliberately. If the write fails the clinician must not be shown a
+    record that looks stored and is not -- so the row id the store returns becomes the record
+    id, and the identifier on screen is the identifier in the database rather than a position
+    in a list. The old `str(len(records) + 1)` was guessable, which mattered not at all while
+    every user saw everything and matters entirely now that records have owners.
+    """
+    saved = store.save_examination(ws.doctor_id, patient_id, encounter=enc, assessment=a,
+                                   studies=_studies_of(ws, enc))
+    if saved is None:                      # the patient is not this doctor's; nothing is filed
+        return None
+    ws.records.append(_record_row(saved["id"], enc, a, ws, patient_id=patient_id))
+    return saved["id"]
 
 
 @app.get("/api/bootstrap")
-def bootstrap(lang: str = "en") -> JSONResponse:
+def bootstrap(lang: str = "en", doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
     # The five benchmark encounters are no longer sent. They are fixtures the test suite runs,
     # and listing them under "Recent assessments" beside a tile reading "0 analysed this
     # session" presented five test cases as five patients waiting to be seen. Every screen now
@@ -538,9 +630,15 @@ def bootstrap(lang: str = "en") -> JSONResponse:
     # five full pipeline runs per page load and after every assessment -- for a table nobody
     # could act on. `/api/preset` still serves them by key for the recorded-differential path.
     bench = json.loads(BENCH.read_text(encoding="utf8")) if BENCH.exists() else {}
+    ws = _ws(doctor)
     return JSONResponse({
         "modules": module_status(),
         "tests": bench.get("total_passed"),
+        # Who is signed in, so the interface can greet them and offer a way out. The patient
+        # list below is this doctor's and nobody else's -- it is read from their workspace,
+        # which is keyed by their id.
+        "doctor": {"name": doctor.name, "username": doctor.username},
+        "patients": store.list_patients(doctor.id),
         "vitalKeys": [{"key": k, "unit": v["unit"], "min": v["normal_min"],
                        "max": v["normal_max"]} for k, v in VITAL_REFERENCE.items()],
         # Both bounds. Sending only the upper one let the interface call a pH of 6 "normal"
@@ -561,13 +659,16 @@ def bootstrap(lang: str = "en") -> JSONResponse:
                                    else r["severity"]),
                          organ=(i18n.organ(r["organ"] or "").title() if lang == "fr"
                                 else r["organ"]),
-                         images=_studies_of(r["_enc"])) for r in _records],
+                         images=_studies_of(ws, r["_enc"])) for r in ws.records],
     })
 
 
 @app.post("/api/analyse")
-def api_analyse(e: Encounter, lang: str = "en") -> JSONResponse:
+def api_analyse(e: Encounter, lang: str = "en",
+                doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
+    ws = _ws(doctor)
     enc = e.model_dump()
+    patient_id = enc.pop("patientId", None)
     preset = enc.pop("preset", None)
     broken = enc.pop("broken", False)
     enc["report"] = enc.pop("reportJson", None)
@@ -585,16 +686,22 @@ def api_analyse(e: Encounter, lang: str = "en") -> JSONResponse:
     enc["frozen_key"] = preset if same else None
     enc["id"] = f"DEMO-{preset.upper()}" if same else "ENC-LIVE"
 
+    # A patient id that is not this doctor's files nothing, and is reported as a missing
+    # patient exactly as an id that does not exist would be. Answering "forbidden" would
+    # confirm the id is real, which is the disclosure the 404 avoids.
+    if patient_id is not None and store.get_patient(doctor.id, patient_id) is None:
+        raise HTTPException(status_code=404, detail="no such patient")
+
     a = analyse(enc, broken)
-    _last.clear()
-    _last.update(enc=enc, a=a)
-    _remember(enc, a)
-    return JSONResponse(_view(enc, a, lang))
+    ws.last = {"enc": enc, "a": a}
+    _remember(ws, enc, a, patient_id)
+    return JSONResponse(_view(enc, a, lang, ws))
 
 
 @app.post("/api/upload")
-def api_upload(u: Upload) -> JSONResponse:
+def api_upload(u: Upload, doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
     """Run the real perception module on an uploaded study."""
+    ws = _ws(doctor)
     import numpy as np
     from PIL import Image
 
@@ -649,7 +756,7 @@ def api_upload(u: Upload) -> JSONResponse:
     # of the patient's history whether or not the doctor goes on to finish the assessment, and
     # each image is stored against the report of THAT image -- not against the encounter's, so
     # a second scan showing nothing cannot inherit the first one's finding.
-    stored = [_store_study(b, organ, per[i] if len(per) > 1 else rep, zone)
+    stored = [_store_study(ws, b, organ, per[i] if len(per) > 1 else rep, zone)
               for i, (b, zone) in enumerate(shots)]
 
     return JSONResponse({
@@ -675,7 +782,8 @@ def api_upload(u: Upload) -> JSONResponse:
 
 
 @app.get("/api/preset")
-def api_preset(key: str, broken: bool = False, lang: str = "en") -> JSONResponse:
+def api_preset(key: str, broken: bool = False, lang: str = "en",
+               doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
     """Analyse a benchmark encounter as the canonical record, not as a partial form.
 
     Posting only the patient's name and letting the rest default produced an encounter with
@@ -685,30 +793,48 @@ def api_preset(key: str, broken: bool = False, lang: str = "en") -> JSONResponse
     """
     if key not in CASES:
         return JSONResponse({"error": f"unknown encounter {key!r}"}, status_code=404)
+    ws = _ws(doctor)
     c = CASES[key]
     enc = dict(c, frozen_key=key, report=None, not_assessed=list(c["unassessed"]),
                id=f"DEMO-{key.upper()}")
     a = analyse(enc, broken)
-    _last.clear()
-    _last.update(enc=enc, a=a)
-    _remember(enc, a)
-    return JSONResponse(_view(enc, a, lang))
+    ws.last = {"enc": enc, "a": a}
+    _remember(ws, enc, a, None)
+    return JSONResponse(_view(enc, a, lang, ws))
 
 
 @app.get("/api/record")
-def api_record(id: str, lang: str = "en") -> JSONResponse:
-    """Re-open a patient from the list, exactly as their encounter was assessed."""
-    for r in _records:
+def api_record(id: str, lang: str = "en",
+               doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
+    """Re-open a patient from the list, exactly as their encounter was assessed.
+
+    The workspace is searched first and the database second, so a record stored before the last
+    restart opens the same way as one assessed a minute ago. Both lookups are this doctor's
+    only: the list comprehension runs over their workspace, and load_examination takes their id
+    as an argument it cannot be called without.
+    """
+    ws = _ws(doctor)
+    for r in ws.records:
         if r["id"] == id:
-            _last.clear()
-            _last.update(enc=r["_enc"], a=r["_a"])
-            return JSONResponse(_view(r["_enc"], r["_a"], lang))
+            ws.last = {"enc": r["_enc"], "a": r["_a"]}
+            return JSONResponse(_view(r["_enc"], r["_a"], lang, ws))
+
+    full = store.load_examination(doctor.id, id)
+    if full and full.get("assessment"):
+        for st in full.get("studies") or []:
+            ws.studies.setdefault(st["id"], st)
+        ws.last = {"enc": full["encounter"], "a": full["assessment"]}
+        return JSONResponse(_view(full["encounter"], full["assessment"], lang, ws))
+
+    # Someone else's record and a record that never existed give the same answer. A 403 here
+    # would tell an unauthorised caller which identifiers are real.
     return JSONResponse({"hasEncounter": False,
                          "message": f"no patient {id!r} in this session"}, status_code=404)
 
 
 @app.post("/api/record/attach")
-def api_attach(a: Attach, lang: str = "en") -> JSONResponse:
+def api_attach(a: Attach, lang: str = "en",
+               doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
     """File a study against a patient already in the list.
 
     It does NOT re-run the assessment. The differential, alerts and severity on the record were
@@ -716,32 +842,40 @@ def api_attach(a: Attach, lang: str = "en") -> JSONResponse:
     clinician at the time with something else under the same encounter identifier. The screen
     says so beside the control.
     """
-    for r in _records:
+    ws = _ws(doctor)
+    for r in ws.records:
         if r["id"] == a.id:
-            ids = [i for i in a.images if i in _studies]
+            ids = [i for i in a.images if i in ws.studies]
             r["_enc"]["images"] = (r["_enc"].get("images") or []) + ids
             r["images"] = list(r["_enc"]["images"])
-            return JSONResponse(_view(r["_enc"], r["_a"], lang))
+            # Written through, or the attachment survives only until the process restarts --
+            # and a study that is on screen but not in the record is worse than one that was
+            # never filed, because the clinician has been told it is there.
+            store.attach_studies(doctor.id, a.id, [ws.studies[i] for i in ids])
+            return JSONResponse(_view(r["_enc"], r["_a"], lang, ws))
     return JSONResponse({"hasEncounter": False,
                          "message": f"no patient {a.id!r} in this session"}, status_code=404)
 
 
 @app.post("/api/ask")
-def api_ask(a: Ask, lang: str = "en") -> JSONResponse:
-    if not _last:
+def api_ask(a: Ask, lang: str = "en",
+            doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
+    ws = _ws(doctor)
+    if not ws.last:
         return JSONResponse({"answer":
             "Aucune prise en charge n'a encore été analysée : il n'y a rien à partir de quoi "
             "répondre. Analysez d'abord un patient." if lang == "fr" else
             "No encounter has been analysed yet, so there is nothing to answer from. "
             "Analyse a patient first."})
-    return JSONResponse({"answer": assistant_answer(a.question, _last["a"], lang)})
+    return JSONResponse({"answer": assistant_answer(a.question, ws.last["a"], lang)})
 
 
 @app.get("/api/view")
-def api_view(lang: str = "en") -> JSONResponse:
-    if not _last:
+def api_view(lang: str = "en", doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
+    ws = _ws(doctor)
+    if not ws.last:
         return JSONResponse(_empty_view())
-    return JSONResponse(_view(_last["enc"], _last["a"], lang))
+    return JSONResponse(_view(ws.last["enc"], ws.last["a"], lang, ws))
 
 
 @app.get("/api/health")
@@ -769,13 +903,17 @@ def api_health() -> JSONResponse:
         # is reported beside the model states rather than left to be inferred from an image tag.
         "thresholds_version": load_thresholds().get("version"),
         "schema_version": S.SCHEMA_VERSION,
-        "encounters_held": len(_records),
+        # Summed across every signed-in doctor, not broken down by one. This endpoint is
+        # unauthenticated because the container's HEALTHCHECK calls it, so it may report how
+        # much work the process is holding and nothing about whose work it is.
+        "encounters_held": sum(len(w.records) for w in _workspaces.values()),
         "uptime_seconds": round(time.time() - _STARTED, 1),
     }, headers=_NO_STORE)
 
 
 @app.post("/api/triage/suggest")
-def api_triage_suggest(enc: Encounter, lang: str = "en") -> JSONResponse:
+def api_triage_suggest(enc: Encounter, lang: str = "en",
+                       doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
     """An urgency suggestion for what has been entered so far.
 
     Returns a tier and the observations still outstanding, in clinical words. The probability
@@ -828,13 +966,126 @@ def api_metrics() -> JSONResponse:
     }, headers=_NO_STORE)
 
 
+# ═════════════════════════════════════════════════════════════════════ accounts and access
+#
+# There is no route here that creates an account. Accounts are issued from the command line
+# (`python -m src.auth.accounts`), because a public sign-up form on a clinical tool lets anyone
+# who reaches the URL start storing patient data under a name of their choosing. The absence of
+# the endpoint is the control; a hidden or unlinked one would not be.
+
+
+@app.on_event("startup")
+def _seed_demo_account() -> None:
+    """Create the demo account named by POCUS_DEMO_PASSWORD, if there is one, once.
+
+    Absent that variable nothing is created. An image that ships with a known password
+    reachable from the network is a back door however clearly it is labelled a demo, so the
+    password is supplied at run time and never lives in the repository.
+    """
+    made = accounts.ensure_demo()
+    if made:
+        # The username only. Logging the password would put it in exactly the place the
+        # monitoring section of this file exists to keep clinical and secret material out of.
+        logging.getLogger("pocus.access").info("seeded demo account %r", made[0])
+
+
+class Credentials(BaseModel):
+    username: str
+    password: str
+
+
+class NewPatient(BaseModel):
+    name: str
+    reference: str | None = None
+    dateOfBirth: str | None = None
+    sex: str | None = None
+
+
+@app.post("/api/login")
+def api_login(c: Credentials, response: Response) -> JSONResponse:
+    token = sessions.login(c.username, c.password)
+    if token is None:
+        # One message for both failures. "No such user" and "wrong password" told apart turn
+        # this form into a way to enumerate who works here.
+        return JSONResponse({"error": "username or password is incorrect"}, status_code=401)
+    doctor = sessions.doctor_for(token)
+    assert doctor is not None
+    out = JSONResponse({"doctor": {"name": doctor.name, "username": doctor.username}})
+    # httponly     script cannot read it, so an injected script cannot exfiltrate the session
+    # samesite     the cookie does not ride along on a request another site caused
+    # secure       only when actually behind TLS: setting it on plain http makes the cookie
+    #              silently undeliverable, which presents as "login does nothing"
+    out.set_cookie(sessions.COOKIE, token, httponly=True, samesite="lax",
+                   secure=os.environ.get("POCUS_HTTPS") == "1",
+                   max_age=sessions.SESSION_HOURS * 3600, path="/")
+    return out
+
+
+@app.post("/api/logout")
+def api_logout(request: Request) -> JSONResponse:
+    # The row is deleted, so the token is dead for everyone holding it -- not merely forgotten
+    # by this browser. On a shared workstation that difference is the whole point.
+    sessions.logout(request.cookies.get(sessions.COOKIE))
+    out = JSONResponse({"ok": True})
+    out.delete_cookie(sessions.COOKIE, path="/")
+    return out
+
+
+@app.get("/api/me")
+def api_me(doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
+    return JSONResponse({"name": doctor.name, "username": doctor.username,
+                         **store.counts(doctor.id)}, headers=_NO_STORE)
+
+
+@app.get("/api/patients")
+def api_patients(doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
+    return JSONResponse({"patients": store.list_patients(doctor.id)}, headers=_NO_STORE)
+
+
+@app.post("/api/patients")
+def api_patient_create(p: NewPatient,
+                       doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
+    return JSONResponse({"patient": store.create_patient(
+        doctor.id, name=p.name, reference=p.reference,
+        date_of_birth=p.dateOfBirth, sex=p.sex)})
+
+
+@app.get("/api/patients/{patient_id}/examinations")
+def api_patient_history(patient_id: str,
+                        doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
+    """One patient's history. 404 covers both "not yours" and "does not exist"."""
+    patient = store.get_patient(doctor.id, patient_id)
+    if patient is None:
+        raise HTTPException(status_code=404, detail="no such patient")
+    return JSONResponse({"patient": patient,
+                         "examinations": store.list_examinations(doctor.id, patient_id)},
+                        headers=_NO_STORE)
+
+
+@app.get("/login")
+def login_page() -> FileResponse:
+    return FileResponse(WEB / "login.html", headers=_NO_STORE)
+
+
+def _page(request: Request, filename: str) -> Response:
+    """The application page, or the login page if nobody is signed in.
+
+    A redirect rather than a 401, because this is a browser navigation: the person typing the
+    address should land on a form, not on a JSON error. The API endpoints behind it still
+    answer 401, since a fetch has no use for a login page.
+    """
+    if sessions.doctor_for(request.cookies.get(sessions.COOKIE)) is None:
+        return RedirectResponse("/login", status_code=303)
+    return FileResponse(WEB / filename, headers=_NO_STORE)
+
+
 @app.get("/")
-def index() -> FileResponse:
-    return FileResponse(WEB / "pocus-copilot.dc.html", headers=_NO_STORE)
+def index(request: Request) -> Response:
+    return _page(request, "pocus-copilot.dc.html")
 
 
 @app.get("/fr")
-def index_fr() -> FileResponse:
+def index_fr(request: Request) -> Response:
     """The same interface, built in French at bind time rather than translated at runtime.
 
     A page per language: the language is settled before any script runs, and both pages are
@@ -842,10 +1093,28 @@ def index_fr() -> FileResponse:
     by src/agents/i18n.py from the same computed fields as the English, so a French screen
     cannot state something the English record does not.
     """
-    return FileResponse(WEB / "pocus-copilot.fr.dc.html", headers=_NO_STORE)
+    return _page(request, "pocus-copilot.fr.dc.html")
 
 
 app.mount("/", StaticFiles(directory=str(WEB)), name="web")
+
+
+# The mount above serves everything under web/ by name, and the application page is a file in
+# web/ -- so /pocus-copilot.dc.html reached the interface without passing the check on "/".
+# The routes were gated and the file behind them was not, which is the oldest way there is to
+# leave a door open. Gating the extension covers the built pages and the pristine export in
+# web/design/ alike; login.html is not one of them and stays reachable.
+#
+# The page carries no patient data of its own -- every value on it arrives from /api/*, which
+# answers 401 -- so this is defence in depth rather than the only lock. It is still worth
+# having: an interface that renders and then fills with errors invites someone to conclude the
+# application is broken rather than that they are not signed in.
+@app.middleware("http")
+async def _gate_static_pages(request, call_next):
+    if request.url.path.endswith(".dc.html"):
+        if sessions.doctor_for(request.cookies.get(sessions.COOKIE)) is None:
+            return RedirectResponse("/login", status_code=303)
+    return await call_next(request)
 
 
 # The interface is ONE generated file -- the binder inlines the logic into the page -- so a

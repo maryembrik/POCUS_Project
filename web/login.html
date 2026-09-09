@@ -1,0 +1,122 @@
+<!doctype html>
+<!--
+  The sign-in page.
+
+  Hand-written, and deliberately NOT part of the design pipeline. tools/bind_design.py rebuilds
+  web/pocus-copilot.dc.html from the export in web/design/ and states that nothing in web/ is
+  hand-edited; a login screen added to that file would be discarded by the next re-export. This
+  page stands on its own, matches the application's palette and type, and survives.
+
+  It holds no clinical content and never will: it exists to turn a username and a password into
+  a session cookie, and every value the application displays arrives afterwards from /api/*.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — POCUS-Emergency</title>
+<style>
+  :root {
+    --ink: #1B1930; --muted: #6A6785; --line: #E4E2EF;
+    --brand: #5B5BD6; --brand-dark: #4A4AB8; --bad: #C0392B;
+    --bg: #F7F6FB; --card: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: var(--bg); color: var(--ink);
+    font: 15px/1.5 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .card {
+    width: min(92vw, 380px); background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 34px 32px 30px;
+    box-shadow: 0 1px 2px rgba(27,25,48,.04), 0 12px 32px rgba(27,25,48,.07);
+  }
+  .mark {
+    width: 34px; height: 34px; border-radius: 9px; background: var(--brand);
+    color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 15px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; letter-spacing: -.01em; }
+  p.sub { margin: 0 0 24px; color: var(--muted); font-size: 13.5px; }
+  label { display: block; font-size: 12.5px; font-weight: 600; margin: 0 0 6px; }
+  input {
+    width: 100%; padding: 10px 12px; margin-bottom: 16px; font: inherit; color: inherit;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  }
+  input:focus { outline: 2px solid var(--brand); outline-offset: -1px; border-color: var(--brand); }
+  button {
+    width: 100%; padding: 11px; font: inherit; font-weight: 600; color: #fff;
+    background: var(--brand); border: 0; border-radius: 8px; cursor: pointer;
+  }
+  button:hover { background: var(--brand-dark); }
+  button[disabled] { opacity: .6; cursor: default; }
+  /* Hidden rather than absent, so the form does not jump when a failure appears. */
+  .error {
+    min-height: 18px; margin: 12px 0 0; font-size: 13px; color: var(--bad); text-align: center;
+  }
+  .foot { margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--line);
+          font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark">P</div>
+    <h1>POCUS-Emergency</h1>
+    <p class="sub">Sign in to reach your patients.</p>
+
+    <form id="f" autocomplete="on">
+      <label for="u">Username</label>
+      <!-- autocomplete lets a password manager fill these, which is the one thing that
+           actually improves password quality in practice. -->
+      <input id="u" name="username" autocomplete="username" required autofocus>
+
+      <label for="p">Password</label>
+      <input id="p" name="password" type="password" autocomplete="current-password" required>
+
+      <button id="b" type="submit">Sign in</button>
+      <!-- aria-live so the failure is announced, not only drawn: a screen reader user
+           otherwise submits the form and is told nothing at all. -->
+      <p class="error" id="e" role="alert" aria-live="polite"></p>
+    </form>
+
+    <p class="foot">Clinical decision support. The clinician decides.</p>
+  </main>
+
+<script>
+  const f = document.getElementById('f'), e = document.getElementById('e'),
+        b = document.getElementById('b');
+
+  f.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    e.textContent = '';
+    b.disabled = true;
+    b.textContent = 'Signing in…';
+    try {
+      const r = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: document.getElementById('u').value,
+                               password: document.getElementById('p').value })
+      });
+      if (r.ok) {
+        // replace(), not href: the back button must not return to a form that has already
+        // been submitted and re-post it.
+        location.replace('/');
+        return;
+      }
+      const body = await r.json().catch(() => ({}));
+      e.textContent = body.error || 'Sign-in failed.';
+    } catch {
+      // A network failure is not a wrong password, and saying so would send someone off to
+      // reset a password that was never the problem.
+      e.textContent = 'Could not reach the server.';
+    }
+    b.disabled = false;
+    b.textContent = 'Sign in';
+    document.getElementById('p').value = '';
+    document.getElementById('p').focus();
+  });
+</script>
+</body>
+</html>

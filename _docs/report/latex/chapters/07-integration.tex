@@ -69,7 +69,7 @@ stating, because they were what made the rest of this project tractable:
 \begin{enumerate}
   \item \textbf{Each agent is independently testable.} The reasoning agent can be exercised
         against a hand-written bundle with no imaging model present at all, which is how all
-        322 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
+        335 tests of Section~\ref{subsec:reasoning-safety} run --- in seconds, with no GPU and
         no model weights.
   \item \textbf{Each decision is reproducible after the fact.} The bundle that produced a given
         output is on disk. A decision can be re-examined months later against exactly the inputs
@@ -546,8 +546,8 @@ the one that was skipped.
     \toprule
     \textbf{Check} & \textbf{Result} & \textbf{What it answers} \\
     \midrule
-    \texttt{pytest} & 322 pass & does the system behave as specified \\
-    safety benchmark & 322 pass & the same tests, grouped by the property each exercises \\
+    \texttt{pytest} & 335 pass & does the system behave as specified \\
+    safety benchmark & 335 pass & the same tests, grouped by the property each exercises \\
     regression & 150 checks & do the frozen cases still produce the frozen outputs \\
     \texttt{ruff} & clean & undefined names and unreachable code, not style opinions \\
     \texttt{bandit} & 0 high, 0 medium & unsafe patterns in the code written here \\

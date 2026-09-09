@@ -53,3 +53,12 @@ outputs/
 # churn a binary on every compile. The zip in _docs/report/ IS committed -- that is the
 # hand-off artefact; this is the local build tree.
 _docs/report/build/
+
+# The doctor accounts and the stored examinations. Never committed, and this entry matters
+# more than most: the file holds password hashes and patient records, and this repository is
+# public. `python -m src.auth.accounts add ...` recreates an account; nothing here is a build
+# artefact that anyone else needs.
+data/
+*.db
+*.db-wal
+*.db-shm

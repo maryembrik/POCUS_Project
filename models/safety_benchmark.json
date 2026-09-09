@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T17:25:53+00:00",
-  "total_tests": 322,
-  "total_passed": 322,
+  "generated_at": "2026-09-09T11:54:21+00:00",
+  "total_tests": 335,
+  "total_passed": 335,
   "total_skipped": 0,
   "by_property": {
     "API contract": {
@@ -12,6 +12,11 @@
     "Absent is not normal": {
       "tests": 24,
       "passed": 24,
+      "skipped": 0
+    },
+    "Access control": {
+      "tests": 13,
+      "passed": 13,
       "skipped": 0
     },
     "Advice scope": {

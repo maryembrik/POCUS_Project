@@ -61,7 +61,8 @@ def main() -> int:
     log = _run([pdflatex] + flags, "pdflatex (1/3)")
     if not (BUILD / "main.aux").exists():
         print("\nthe first pass produced no .aux -- the errors above are fatal:\n")
-        print("\n".join(l for l in log.splitlines() if re.search(r"^\S+\.tex:\d+:|^! ", l)))
+        print("\n".join(ln for ln in log.splitlines()
+                        if re.search(r"^\S+\.tex:\d+:|^! ", ln)))
         return 1
 
     _run([biber, "main"], "biber")

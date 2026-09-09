@@ -97,6 +97,18 @@ COPY serve.py ./
 # to its own application directory, and root inside a container is root on the host kernel if
 # anything escapes. Created without a login shell and given no ownership of /app.
 RUN useradd --create-home --shell /usr/sbin/nologin pocus
+
+# Where the accounts and the stored examinations live. /app is deliberately NOT writable by the
+# pocus user -- that is most of the point of running as one -- so the database cannot go beside
+# serve.py, which is exactly where it lands in development. Without this the image starts
+# cleanly and fails on the first sign-in attempt, which is the worst time to discover it.
+#
+# Declared a VOLUME so the data outlives the container. An image whose patient records vanish
+# on `docker rm` is not storing them; it is caching them until the next restart.
+ENV POCUS_DATA=/data
+RUN mkdir -p /data && chown pocus:pocus /data
+VOLUME /data
+
 USER pocus
 
 EXPOSE 8501

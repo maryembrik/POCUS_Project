@@ -44,7 +44,24 @@ def _client() -> TestClient:
     global _CLIENT
     if _CLIENT is None:
         _CLIENT = TestClient(serve.app)
+        _sign_in(_CLIENT)
     return _CLIENT
+
+
+def _sign_in(client: TestClient) -> None:
+    """Every clinical endpoint now requires a signed-in doctor, so the tests sign in.
+
+    TestClient keeps cookies between requests, so one login here covers every test in the
+    module. The account is created in a temporary database -- see helpers.temp_database --
+    which is also what stops these tests from writing into a developer's real data/pocus.db.
+    """
+    from .helpers import temp_database
+    temp_database()
+    from src.auth import accounts
+    accounts.add("apitest", "API test doctor", None, "api-test-password")
+    r = client.post("/api/login", json={"username": "apitest",
+                                        "password": "api-test-password"})
+    assert r.status_code == 200, f"the test client could not sign in: {r.text}"
 
 
 def _analyse(client: TestClient, **over):
@@ -163,7 +180,8 @@ def test_metrics_are_keyed_by_route_not_by_url():
     body = _client().get("/api/metrics").json()
     for key in body["by_route"]:
         assert key.startswith("/"), key
-        assert key in {"/", "/fr", "/static", "/other"} or key.startswith("/api/"), key
+        assert key in {"/", "/fr", "/login", "/static", "/other"} \
+            or key.startswith("/api/"), key
 
 
 @prop(MONITORING)
@@ -265,11 +283,14 @@ def test_attaching_a_study_to_an_existing_patient_succeeds():
     c = _client()
     _analyse(c, name="Attach test", age=70, sex="M", complaint="chest pain")
 
-    # /api/record fetches ONE record by id rather than listing them, so the identifier comes
-    # from the session store. Reaching into it keeps this test aimed at the endpoint under
-    # test rather than at whichever screen happens to expose the list.
-    assert serve._records, "the analysed encounter did not reach the session store"
-    encounter_id = serve._records[-1]["id"]
+    # /api/record fetches ONE record by id rather than listing them, so the identifier has to
+    # come from somewhere. It used to be read out of serve._records, a module global -- which
+    # stopped existing when records became per-doctor, and would have gone on passing while
+    # testing a store no request could reach. /api/bootstrap is where a screen gets the list,
+    # so it is where this test gets it too.
+    records = c.get("/api/bootstrap").json()["records"]
+    assert records, "the analysed encounter did not reach this doctor's record list"
+    encounter_id = records[-1]["id"]
 
     r = c.post("/api/record/attach", json={"id": encounter_id, "images": []})
     assert r.status_code == 200, f"attach failed: {r.status_code} {r.text[:200]}"

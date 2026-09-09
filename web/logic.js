@@ -59,6 +59,14 @@ const VITAL_WORDS = {
   pain: T('pain score', 'niveau de douleur'),
 };
 const VITAL_WORD = k => VITAL_WORDS[k] || k;
+
+// Initials for the avatar. Titles are dropped -- "Dr Mariem Brik" is MB, not DM -- and the
+// last two words are used, so a name with a middle name does not produce three letters in a
+// circle sized for two.
+const initials = name => (name || '')
+  .replace(/^(Dr|Dr\.|Prof|Prof\.|Mr|Ms|Mme|M\.)\s+/i, '')
+  .split(/\s+/).filter(Boolean).slice(-2)
+  .map(w => w[0].toUpperCase()).join('') || '·';
 const post = (u, b) => fetch(_lang(u), { method: 'POST',
   headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
   .then(r => r.json());
@@ -100,6 +108,14 @@ class Component extends DCLogic {
   }
 
   go(id) { return () => this.setState({ screen: id, fabOpen: false }); }
+
+  // A full reload rather than a state reset, so nothing computed for the previous doctor can
+  // survive into the next sign-in on a shared workstation. location.replace, so the back
+  // button cannot return to a rendered page after the session has been revoked -- the data on
+  // it would be stale, and it would belong to whoever just signed out.
+  async signOut() {
+    try { await fetch('/api/logout', { method: 'POST' }); } finally { location.replace('/login'); }
+  }
 
   // Editing the form makes this a NEW encounter. The preset must be cleared with it, or the
   // next analyse still carries the benchmark key and the server compares the typed patient
@@ -937,6 +953,14 @@ class Component extends DCLogic {
             + 'calculée : il n’a rien à lire tant que vous n’en avez pas analysé une.'),
       modules: Object.keys(boot.modules || {}).map(k => ({ organ: k,
         reason: boot.modules[k].reason, dot: boot.modules[k].runs ? '●' : '○' })),
+
+      // ---- who is signed in ----------------------------------------------------------
+      // The name the server knows, never one held in the page: a name kept client-side is a
+      // name that can disagree with the account whose patients are actually being shown.
+      docName: (boot.doctor || {}).name || '',
+      docInitials: initials((boot.doctor || {}).name),
+      signOutLabel: T('Sign out', 'Se déconnecter'),
+      signOut: () => this.signOut(),
 
       // ---- assistant ---------------------------------------------------------------
       messages: st.messages.map(m => ({ text: m.text,

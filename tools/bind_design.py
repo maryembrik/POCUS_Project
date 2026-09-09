@@ -144,13 +144,28 @@ def main() -> int:
                "{{ pAge }} · {{ pSex }} · {{ pComplaint }} · session-scoped, no database", s)
     applied.append("identity")
 
-    # ---- 3. the clinician chip names a person who does not exist --------------------
+    # ---- 3. the clinician chip names the clinician who is signed in ------------------
+    # The design put a clinician's name and specialty here. This binder used to replace it with
+    # the perception-module dots, for the good reason that the named doctor did not exist and a
+    # fabricated one on a clinical screen is exactly what this project refuses to ship.
+    #
+    # There is a real one now. The chip goes back to its designed purpose -- who is using this
+    # -- with the module dots kept beneath it, because they were genuinely useful there, and a
+    # sign-out control beside it. Sign-out is not decoration on a shared workstation: without a
+    # control the only way to end a session is to wait twelve hours for it to expire.
     s = sub(s, '<div style="font-weight:600;font-size:13.5px">Dr. A. Reyes</div>'
                '<div style="font-size:12px;color:#8A87A8">Emergency Medicine</div>',
-            '<div style="font-weight:600;font-size:13.5px">Perception modules</div>'
+            '<div style="font-weight:600;font-size:13.5px">{{ docName }}</div>'
             '<div style="font-size:12px;color:#8A87A8">'
             '<sc-for list="{{ modules }}" as="m" hint-placeholder-count="3">'
-            '<span>{{ m.dot }} {{ m.organ }} </span></sc-for></div>', "clinician chip")
+            '<span>{{ m.dot }} {{ m.organ }} </span></sc-for></div>'
+            '<button onclick="{{ signOut }}" style="margin-top:4px;padding:0;border:0;'
+            'background:none;color:#8A87A8;font-size:11.5px;text-decoration:underline;'
+            'cursor:pointer;font-family:inherit">{{ signOutLabel }}</button>', "clinician chip")
+
+    # The avatar beside it carried the removed doctor's initials. Left alone it would show one
+    # person's initials next to another person's name.
+    s = re.sub(r">AR</div>", ">{{ docInitials }}</div>", s)
 
     # ---- 4. hero counters ------------------------------------------------------------
     TILE = ('<div style="background:rgba(255,255,255,.14);border-radius:16px;padding:16px 18px">'

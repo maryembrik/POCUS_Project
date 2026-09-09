@@ -129,3 +129,24 @@ def llm_output(supporting: list[str], *, diagnosis: str = "Pulmonary oedema",
         "uncertainty": "limited evidence",
         "recommended_next_step": "obtain troponin",
     }
+
+
+def temp_database():
+    """Point the auth database at a throwaway directory, once per process.
+
+    Two reasons, and the second is the important one. Tests that share a database depend on the
+    order they run in -- and the access-control tests are specifically about what one doctor
+    can see of another's, so an account left behind by an earlier test would make them pass or
+    fail for the wrong reason. The second: without this the suite writes doctors and patients
+    into the developer's real data/pocus.db, which is a test suite quietly editing live data.
+    """
+    import tempfile
+    from src.auth import db
+
+    global _TEMP_DB
+    try:
+        _TEMP_DB
+    except NameError:
+        _TEMP_DB = tempfile.mkdtemp(prefix="pocus-tests-")
+        db.reset_for_tests(_TEMP_DB)
+    return _TEMP_DB
