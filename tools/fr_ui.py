@@ -163,18 +163,16 @@ UI: dict[str, str] = {
     "Alerts": "Alertes",
     "Severity": "Sévérité",
     "Stored POCUS images": "Images POCUS enregistrées",
-    "session-scoped · closing the app discards it":
-        "limité à la session · la fermeture de l’application efface tout",
+    "stored with this patient's record":
+        "enregistrées avec le dossier de ce patient",
     "No study has been read for this patient. Uploading one on Patient workup files it here "
     "with what the module made of it.":
         "Aucun examen n’a été lu pour ce patient. En téléverser un depuis « Saisie du "
         "patient » le classe ici avec ce que le module en a conclu.",
     "＋ Add images to this patient": "＋ Ajouter des images à ce patient",
-    "Read by the module now and filed against this patient, for this session only — there is "
-    "no database behind this screen. The assessment above is not re-run: it was reached "
-    "without this study.":
-        "Lu par le module maintenant et classé au dossier de ce patient, pour cette session "
-        "uniquement — il n’y a pas de base de données derrière cet écran. L’évaluation "
+    "Read by the module now and filed against this patient. The assessment above is not "
+    "re-run: it was reached without this study.":
+        "Lu par le module maintenant et classé au dossier de ce patient. L’évaluation "
         "ci-dessus n’est pas relancée : elle a été établie sans cet examen.",
     "Stored measurements — all visits": "Mesures enregistrées",
     "Measurement": "Mesure",
@@ -187,11 +185,9 @@ UI: dict[str, str] = {
     "Open report →": "Ouvrir le rapport →",
     "Stored reports": "Rapports enregistrés",
     "Open →": "Ouvrir →",
-    "This session holds no earlier encounter for this patient. There is no database behind "
-    "this screen: it shows what was assessed here, not a medical history.":
-        "Cette session ne contient aucune prise en charge antérieure pour ce patient. Il n’y "
-        "a pas de base de données derrière cet écran : il montre ce qui a été évalué ici, pas "
-        "un dossier médical.",
+    "No earlier report for this patient. Their full history is in Patient record.":
+        "Aucun rapport antérieur pour ce patient. Son historique complet se trouve dans "
+        "« Dossier patient ».",
 
     # ---- alerts ----------------------------------------------------------------------
     "Clinical alerts": "Alertes cliniques",
@@ -253,10 +249,13 @@ UI: dict[str, str] = {
     "Review": "À revoir",
     "Completed": "Terminées",
     "⌕ Search patient…": "⌕ Rechercher un patient…",
-    "Nothing has been assessed in this session yet. There is no database behind this screen: "
-    "closing the app discards it.":
-        "Rien n’a encore été évalué durant cette session. Il n’y a pas de base de données "
-        "derrière cet écran : la fermeture de l’application efface tout.",
+    "Nothing has been assessed in this session yet. Earlier cases are in Patient record.":
+        "Rien n’a encore été évalué durant cette session. Les cas antérieurs se trouvent dans "
+        "« Dossier patient ».",
+    "No patient in your records yet. Open Patient workup, enter what you have and analyse "
+    "the case: the patient is created from what you enter.":
+        "Aucun patient dans vos dossiers. Ouvrez « Saisie du patient », renseignez ce dont "
+        "vous disposez et analysez le cas : le patient est créé à partir de votre saisie.",
 }
 
 # Strings that are the same in both languages, or are not language at all. Listed explicitly

@@ -141,7 +141,7 @@ def main() -> int:
     s = re.sub(r"Attending: Dr\. A\. Reyes", "Encounter {{ pId }}", s)
     s = re.sub(r"Good morning, Dr\. Reyes", "{{ pName }}", s)
     s = re.sub(r"74 · Female · MRN [\d-]+ · Bed \d+",
-               "{{ pAge }} · {{ pSex }} · {{ pComplaint }} · session-scoped, no database", s)
+               "{{ pAge }} · {{ pSex }} · {{ pComplaint }}", s)
     applied.append("identity")
 
     # ---- 3. the clinician chip names the clinician who is signed in ------------------
@@ -565,8 +565,8 @@ def main() -> int:
             '    <sc-if value="{{ noRoster }}" hint-placeholder-val="{{ false }}">\n'
             '    <div style="background:#fff;border:1px solid #E4E2F8;border-radius:18px;'
             'padding:22px 24px;color:#6A6785;font-size:14.5px">Nothing has been assessed in '
-            'this session yet. There is no database behind this screen: closing the app '
-            'discards it.</div>\n    </sc-if>', "history grid")
+            'this session yet. Earlier cases are in Patient record.</div>\n    </sc-if>',
+            "history grid")
 
     # ---- 7b2. the assistant strip announced cases that did not exist -----------------
     # "3 previous cases are waiting for your review" survived every earlier pass because the
@@ -737,14 +737,14 @@ def main() -> int:
                '    <h1 style="margin:0;font-size:27px;font-weight:800;'
                'letter-spacing:-.02em">Patients</h1>\n'
                '    <p style="margin:6px 0 0;color:#6A6785;font-size:15px">'
-               '{{ patientCount }} assessed this session. Open one to see its case, findings, '
-               'differential, timeline and report. There is no database behind this screen: '
-               'closing the app discards it.</p>\n'
+               '{{ patientCount }} patient(s) in your records. Open one to see their '
+               'examinations, findings, images and reports.</p>\n'
                '  </div>\n'
                '  <sc-if value="{{ noPatients }}" hint-placeholder-val="{{ false }}">\n'
                '  <div style="background:#fff;border:1px solid #E4E2F8;border-radius:10px;'
-               'padding:26px 30px;color:#6A6785;font-size:15px">No patient has been assessed '
-               'yet. Open Patient workup, enter what you have and analyse the case.</div>\n'
+               'padding:26px 30px;color:#6A6785;font-size:15px">No patient in your records '
+               'yet. Open Patient workup, enter what you have and analyse the case: the '
+               'patient is created from what you enter.</div>\n'
                '  </sc-if>\n'
                '  <div style="display:grid;grid-template-columns:repeat(auto-fit,'
                'minmax(300px,1fr));gap:18px">\n'
@@ -785,8 +785,11 @@ def main() -> int:
                            ("Reports", "3", "Alerts", "{{ alertCount }}"),
                            ("Last seen", "Today", "Severity", "{{ severity }}")):
         s = sub(s, ST.format(k=k, v=val), ST.format(k=nk, v=nv), f"record stat {k}")
-    s = re.sub(r"\d+ studies · grouped by visit",
-               "session-scoped · closing the app discards it", s)
+    # Was "session-scoped - closing the app discards it", which was true of this screen until
+    # the studies started being written to the patient's record and is now the opposite of what
+    # happens. A stale reassurance is worse than none: a clinician who believes an image is
+    # discarded may re-upload it, and one who believes it is kept when it is not loses it.
+    s = re.sub(r"\d+ studies · grouped by visit", "stored with this patient's record", s)
 
     # ---- 8b. the record's "add images" tile was decorative too ------------------------
     s = sub(s, '<div style="font-weight:700;font-size:15px">＋ Add images to this patient</div>\n'
@@ -797,9 +800,8 @@ def main() -> int:
             '<input type="file" accept="image/*" multiple onChange="{{ onRecordUpload }}" '
             'style="display:none"></label>\n'
             '      <div style="margin-top:5px;font-size:13.5px;color:#6A6785">Read by the '
-            'module now and filed against this patient, for this session only — there is no '
-            'database behind this screen. The assessment above is not re-run: it was reached '
-            'without this study.</div>', "record upload")
+            'module now and filed against this patient. The assessment above is not re-run: '
+            'it was reached without this study.</div>', "record upload")
 
     # ---- 8b2. three prior visits this patient never had ------------------------------
     # The Reports tab listed "12 Jun 2026 · Exertional breathlessness · Discharged with
@@ -826,9 +828,8 @@ def main() -> int:
             'font-size:13.5px">Open →</span>\n      </button>\n      </sc-for>\n'
             '      <sc-if value="{{ oneReportOnly }}" hint-placeholder-val="{{ false }}">\n'
             '      <div style="background:#fff;border:1px solid #E4E2F8;border-radius:8px;'
-            'padding:20px 22px;color:#6A6785;font-size:13.5px">This session holds no earlier '
-            'encounter for this patient. There is no database behind this screen: it shows '
-            'what was assessed here, not a medical history.</div>\n      </sc-if>\n'
+            'padding:20px 22px;color:#6A6785;font-size:13.5px">No earlier report for this '
+            'patient. Their full history is in Patient record.</div>\n      </sc-if>\n'
             '    </div>\n  </section>', "stored reports")
 
     # ---- 8b3. four columns of visits that never happened -----------------------------

@@ -31,10 +31,21 @@ def list_patients(doctor_id: str) -> list[dict[str, Any]]:
             .group_by(Patient.id)
             .order_by(func.coalesce(func.max(Examination.created_at),
                                     Patient.created_at).desc())).all()
-        return [{"id": p.id, "reference": p.reference, "name": p.name,
-                 "dateOfBirth": p.date_of_birth, "sex": p.sex,
-                 "examinations": n, "lastSeen": last.isoformat() if last else None}
-                for p, n, last in rows]
+
+        out = []
+        for p, n, last in rows:
+            # The most recent complaint, so a row in the patient list says what this person was
+            # last seen ABOUT. A list of names and dates makes the clinician open each card to
+            # find out which one they mean.
+            recent = s.scalar(
+                select(Examination.complaint)
+                .where(Examination.patient_id == p.id)
+                .order_by(Examination.created_at.desc()).limit(1)) if n else None
+            out.append({"id": p.id, "reference": p.reference, "name": p.name,
+                        "dateOfBirth": p.date_of_birth, "sex": p.sex,
+                        "examinations": n, "lastSeen": last.isoformat() if last else None,
+                        "lastComplaint": recent})
+        return out
 
 
 def create_patient(doctor_id: str, *, name: str, reference: str | None = None,

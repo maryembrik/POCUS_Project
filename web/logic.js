@@ -81,6 +81,9 @@ class Component extends DCLogic {
     screen: (typeof location !== 'undefined'
              && new URLSearchParams(location.search).get('screen')) || 'home',
     recTab: 'images', draft: '', busy: false, grown: false, fabOpen: false,
+    // Two levels of selection, because the record screen has two: which PERSON is open, and
+    // which of their examinations is being read.
+    patientSel: null, patientExams: [],
     boot: null, view: null, preset: '', upload: null, previews: [],
     form: { name: '', age: 60, sex: 'F', complaint: '', history: '', tier: 'medium',
             tconf: 0.8, arrival: 'walk-in', organ: 'Lung',
@@ -240,7 +243,33 @@ class Component extends DCLogic {
     };
   }
 
-  backToList() { this.setState({ recordSel: null }); }
+  // Opening a PATIENT, which is a different thing from opening one of their examinations.
+  // The list is of people; what a clinician wants on choosing one is that person's history,
+  // with the most recent case already on screen -- opening a patient onto an empty record and
+  // making them click again to see the visit they just asked for is a step that exists only
+  // because the data is stored in two levels.
+  openPatient(id) {
+    return async () => {
+      this.setState({ busy: true });
+      const h = await get('/api/patients/' + encodeURIComponent(id) + '/examinations');
+      const exams = h.examinations || [];
+      if (!exams.length) {
+        // A patient with no examination yet is a real state -- the record was created from an
+        // encounter that failed, or by hand. The screen says so rather than showing a blank
+        // case belonging to nobody.
+        this.setState({ patientSel: id, patientExams: [], recordSel: null,
+                        busy: false, recTab: 'visits', screen: 'record' });
+        return;
+      }
+      const view = await get('/api/record?id=' + encodeURIComponent(exams[0].id));
+      this.setState({ view, patientSel: id, patientExams: exams, recordSel: exams[0].id,
+                      busy: false, recTab: 'visits', screen: 'record' });
+    };
+  }
+
+  // Back to the list of people, not to the previous examination: both selections are cleared,
+  // or the header would still name the patient whose list you had just left.
+  backToList() { this.setState({ recordSel: null, patientSel: null, patientExams: [] }); }
 
   async loadPreset(key) {
     // Analysed server-side as the CANONICAL record. Posting a partial form produced an
@@ -813,13 +842,29 @@ class Component extends DCLogic {
                     : r.severityKey === 'MODERATE' ? '#FFF3E0' : '#F0FADB',
           color: r.severityKey === 'HIGH' ? '#C13238'
                : r.severityKey === 'MODERATE' ? '#9A6207' : '#5A7A0F' } })),
-      visits: (boot.records || []).map(r => ({ date: r.at, reason: r.name,
+      // With a patient open this is THEIR history, newest first, from the database rather than
+      // from whatever happens to be in this session. Each row opens that examination, so the
+      // visit list is a way back into a case and not merely a summary of one.
+      //
+      // With nobody open it falls back to the session's encounters, because the same binding
+      // draws the visits panel on the assessment screen, where there is no selected patient.
+      visits: (st.patientSel ? (st.patientExams || []).map(e => ({
+        date: (e.at || '').slice(0, 10) + ' ' + (e.at || '').slice(11, 16),
+        reason: e.complaint || T('no complaint given', 'aucun motif indiqué'),
+        meta: (e.organ || '—') + ' · ' + e.alerts + T(' alert(s)', ' alerte(s)'),
+        tag: e.severity || '—',
+        outcome: e.encounterId || '',
+        onOpen: this.openRecord(e.id),
+        tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
+          fontWeight: 700, background: e.severity === 'HIGH' ? '#FDECEC' : '#F0FADB',
+          color: e.severity === 'HIGH' ? '#C13238' : '#5A7A0F' } }))
+        : (boot.records || []).map(r => ({ date: r.at, reason: r.name,
         meta: r.organ + ' · ' + r.alerts + T(' alert(s)', ' alerte(s)'), tag: r.severity,
         outcome: (r.findings || []).join(', ') || T('no positive finding', 'aucun signe positif'),
-        onOpen: this.go('report'),
+        onOpen: this.openRecord(r.id),
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
           fontWeight: 700, background: r.severityKey === 'HIGH' ? '#FDECEC' : '#F0FADB',
-          color: r.severityKey === 'HIGH' ? '#C13238' : '#5A7A0F' } })),
+          color: r.severityKey === 'HIGH' ? '#C13238' : '#5A7A0F' } }))),
       noRecords: !(boot.records || []).length,
       // The images the module read, filed under the patient they were read for. On the list
       // this is every patient's studies; with one open it is that patient's only — the header
@@ -936,12 +981,16 @@ class Component extends DCLogic {
       // Printed under ONE patient's name, so they have to be that patient's. "Encounters 3 /
       // POCUS studies 2" were session totals sitting beside mariem's alerts and severity,
       // which reads as a claim about her. On the list they are the session's, where they are.
-      recEncounters: String(st.recordSel
-        ? (boot.records || []).filter(r => r.name === ((v.patient || {}).name)).length
-        : (boot.records || []).length),
+      // With a patient open these count THAT patient's stored history, not the session's.
+      // They used to match encounters by patient NAME, which counted two different people
+      // called the same thing as one person's visits.
+      recEncounters: String(st.patientSel
+        ? (st.patientExams || []).length
+        : (boot.patients || []).reduce((n, p) => n + p.examinations, 0)),
       recStudies: String(st.recordSel
-        ? ((boot.records || []).filter(r => r.id === st.recordSel)[0] || {} ).images
-          ? (boot.records || []).filter(r => r.id === st.recordSel)[0].images.length : 0
+        ? ((boot.records || []).filter(r => r.id === st.recordSel)[0] || {}).images
+          ? (boot.records || []).filter(r => r.id === st.recordSel)[0].images.length
+          : ((v.images || []).length)
         : (boot.records || []).reduce((n, r) => n + (r.images || []).length, 0)),
       assistantLine: (boot.records || []).length
         ? (boot.records || []).length
@@ -1006,26 +1055,38 @@ class Component extends DCLogic {
           background: st.recTab === id ? '#5B54D6' : '#fff',
           color: st.recTab === id ? '#fff' : '#6A6785',
           border: '1px solid ' + (st.recTab === id ? '#5B54D6' : '#DEDCF4') } })),
-      // The record screen shows the LIST until a patient is opened.
-      recordList: !st.recordSel,
-      recordOpen: !!st.recordSel,
-      patients: (boot.records || []).map(r => ({
-        name: r.name, age: String(r.age), sex: r.sex, complaint: r.complaint, at: r.at,
-        severity: r.severity, alerts: r.alerts + T(' alert(s)', ' alerte(s)'), organ: r.organ,
-        encounterId: r.encounterId,
-        findings: ((r.findings || []).join(', ') || T('no positive finding', 'aucun signe positif'))
-                  + ((r.images || []).length ? ' · ' + r.images.length
-                     + T(' image(s)', ' image(s)') : ''),
-        initials: r.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
-        onOpen: this.openRecord(r.id),
+      // The record screen shows the LIST of people until one is opened.
+      //
+      // This list used to be the session's ENCOUNTERS wearing the name "patients", so the same
+      // person assessed twice appeared as two entries and there was no way to reach a history.
+      // It is now the doctor's actual patients, from the database, and it survives a restart.
+      recordList: !st.patientSel,
+      recordOpen: !!st.patientSel,
+      // Each slot the card offers says something DIFFERENT. The first pass bound the
+      // examination count to both the badge and the line beside it, so every card read
+      // "4 examination(s)  4 examination(s)".
+      patients: (boot.patients || []).map(p => ({
+        name: p.name,
+        // The intake form collects an age, not a date of birth, so this holds the age as it
+        // was entered rather than presenting a birth date the system does not have.
+        age: p.dateOfBirth || '—', sex: p.sex || '—', at: p.reference,
+        complaint: p.lastComplaint
+          || T('no complaint recorded', 'aucun motif enregistré'),
+        organ: T('Last seen', 'Vu(e) le'),
+        findings: p.lastSeen ? p.lastSeen.slice(0, 10)
+                             : T('never', 'jamais'),
+        encounterId: p.reference,
+        severity: p.examinations + T(' examination(s)', ' examen(s)'),
+        alerts: '',
+        initials: initials(p.name),
+        onOpen: this.openPatient(p.id),
+        // Neutral, because a patient is not a severity. The colour on these rows used to
+        // encode the urgency of one encounter, which on a list of PEOPLE would read as a
+        // standing property of the person rather than of a single visit.
         tagStyle: { borderRadius: '999px', padding: '5px 12px', fontSize: '12.5px',
-          fontWeight: 700,
-          background: r.severityKey === 'HIGH' ? '#FDECEC'
-                    : r.severityKey === 'MODERATE' ? '#FFF3E0' : '#F0FADB',
-          color: r.severityKey === 'HIGH' ? '#C13238'
-               : r.severityKey === 'MODERATE' ? '#9A6207' : '#5A7A0F' } })),
-      noPatients: !(boot.records || []).length,
-      patientCount: String((boot.records || []).length),
+          fontWeight: 700, background: '#EFEEFB', color: '#4A45A8' } })),
+      noPatients: !(boot.patients || []).length,
+      patientCount: String((boot.patients || []).length),
       backToList: () => this.backToList(),
 
       recImages: st.recTab === 'images', recData: st.recTab === 'data',
