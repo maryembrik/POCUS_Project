@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-09-09T17:34:23+00:00",
-  "total_tests": 339,
-  "total_passed": 339,
+  "generated_at": "2026-09-22T20:00:02+00:00",
+  "total_tests": 341,
+  "total_passed": 341,
   "total_skipped": 0,
   "by_property": {
     "API contract": {
-      "tests": 10,
-      "passed": 10,
+      "tests": 12,
+      "passed": 12,
       "skipped": 0
     },
     "Absent is not normal": {

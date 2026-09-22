@@ -84,6 +84,7 @@ class Component extends DCLogic {
     // Two levels of selection, because the record screen has two: which PERSON is open, and
     // which of their examinations is being read.
     patientSel: null, patientExams: [],
+    saving: false, savedMsg: '',
     boot: null, view: null, preset: '', upload: null, previews: [],
     form: { name: '', age: 60, sex: 'F', complaint: '', history: '', tier: 'medium',
             tconf: 0.8, arrival: 'walk-in', organ: 'Lung',
@@ -111,6 +112,68 @@ class Component extends DCLogic {
   }
 
   go(id) { return () => this.setState({ screen: id, fabOpen: false }); }
+
+  // The three controls on the report screen. They were the design's markup with no handler
+  // of any kind: clickable, and silently inert. A button that does nothing on a clinical
+  // screen is worse than an absent one, because the clinician believes the report was filed.
+  //
+  // Print and Export PDF are the same mechanism on purpose. In a browser, "save as PDF" IS
+  // the print dialogue -- there is no separate export path that does not involve generating
+  // the file server-side, which would mean a PDF library this project does not carry. Two
+  // buttons reaching one dialogue is honest; a second button that produced nothing was not.
+  // Printing the report meant printing it at the width the APP gives it, not the width of the
+  // page: hiding the sidebar and the header left the article inside the same nested flex
+  // containers, so it came out as a narrow column down the left of three sheets.
+  //
+  // Fixing that in CSS alone is not possible here, because the constraining ancestors have no
+  // class or id of their own -- they are the design's inline-styled wrappers. So the chain is
+  // walked at print time: every SIBLING along the path from the report up to <body> is
+  // hidden, and every ancestor is marked so the print stylesheet can drop its width, padding
+  // and background.
+  //
+  // Siblings rather than "everything but the report", deliberately. The report's own children
+  // are left completely alone, so the two-column findings block inside it still lays out the
+  // way it does on screen.
+  printReport() {
+    const el = document.querySelector('[data-print="report"]');
+    if (!el) { window.print(); return; }
+
+    const restore = [];
+    for (let n = el; n && n.parentElement && n !== document.body; n = n.parentElement) {
+      for (const sib of Array.from(n.parentElement.children)) {
+        if (sib === n) continue;
+        restore.push([sib, sib.style.display]);
+        sib.style.display = 'none';
+      }
+      if (n !== el) n.classList.add('dc-print-ancestor');
+    }
+
+    const undo = () => {
+      restore.forEach(([node, value]) => { node.style.display = value; });
+      document.querySelectorAll('.dc-print-ancestor')
+        .forEach(node => node.classList.remove('dc-print-ancestor'));
+    };
+    // Both, because afterprint does not fire in every browser and print() does not always
+    // block until the dialogue closes. Running undo twice is harmless; never running it
+    // leaves the application invisible.
+    window.addEventListener('afterprint', undo, { once: true });
+    window.print();
+    setTimeout(undo, 0);
+  }
+
+  async saveReport() {
+    if (this.state.saving) return;                 // double-click must not file it twice
+    this.setState({ saving: true, savedMsg: '' });
+    try {
+      const r = await fetch(_lang('/api/report/save'), { method: 'POST' });
+      const body = await r.json();
+      this.setState({ savedMsg: body.message || '', saving: false });
+    } catch {
+      this.setState({ saving: false, savedMsg: T(
+        'Could not reach the server. Nothing was saved.',
+        'Serveur injoignable. Rien n’a été enregistré.') });
+    }
+  }
 
   // A full reload rather than a state reset, so nothing computed for the previous doctor can
   // survive into the next sign-in on a shared workstation. location.replace, so the back
@@ -1006,6 +1069,15 @@ class Component extends DCLogic {
       // ---- who is signed in ----------------------------------------------------------
       // The name the server knows, never one held in the page: a name kept client-side is a
       // name that can disagree with the account whose patients are actually being shown.
+      // ---- report screen controls ----------------------------------------------------
+      onPrintReport: () => this.printReport(),
+      onSaveReport: () => this.saveReport(),
+      saveLabel: st.saving
+        ? T('💾 Saving…', '💾 Enregistrement…')
+        : T('💾 Save to record', '💾 Enregistrer au dossier'),
+      savedMsg: st.savedMsg,
+      hasSavedMsg: !!st.savedMsg,
+
       docName: (boot.doctor || {}).name || '',
       docInitials: initials((boot.doctor || {}).name),
       signOutLabel: T('Sign out', 'Se déconnecter'),

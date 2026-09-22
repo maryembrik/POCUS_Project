@@ -24,6 +24,29 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <script src="./image-slot.js"></script>
 <style>
+@media print{
+  @page{margin:14mm}
+  body{background:#fff !important;display:block !important}
+  /* Siblings along the path to the report are hidden by printReport() in
+     logic.js; these rules neutralise the ANCESTORS it marks, which are the
+     design's inline-styled flex wrappers. Without this the report prints at
+     the width the application gives it -- a narrow column down one side --
+     rather than across the sheet. */
+  .dc-print-ancestor{display:block !important;width:100% !important;
+     max-width:none !important;min-width:0 !important;height:auto !important;
+     max-height:none !important;margin:0 !important;padding:0 !important;
+     border:0 !important;background:transparent !important;
+     box-shadow:none !important;overflow:visible !important;
+     transform:none !important;position:static !important}
+  /* The card loses its own frame: a border and a drop shadow are screen
+     affordances, and on paper they print as a grey box round the text. */
+  [data-print='report']{width:100% !important;max-width:none !important;
+     box-shadow:none !important;border:0 !important;border-radius:0 !important;
+     padding:0 !important;margin:0 !important;background:#fff !important}
+  /* Keep a section and its heading together rather than splitting them
+     across a page break. */
+  [data-print='report'] section{break-inside:avoid;page-break-inside:avoid}
+}
 body{margin:0;background:#EFEEFB;color:#1B1A3A;font-family:'Plus Jakarta Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 a{color:#2E2A78;text-decoration:none}
 a:hover{color:#8E88E8;text-decoration:underline}
@@ -813,13 +836,13 @@ input,textarea,select,button{font-family:inherit}
   <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap">
     <h1 style="margin:0;font-size:32px;font-weight:800;letter-spacing:-.02em">Compte rendu d’évaluation clinique</h1>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#6A6785;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:11px">🖨 Imprimer</button>
-      <button type="button" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#6A6785;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:11px">📄 Exporter en PDF</button>
-      <button type="button" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">💾 Enregistrer au dossier</button>
+      <button type="button" onclick="{{ onPrintReport }}" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#6A6785;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:11px">🖨 Imprimer</button>
+      <button type="button" onclick="{{ onPrintReport }}" style="appearance:none;border:1px solid #DEDCF4;background:#fff;cursor:pointer;color:#6A6785;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:11px">📄 Exporter en PDF</button>
+      <button type="button" onclick="{{ onSaveReport }}" style="appearance:none;border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px">{{ saveLabel }}</button><sc-if value="{{ hasSavedMsg }}" hint-placeholder-val="{{ false }}"><span style="align-self:center;font-size:13px;color:#04675C;font-weight:700">{{ savedMsg }}</span></sc-if>
     </div>
   </div>
 
-  <article style="background:#fff;border:1px solid #E4E2F8;border-radius:22px;padding:44px 52px;box-shadow:0 10px 30px rgba(46,42,120,.09)">
+  <article data-print="report" style="background:#fff;border:1px solid #E4E2F8;border-radius:22px;padding:44px 52px;box-shadow:0 10px 30px rgba(46,42,120,.09)">
     <header style="display:flex;justify-content:space-between;gap:24px;padding-bottom:20px;border-bottom:2px solid #E4E2F8;flex-wrap:wrap">
       <div>
         <div style="font-weight:800;font-size:20px">Évaluation clinique</div>
@@ -1047,6 +1070,7 @@ class Component extends DCLogic {
     // Two levels of selection, because the record screen has two: which PERSON is open, and
     // which of their examinations is being read.
     patientSel: null, patientExams: [],
+    saving: false, savedMsg: '',
     boot: null, view: null, preset: '', upload: null, previews: [],
     form: { name: '', age: 60, sex: 'F', complaint: '', history: '', tier: 'medium',
             tconf: 0.8, arrival: 'walk-in', organ: 'Lung',
@@ -1074,6 +1098,68 @@ class Component extends DCLogic {
   }
 
   go(id) { return () => this.setState({ screen: id, fabOpen: false }); }
+
+  // The three controls on the report screen. They were the design's markup with no handler
+  // of any kind: clickable, and silently inert. A button that does nothing on a clinical
+  // screen is worse than an absent one, because the clinician believes the report was filed.
+  //
+  // Print and Export PDF are the same mechanism on purpose. In a browser, "save as PDF" IS
+  // the print dialogue -- there is no separate export path that does not involve generating
+  // the file server-side, which would mean a PDF library this project does not carry. Two
+  // buttons reaching one dialogue is honest; a second button that produced nothing was not.
+  // Printing the report meant printing it at the width the APP gives it, not the width of the
+  // page: hiding the sidebar and the header left the article inside the same nested flex
+  // containers, so it came out as a narrow column down the left of three sheets.
+  //
+  // Fixing that in CSS alone is not possible here, because the constraining ancestors have no
+  // class or id of their own -- they are the design's inline-styled wrappers. So the chain is
+  // walked at print time: every SIBLING along the path from the report up to <body> is
+  // hidden, and every ancestor is marked so the print stylesheet can drop its width, padding
+  // and background.
+  //
+  // Siblings rather than "everything but the report", deliberately. The report's own children
+  // are left completely alone, so the two-column findings block inside it still lays out the
+  // way it does on screen.
+  printReport() {
+    const el = document.querySelector('[data-print="report"]');
+    if (!el) { window.print(); return; }
+
+    const restore = [];
+    for (let n = el; n && n.parentElement && n !== document.body; n = n.parentElement) {
+      for (const sib of Array.from(n.parentElement.children)) {
+        if (sib === n) continue;
+        restore.push([sib, sib.style.display]);
+        sib.style.display = 'none';
+      }
+      if (n !== el) n.classList.add('dc-print-ancestor');
+    }
+
+    const undo = () => {
+      restore.forEach(([node, value]) => { node.style.display = value; });
+      document.querySelectorAll('.dc-print-ancestor')
+        .forEach(node => node.classList.remove('dc-print-ancestor'));
+    };
+    // Both, because afterprint does not fire in every browser and print() does not always
+    // block until the dialogue closes. Running undo twice is harmless; never running it
+    // leaves the application invisible.
+    window.addEventListener('afterprint', undo, { once: true });
+    window.print();
+    setTimeout(undo, 0);
+  }
+
+  async saveReport() {
+    if (this.state.saving) return;                 // double-click must not file it twice
+    this.setState({ saving: true, savedMsg: '' });
+    try {
+      const r = await fetch(_lang('/api/report/save'), { method: 'POST' });
+      const body = await r.json();
+      this.setState({ savedMsg: body.message || '', saving: false });
+    } catch {
+      this.setState({ saving: false, savedMsg: T(
+        'Could not reach the server. Nothing was saved.',
+        'Serveur injoignable. Rien n’a été enregistré.') });
+    }
+  }
 
   // A full reload rather than a state reset, so nothing computed for the previous doctor can
   // survive into the next sign-in on a shared workstation. location.replace, so the back
@@ -1969,6 +2055,15 @@ class Component extends DCLogic {
       // ---- who is signed in ----------------------------------------------------------
       // The name the server knows, never one held in the page: a name kept client-side is a
       // name that can disagree with the account whose patients are actually being shown.
+      // ---- report screen controls ----------------------------------------------------
+      onPrintReport: () => this.printReport(),
+      onSaveReport: () => this.saveReport(),
+      saveLabel: st.saving
+        ? T('💾 Saving…', '💾 Enregistrement…')
+        : T('💾 Save to record', '💾 Enregistrer au dossier'),
+      savedMsg: st.savedMsg,
+      hasSavedMsg: !!st.savedMsg,
+
       docName: (boot.doctor || {}).name || '',
       docInitials: initials((boot.doctor || {}).name),
       signOutLabel: T('Sign out', 'Se déconnecter'),

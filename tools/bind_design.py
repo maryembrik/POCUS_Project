@@ -144,6 +144,74 @@ def main() -> int:
                "{{ pAge }} · {{ pSex }} · {{ pComplaint }}", s)
     applied.append("identity")
 
+    # ---- 2b. a print stylesheet, or Print prints the application ---------------------
+    # Without this, printing captures the sidebar, the search bar, the floating button and
+    # whichever screen happens to be open -- an eight-page document of navigation chrome
+    # with the report somewhere inside it. The rule is the inverse of the usual one: hide
+    # everything, then show the report article and its ancestors.
+    s = sub(s, "<style>\nbody{margin:0;background:#EFEEFB",
+            "<style>\n@media print{\n"
+            "  @page{margin:14mm}\n"
+            "  body{background:#fff !important;display:block !important}\n"
+            "  /* Siblings along the path to the report are hidden by printReport() in\n"
+            "     logic.js; these rules neutralise the ANCESTORS it marks, which are the\n"
+            "     design's inline-styled flex wrappers. Without this the report prints at\n"
+            "     the width the application gives it -- a narrow column down one side --\n"
+            "     rather than across the sheet. */\n"
+            "  .dc-print-ancestor{display:block !important;width:100% !important;\n"
+            "     max-width:none !important;min-width:0 !important;height:auto !important;\n"
+            "     max-height:none !important;margin:0 !important;padding:0 !important;\n"
+            "     border:0 !important;background:transparent !important;\n"
+            "     box-shadow:none !important;overflow:visible !important;\n"
+            "     transform:none !important;position:static !important}\n"
+            "  /* The card loses its own frame: a border and a drop shadow are screen\n"
+            "     affordances, and on paper they print as a grey box round the text. */\n"
+            "  [data-print='report']{width:100% !important;max-width:none !important;\n"
+            "     box-shadow:none !important;border:0 !important;border-radius:0 !important;\n"
+            "     padding:0 !important;margin:0 !important;background:#fff !important}\n"
+            "  /* Keep a section and its heading together rather than splitting them\n"
+            "     across a page break. */\n"
+            "  [data-print='report'] section{break-inside:avoid;page-break-inside:avoid}\n"
+            "}\nbody{margin:0;background:#EFEEFB", "print stylesheet")
+
+    # The report card is marked so the print rule above can find it. The design gives it no
+    # id or class of its own -- it is identified by its inline style, which is fragile, so
+    # the marker is added here and the rule keys off the marker rather than the style.
+    s = sub(s,
+            '<article style="background:#fff;border:1px solid #E4E2F8;border-radius:22px;'
+            'padding:44px 52px;box-shadow:0 10px 30px rgba(46,42,120,.09)">',
+            '<article data-print="report" style="background:#fff;border:1px solid #E4E2F8;'
+            'border-radius:22px;padding:44px 52px;'
+            'box-shadow:0 10px 30px rgba(46,42,120,.09)">', "report print marker")
+
+    # ---- 2c. the three report controls had no handler at all -------------------------
+    # The design shipped Print, Export PDF and Save to record as plain buttons, and this
+    # binder never wired them. They rendered, they were clickable, and they did nothing --
+    # including "save", which a clinician would reasonably believe had filed the report.
+    #
+    # Print and Export PDF both open the print dialogue, which is where a browser's
+    # "save as PDF" lives. Save to record posts to /api/report/save, which archives the
+    # report through the same content-hashed writer the benchmark already tested.
+    BTN = ('<button type="button" style="appearance:none;border:1px solid #DEDCF4;'
+           'background:#fff;cursor:pointer;color:#6A6785;font-weight:700;font-size:13.5px;'
+           'padding:11px 17px;border-radius:11px">{label}</button>')
+    for label in ("\U0001F5A8 Print", "\U0001F4C4 Export PDF"):
+        s = sub(s, BTN.format(label=label),
+                BTN.format(label=label).replace(
+                    '<button type="button"',
+                    '<button type="button" onclick="{{ onPrintReport }}"'),
+                f"report button {label}")
+    s = sub(s,
+            '<button type="button" style="appearance:none;border:0;cursor:pointer;'
+            'background:#5B54D6;color:#fff;font-weight:700;font-size:13.5px;'
+            'padding:11px 18px;border-radius:11px">\U0001F4BE Save to record</button>',
+            '<button type="button" onclick="{{ onSaveReport }}" style="appearance:none;'
+            'border:0;cursor:pointer;background:#5B54D6;color:#fff;font-weight:700;'
+            'font-size:13.5px;padding:11px 18px;border-radius:11px">{{ saveLabel }}</button>'
+            '<sc-if value="{{ hasSavedMsg }}" hint-placeholder-val="{{ false }}">'
+            '<span style="align-self:center;font-size:13px;color:#04675C;font-weight:700">'
+            '{{ savedMsg }}</span></sc-if>', "report save button")
+
     # ---- 3. the clinician chip names the clinician who is signed in ------------------
     # The design put a clinician's name and specialty here. This binder used to replace it with
     # the perception-module dots, for the good reason that the named doctor did not exist and a

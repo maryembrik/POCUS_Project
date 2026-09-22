@@ -487,3 +487,54 @@ def test_the_french_route_answers_in_french():
     # Not a language classifier: just enough to catch the whole French path falling back to
     # English, which is a failure this project has already had once.
     assert not answer.startswith("No encounter has been analysed")
+
+
+# ------------------------------------------------------------------- the report controls ----
+# Print, Export PDF and Save to record shipped as the design's markup with no handler of any
+# kind. They rendered, they were clickable, and they did nothing -- including "save", which a
+# clinician would reasonably believe had filed the report. Nothing failed, so nothing showed.
+@prop(API)
+def test_saving_a_report_writes_it_and_returns_a_content_hash():
+    """The endpoint behind "Save to record", which had no endpoint at all until it did.
+
+    archive_report() existed and was tested, and serve.py imported build_report and
+    render_report from that module but not it -- so the one durable-write path in the project
+    was unreachable from the running application.
+    """
+    c = _client()
+    _analyse(c, name="Report save test", age=64, sex="F", complaint="pleuritic chest pain")
+
+    r = c.post("/api/report/save")
+    assert r.status_code == 200, f"save failed: {r.status_code} {r.text[:200]}"
+    body = r.json()
+    assert body["saved"] is True
+    # 64 hex characters: the digest over the canonical report with the timestamp removed, so
+    # re-saving an unchanged encounter is distinguishable from a genuine change.
+    assert len(body["sha256"]) == 64 and int(body["sha256"], 16) >= 0
+    assert "fingerprint" in body["message"]
+
+    # Saving the same encounter again must produce the SAME digest. If it did not, the hash
+    # would be recording the moment of the save rather than the content of the report.
+    again = c.post("/api/report/save").json()
+    assert again["sha256"] == body["sha256"], "the digest changed without the report changing"
+
+
+@prop(API)
+def test_saving_with_nothing_analysed_is_refused_rather_than_silently_accepted():
+    """A 200 here would tell the clinician a report was filed when none exists."""
+    from fastapi.testclient import TestClient
+
+    from src.auth import accounts
+
+    from .helpers import temp_database
+    temp_database()
+    try:
+        accounts.add("emptydoc", "Dr Empty", None, "empty-password-1")
+    except SystemExit:
+        pass
+    fresh = TestClient(serve.app)
+    fresh.post("/api/login", json={"username": "emptydoc", "password": "empty-password-1"})
+
+    r = fresh.post("/api/report/save")
+    assert r.status_code == 400
+    assert r.json()["saved"] is False

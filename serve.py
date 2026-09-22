@@ -42,7 +42,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse  # no
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from src.auth import accounts, sessions, store  # noqa: E402
+from src.auth import accounts, db, sessions, store  # noqa: E402
 from src.auth.models import Doctor  # noqa: E402
 
 from src.agents import i18n, schema as S  # noqa: E402
@@ -52,7 +52,8 @@ from src.agents.clinical.clinical_state import (  # noqa: E402
 from src.agents.clinical.decision_support import decision_support, load_thresholds  # noqa: E402
 from src.agents.clinical.llm import FailingBackend  # noqa: E402
 from src.agents.clinical.reasoning import escalation_decision, reason  # noqa: E402
-from src.agents.clinical.report import build_report, render_report  # noqa: E402
+from src.agents.clinical.report import (  # noqa: E402
+    archive_report, build_report, render_report)
 from src.agents.clinical.retrieval import Retriever  # noqa: E402
 from src.agents.clinical.run_case import SCENARIOS, build as build_scenario  # noqa: E402
 from src.agents.triage.suggest import OBSERVATIONS as triage_observations  # noqa: E402
@@ -902,6 +903,47 @@ def api_view(lang: str = "en", doctor: Doctor = Depends(current_doctor)) -> JSON
     if not ws.last:
         return JSONResponse(_empty_view())
     return JSONResponse(_view(ws.last["enc"], ws.last["a"], lang, ws))
+
+
+@app.post("/api/report/save")
+def api_report_save(lang: str = "en",
+                    doctor: Doctor = Depends(current_doctor)) -> JSONResponse:
+    """File the report on screen into this doctor's archive.
+
+    This is what the "Save to record" button does, and until now it did nothing: the three
+    controls on the report screen were the design's markup and were never wired to anything.
+    They rendered, they were clickable, and a clinician pressing "save" got no file and no
+    error -- which on a clinical screen is worse than having no button at all.
+
+    archive_report() already existed, was tested, and was unreachable from the running
+    application: serve.py imported build_report and render_report from that module and not
+    this one. It writes the JSON and the rendered text atomically, through a temporary file
+    and a replace, and returns a content hash taken over the report with the generation
+    timestamp removed -- so re-saving an unchanged encounter produces the same digest and a
+    genuine change is distinguishable from a re-run.
+
+    Archived per doctor. A shared directory would let one clinician's filename collide with
+    another's, and encounter identifiers are not unique across accounts.
+    """
+    ws = _ws(doctor)
+    if not ws.last:
+        return JSONResponse(
+            {"saved": False,
+             "message": "Aucune prise en charge à enregistrer." if lang == "fr"
+                        else "There is no assessment to save."}, status_code=400)
+
+    report = ws.last["a"]["report"]
+    paths = archive_report(report, db.data_dir() / "archive" / doctor.id,
+                           text=render_report(report))
+    digest = paths["sha256"][:12]
+    return JSONResponse({
+        "saved": True,
+        "sha256": paths["sha256"],
+        # The digest is shown, and deliberately shortened. It is what makes two saves of the
+        # same encounter comparable; the full 64 characters are in the file.
+        "message": (f"Compte rendu enregistré au dossier · empreinte {digest}" if lang == "fr"
+                    else f"Report filed to the patient record · fingerprint {digest}"),
+    }, headers=_NO_STORE)
 
 
 @app.get("/api/health")
