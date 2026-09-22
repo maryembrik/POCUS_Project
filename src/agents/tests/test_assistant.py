@@ -238,3 +238,44 @@ def test_a_quoted_passage_is_not_translated():
 def test_a_whole_sentence_is_not_treated_as_a_term():
     """"What is the most likely diagnosis for this breathless patient" is not a definition."""
     assert knowledge_answer("what is the most likely diagnosis for this patient") is None
+
+
+@prop(MISSING_NOT_NORMAL)
+def test_what_is_not_known_cannot_contradict_what_to_obtain_next():
+    """The two blocks of one answer must not disagree, and they did.
+
+    Found by watching a recorded demonstration: for a patient whose every laboratory value
+    had been entered and whose lung had been scanned, the assistant said
+
+        WHAT IS NOT KNOWN
+        Every value in the reference set was measured and every expected view was obtained.
+
+        WHAT TO OBTAIN NEXT
+        1. heart ultrasound (HIGH) -- expected for this presentation and never assessed
+
+    in the same reply, two lines apart. `organs_not_assessed` holds only the organ SELECTED
+    for the encounter and left unscanned; an organ expected for the presentation but never
+    selected lives in the recommendation list, which this block never consulted.
+
+    This is the project's central claim failing in the one place a clinician reads plainly,
+    so the test asserts the invariant rather than the wording: if the answer asks for an
+    imaging study, it may not also claim every expected view was obtained.
+    """
+    # Every value measured and the selected organ scanned, so the ONLY gap is the expected
+    # view nobody performed. That is the case the old code reported as complete.
+    a = _analysis(b_lines=0.86,
+                  labs={"troponin": 890, "bnp": 900, "d_dimer": 1, "lactate": 40,
+                        "crp": 1, "wbc": 1, "creatinine": 1, "ph": 7.0},
+                  vitals={"hr": 122, "sbp": 88, "rr": 28, "spo2": 62, "temp": 38,
+                          "dbp": 62, "pain": 2.6})
+    out = next_step_answer(a, "en")
+
+    asks_for_imaging = "ultrasound" in out.split("WHAT TO OBTAIN NEXT")[-1].lower()
+    claims_complete = "every expected view was obtained" in out.lower()
+    assert not (asks_for_imaging and claims_complete), (
+        "the answer asks for an imaging study and also says every expected view was "
+        "obtained:\n" + out)
+
+    # And the gap is named, not merely not-denied.
+    assert "heart" in out.split("WHAT TO OBTAIN NEXT")[0].lower(), (
+        "the unperformed cardiac view is missing from WHAT IS NOT KNOWN:\n" + out)

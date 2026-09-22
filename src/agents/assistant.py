@@ -223,6 +223,17 @@ def next_step_answer(a: dict[str, Any], lang: str = "en") -> str:
     gone = state["missing"]["labs"] + state["missing"]["vitals"]
     never = state["imaging"].get("organs_not_assessed") or []
     out = state["imaging"].get("out_of_scope") or []
+
+    # Views the presentation expected and nobody performed. These are recorded in the
+    # recommendation list, NOT in organs_not_assessed -- which holds only the organ selected
+    # for this encounter and left unscanned. An organ expected for the presentation but never
+    # even selected was therefore absent from "what is not known", and named two blocks later
+    # under "what to obtain next": the assistant stated that every expected view had been
+    # obtained and then asked for one, in the same answer.
+    expected = [x["exam"].replace(" ultrasound", "").strip()
+                for x in (sup.get("additional_examinations") or [])
+                if x.get("kind") == "imaging"]
+    never = list(dict.fromkeys([*never, *(e for e in expected if e not in never)]))
     blocks: list[str] = []
 
     # 1. Where the patient stands.
